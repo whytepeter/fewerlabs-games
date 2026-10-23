@@ -1,4 +1,23 @@
 {
   "version": 1,
-  "bugs": []
+  "bugs": [
+    {
+      "id": "deep-dive-enter-starts-dive-while-typing",
+      "date": "2026-10-23",
+      "error_message": "Pressing Enter to save the leaderboard name also started a dive behind the leaderboard screen",
+      "root_cause": "GameScene's keydown-ENTER/SPACE handlers start a run whenever state is 'title'; the leaderboard is an HTML screen over the title, so the state was still 'title' while typing",
+      "fix": "keyStart() in GameScene ignores Space/Enter when ui.typing() (an input has focus) or ui.isOpen('board'); the name field also disables Phaser keyboard capture on focus so Space can be typed",
+      "tags": [
+        "deep-dive",
+        "input",
+        "keyboard",
+        "phaser",
+        "leaderboard"
+      ],
+      "files": [
+        "deep-dive/src/scenes/GameScene.ts",
+        "deep-dive/src/ui.ts"
+      ]
+    }
+  ]
 }

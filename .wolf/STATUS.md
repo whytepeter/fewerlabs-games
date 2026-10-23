@@ -32,7 +32,7 @@ budget_tokens: 1000
   - The real domains for the store and the games.
   - Whether to limit each game's `frame-ancestors` to the store's origin; they currently allow any site to frame them.
   - Whether to embed Draw Am later, which needs a drawam.app header change plus the SDK.
-- Commits: no Claude co-author. Leave out the OpenWolf and agent files (`.wolf/`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `.codex/`, `.cursor/`, `.claude/commands|rules|skills|settings.json`). Push via `git push git@github.com:whytepeter/fewerlabs-games.git main`.
+- Commits: no Claude co-author (`.claude/rules/no-claude-coauthor.md`). `origin` is now SSH, so plain `git push` works. The user committed the OpenWolf and agent files themselves in c7447a4, so they're tracked now.
 
 ## Context
 
