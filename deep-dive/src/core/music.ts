@@ -6,6 +6,8 @@ import { sfx } from './sfx';
  * no audio files. A game defines a Song (key, tempo, chord loop, patterns, instruments, effects)
  * and calls music.play(song). Layers fade in with intensity (0..1):
  *   pad always · bass ≥ 0.2 · arp ≥ 0.35 · drums ≥ 0.55 · lead ≥ 0.7
+ * (a song can move these with `layers`, and swap in darker parts above `tense.at`).
+ * Patterns are usually 16 steps (one bar) but may be any length, e.g. a 64-step lead phrase.
  * The Music setting mutes it; pausing the game (sfx.suspend) pauses it with the rest of the audio.
  */
 
@@ -17,7 +19,10 @@ export type Voice =
   | 'marimba'  // woody sine with a soft 4th-harmonic knock
   | 'bell'     // FM bell with a long tail: sonar pings, music boxes
   | 'warm'     // two detuned saws through a soft lowpass: big slow pads
-  | 'whistle'; // sine with gentle vibrato
+  | 'whistle'  // sine with gentle vibrato
+  | 'drift'    // dark detuned saws whose filter swells and opens with intensity: breathing pads
+  | 'glass'    // soft sine with a faint octave and a long tail: droplets, music-box notes
+  | 'sub';     // rounded sine bass with an octave-down sub, soft attack
 
 export type DrumKit = 'none' | 'soft' | 'brush' | 'pop' | 'heartbeat';
 
@@ -57,6 +62,17 @@ export interface Song {
   swing?: number;
   /** Overall level, default 1. */
   gain?: number;
+  /** Bars each chord lasts (default 1). */
+  barsPerChord?: number;
+  /** Octave shifts for the arp (default +1) and bass (default -1). */
+  arpOctave?: number;
+  bassOctave?: number;
+  /** Bass note length in 16th steps (default 1.8). */
+  bassLen?: number;
+  /** Intensity at which each layer comes in (defaults in the header). */
+  layers?: { bass?: number; arp?: number; drums?: number; lead?: number };
+  /** Darker parts used once intensity reaches `at`. Chords switch only on a chord change. */
+  tense?: { at: number; progression?: number[][]; bass?: number[]; arp?: number[]; kick?: number[] };
 }
 
 const BUS_VOLUME = 0.32;
@@ -76,10 +92,19 @@ let step = 0;
 let nextTime = 0;
 let timer = 0;
 let leadNote = 0;
+let chord: number[] = [0];
 let stopTimer = 0;
 let stopping = false;
 
 const midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
+/** Pattern lookup that works for any pattern length. */
+const at = (p: number[] | undefined, n: number) => (p && p.length ? p[n % p.length] : 0);
+/** Integer hash to 0..1, for the lead's seeded walk. */
+function hash01(x: number) {
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  return ((x ^ (x >>> 16)) >>> 0) / 4294967296;
+}
 
 onSettings(s => {
   enabled = s.music;
@@ -169,9 +194,16 @@ function tick() {
 }
 
 function playStep(sg: Song, n: number, t: number, s16: number) {
-  const i = n % 16, bar = Math.floor(n / 16);
-  const chord = sg.progression[bar % sg.progression.length];
+  const i = n % 16, bar = Math.floor(n / 16), bpc = sg.barsPerChord ?? 1;
+  const tense = sg.tense && intensity >= sg.tense.at ? sg.tense : null;
+  const chordStart = i === 0 && bar % bpc === 0;
+  // Pick the chord only when it changes, so crossing the tense threshold never clashes mid-chord.
+  if (chordStart) {
+    const prog = tense?.progression ?? sg.progression;
+    chord = prog[Math.floor(bar / bpc) % prog.length];
+  }
   const root = sg.root;
+  const lv = { bass: 0.2, arp: 0.35, drums: 0.55, lead: 0.7, ...sg.layers };
   const inst = {
     pad: sg.instruments?.pad ?? sg.sounds?.pad ?? 'triangle',
     bass: sg.instruments?.bass ?? 'sine',
@@ -181,40 +213,42 @@ function playStep(sg: Song, n: number, t: number, s16: number) {
 
   // Pad: held chord each bar, or strummed on the strum pattern.
   if (sg.strum) {
-    if (sg.strum[i]) chord.forEach((c, k) => voice(inst.pad, midiHz(root + c), t + k * 0.022, s16 * 3, 0.05));
-  } else if (i === 0) {
-    for (const c of chord) voice(inst.pad, midiHz(root + c), t, s16 * 16, 0.045, { pad: true });
+    if (at(sg.strum, n)) chord.forEach((c, k) => voice(inst.pad, midiHz(root + c), t + k * 0.022, s16 * 3, 0.05));
+  } else if (chordStart) {
+    for (const c of chord) voice(inst.pad, midiHz(root + c), t, s16 * 16 * bpc, 0.045, { pad: true });
   }
-  if (intensity >= 0.2 && sg.bass[i]) voice(inst.bass, midiHz(root - 12 + chord[0]), t, s16 * 1.8, 0.16);
-  if (intensity >= 0.35 && sg.arp[i]) {
+  if (intensity >= lv.bass && at(tense?.bass ?? sg.bass, n)) {
+    voice(inst.bass, midiHz(root + 12 * (sg.bassOctave ?? -1) + chord[0]), t, s16 * (sg.bassLen ?? 1.8), 0.16);
+  }
+  if (intensity >= lv.arp && at(tense?.arp ?? sg.arp, n)) {
     const c = chord[(n >> 1) % chord.length] + (((n >> 3) & 1) ? 12 : 0);
-    voice(inst.arp, midiHz(root + 12 + c), t, s16 * 1.4, 0.04, { cutoff: sg.sounds?.arpTone });
+    voice(inst.arp, midiHz(root + 12 * (sg.arpOctave ?? 1) + c), t, s16 * 1.4, 0.04, { cutoff: sg.sounds?.arpTone });
   }
-  if (intensity >= 0.55) drums(sg.drums ?? 'soft', sg, i, t);
-  if (intensity >= 0.7 && sg.lead[i]) {
-    // Seeded walk that repeats every 4 bars so the tune is hummable, then varies.
-    const seed = ((bar % 4) * 16 + i) * 9301 + Math.floor(bar / 8) * 49297;
-    const r = ((seed % 233280) + 233280) % 233280 / 233280;
+  if (intensity >= lv.drums) drums(sg.drums ?? 'soft', sg, n, t, tense?.kick);
+  // The walk restarts each 8-bar phrase: a phrase plays twice, then the next 16 bars get a new one.
+  if (i === 0 && bar % 8 === 0) leadNote = Math.floor(sg.scale.length / 2);
+  if (intensity >= lv.lead && at(sg.lead, n)) {
+    const r = hash01((bar % 8) * 16 + i + Math.floor(bar / 16) * 7919);
     leadNote = Math.max(0, Math.min(sg.scale.length * 2 - 1, leadNote + (r < 0.4 ? -1 : r < 0.75 ? 1 : r < 0.88 ? 2 : -2)));
     const deg = sg.scale[leadNote % sg.scale.length] + 12 * Math.floor(leadNote / sg.scale.length);
     voice(inst.lead, midiHz(root + 12 * (sg.leadOctave ?? 1) + deg), t, s16 * 1.9, 0.06);
   }
 }
 
-function drums(kit: DrumKit, sg: Song, i: number, t: number) {
+function drums(kit: DrumKit, sg: Song, n: number, t: number, kickPat = sg.kick) {
   if (kit === 'none') return;
   if (kit === 'heartbeat') {
     // Two soft low thumps, like a slow heartbeat.
-    if (sg.kick[i]) { kick(t, 0.18, 70); kick(t + 0.16, 0.12, 62); }
+    if (at(kickPat, n)) { kick(t, 0.18, 70); kick(t + 0.16, 0.12, 62); }
     return;
   }
-  if (sg.kick[i]) kick(t, kit === 'brush' ? 0.18 : 0.3, kit === 'pop' ? 150 : 130);
-  if (sg.hat[i]) {
+  if (at(kickPat, n)) kick(t, kit === 'brush' ? 0.18 : 0.3, kit === 'pop' ? 150 : 130);
+  if (at(sg.hat, n)) {
     if (kit === 'brush') hit(t, 0.09, 3200, 0.035);       // swishy brush
     else if (kit === 'pop') hit(t, 0.05, 9000, 0.05);     // bright shaker
     else hit(t, 0.03, 8000, 0.05);
   }
-  if (sg.snare[i]) {
+  if (at(sg.snare, n)) {
     if (kit === 'brush') hit(t, 0.2, 1400, 0.06);
     else if (kit === 'pop') { for (let k = 0; k < 3; k++) hit(t + k * 0.011, 0.07, 1500, 0.07); } // clap
     else hit(t, 0.12, 1800, 0.09);
@@ -282,6 +316,38 @@ function voice(v: Voice, freq: number, t: number, dur: number, vol: number, o: V
       osc.start(t); lfo.start(t); osc.stop(t + dur + 0.2); lfo.stop(t + dur + 0.2);
       return;
     }
+    case 'drift': {
+      // Slow 2s swell; the filter breathes open then closes over the note, and sits brighter as intensity rises.
+      const g = ctx.createGain(), f = ctx.createBiquadFilter();
+      const peak = Math.min(2400, freq * 3) * (0.6 + 0.6 * intensity), end = t + dur + 2;
+      f.type = 'lowpass'; f.Q.value = 0.9;
+      f.frequency.setValueAtTime(peak * 0.35, t);
+      f.frequency.linearRampToValueAtTime(peak, t + dur * 0.45);
+      f.frequency.linearRampToValueAtTime(peak * 0.5, end);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * 0.8, t + 2);
+      g.gain.setValueAtTime(vol * 0.8, Math.max(t + 2, t + dur * 0.75));
+      g.gain.exponentialRampToValueAtTime(0.0001, end);
+      for (const det of [-6, 6]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sawtooth'; osc.frequency.value = freq; osc.detune.value = det;
+        osc.connect(f);
+        osc.start(t); osc.stop(end + 0.05);
+      }
+      f.connect(g).connect(dry);
+      return;
+    }
+    case 'glass': {
+      const decay = Math.max(1.1, dur);
+      partial(freq, 'sine', t, vol * 1.5, 0.012, decay);
+      partial(freq * 2, 'sine', t, vol * 0.25, 0.008, decay * 0.4);
+      return;
+    }
+    case 'sub':
+      // A soft-attack sine plus a quieter octave down; the upper note keeps it audible on phone speakers.
+      partial(freq, 'sine', t, vol, 0.05, dur + 0.4);
+      partial(freq / 2, 'sine', t, vol * 0.7, 0.06, dur + 0.5);
+      return;
     default: {
       // plain oscillator with a sustain, optional lowpass
       const osc = ctx.createOscillator(), g = ctx.createGain();
