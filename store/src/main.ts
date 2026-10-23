@@ -43,6 +43,7 @@ function render() {
   document.title = page.title;
   app.innerHTML = page.html;
   document.querySelectorAll<HTMLElement>('[data-nav]').forEach(a => a.classList.toggle('on', a.dataset.nav === page.nav));
+  document.body.classList.toggle('home', page.nav === 'home');
   cleanup = page.mount?.(app) ?? null;
   const target = location.hash && document.getElementById(location.hash.slice(1));
   if (target) target.scrollIntoView();
@@ -68,6 +69,12 @@ document.addEventListener('click', e => {
   } else if (a.pathname + a.hash !== location.pathname + location.hash) go(a.pathname + a.hash);
 });
 addEventListener('popstate', render);
+
+// On the home page the top bar floats over the billboard and turns solid once you scroll.
+const topbar = document.querySelector<HTMLElement>('.topbar')!;
+const syncTopbar = () => topbar.classList.toggle('solid', scrollY > 40);
+addEventListener('scroll', syncTopbar, { passive: true });
+syncTopbar();
 
 // Install button where the browser offers one (Android / desktop Chrome).
 type InstallEvent = Event & { prompt(): Promise<void> };

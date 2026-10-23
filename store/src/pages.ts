@@ -15,84 +15,165 @@ function playLink(g: Game, cls: string, label = 'Play') {
     : `<a class="${cls}" href="/play/${g.id}" data-link>${label}</a>`;
 }
 
-function bestMeta(g: Game) {
-  const s = profile.stats(g.id);
-  return s.best > 0 ? `<span class="best">${icon('trophy')}${fmt(s.best, g.unit)}</span>` : '';
-}
+const DWELL = 8000;
 
-function card(g: Game) {
-  return `<article class="card">
-    <a class="card-shot" href="/game/${g.id}" data-link aria-label="${g.title}">
-      <img src="${shot(g, 'hero-wide')}" alt="${g.title}" loading="lazy" width="1600" height="900" />
+/** A small square-ish tile in a sideways row: the art links to details, the round button plays. */
+function tile(g: Game) {
+  const s = profile.stats(g.id);
+  return `<article class="tile">
+    <a class="tile-link" href="/game/${g.id}" data-link aria-label="${g.title}">
+      <img class="tile-art" src="${shot(g, 'hero-wide')}" alt="" loading="lazy" width="1600" height="900" />
+      <span class="tile-info">
+        <img class="app-icon" src="${iconUrl(g)}" alt="" width="40" height="40" />
+        <span><b>${g.title}</b><small>${s.best > 0 ? `${icon('trophy')}${fmt(s.best, g.unit)}` : g.tags.slice(0, 2).join(' · ')}</small></span>
+      </span>
     </a>
-    <div class="card-info">
-      <img class="app-icon" src="${iconUrl(g)}" alt="" width="48" height="48" />
-      <a class="card-text" href="/game/${g.id}" data-link>
-        <h3>${g.title}</h3>
-        <p>${g.tagline}</p>
-      </a>
-      ${playLink(g, 'btn btn-sm')}
-    </div>
-    <div class="meta"><span>${g.tags.join(' · ')}</span>${g.external ? `<span>${host(g)}</span>` : ''}${bestMeta(g)}</div>
+    ${g.external
+      ? `<a class="tile-play" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}" aria-label="Play ${g.title} on ${host(g)}">${icon('play')}</a>`
+      : `<a class="tile-play" href="/play/${g.id}" data-link aria-label="Play ${g.title}">${icon('play')}</a>`}
   </article>`;
 }
 
+/** A sideways-scrolling row of tiles with arrow buttons on wide screens. Rows with no games are skipped. */
+export function rail(title: string, games: Game[], id = '') {
+  if (!games.length) return '';
+  return `<section class="rail"${id ? ` id="${id}"` : ''}>
+    <h2 class="rail-title">${title}</h2>
+    <div class="rail-wrap">
+      <button class="rail-arrow prev" type="button" aria-label="Scroll left" hidden>${icon('back')}</button>
+      <div class="rail-track">${games.map(tile).join('')}</div>
+      <button class="rail-arrow next" type="button" aria-label="Scroll right" hidden>${icon('next')}</button>
+    </div>
+  </section>`;
+}
+
+/** Wire the arrows on every row: they only show when the row overflows. */
+export function mountRails(root: HTMLElement) {
+  const offs: (() => void)[] = [];
+  root.querySelectorAll<HTMLElement>('.rail-wrap').forEach(wrap => {
+    const track = wrap.querySelector<HTMLElement>('.rail-track')!;
+    const prev = wrap.querySelector<HTMLElement>('.prev')!, next = wrap.querySelector<HTMLElement>('.next')!;
+    const sync = () => {
+      prev.hidden = track.scrollLeft < 8;
+      next.hidden = track.scrollLeft + track.clientWidth > track.scrollWidth - 8;
+    };
+    prev.onclick = () => track.scrollBy({ left: -track.clientWidth * .85, behavior: 'smooth' });
+    next.onclick = () => track.scrollBy({ left: track.clientWidth * .85, behavior: 'smooth' });
+    track.addEventListener('scroll', sync, { passive: true });
+    addEventListener('resize', sync);
+    offs.push(() => removeEventListener('resize', sync));
+    sync();
+  });
+  return () => offs.forEach(f => f());
+}
+
+/** One billboard slide: full-bleed gameplay art, or a framed poster over a blurred copy of itself. */
+function slide(g: Game, i: number) {
+  const lazy = i === 0 ? '' : 'loading="lazy"';
+  const art = g.poster
+    ? `<div class="slide-blur" style="background-image:url(${shot(g, 'hero-wide')})"></div>
+       <a class="slide-poster" href="/game/${g.id}" data-link tabindex="-1" aria-hidden="true"><img src="${shot(g, 'hero-wide')}" alt="" width="1200" height="630" ${lazy} /></a>`
+    : `<picture class="slide-bg">
+        <source media="(max-width: 640px)" srcset="${shot(g, 'hero-tall')}" />
+        <img src="${shot(g, 'hero-wide')}" alt="" ${lazy} />
+      </picture>`;
+  const meta = [
+    g.featured ? '<b class="tag-new">Featured</b>' : '',
+    '<span>Free</span>',
+    ...g.tags.map(t => `<span>${t}</span>`),
+    g.external ? `<span class="tag-box">${host(g)}</span>` : '<span class="tag-box">Plays here</span>',
+  ].join('');
+  return `<div class="slide${g.poster ? ' slide--poster' : ''}${i === 0 ? ' on' : ''}" style="--c:${g.color}" aria-hidden="${i !== 0}">
+    ${art}
+    <div class="slide-copy">
+      <div class="slide-brand"><img src="${iconUrl(g)}" alt="" width="40" height="40" /><span>Fewer Labs</span></div>
+      <h1>${g.title}</h1>
+      <div class="slide-meta">${meta}</div>
+      <p>${g.description.split('. ')[0]}.</p>
+      <div class="slide-actions">
+        ${g.external
+          ? `<a class="btn btn-light btn-lg" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}">${icon('play')}Play</a>`
+          : `<a class="btn btn-light btn-lg" href="/play/${g.id}" data-link>${icon('play')}Play</a>`}
+        <a class="btn btn-grey btn-lg" href="/game/${g.id}" data-link>${icon('info')}More info</a>
+      </div>
+    </div>
+  </div>`;
+}
+
 export function homePage(): Page {
-  const f = featuredGame;
+  const slides = [featuredGame, ...GAMES.filter(g => g !== featuredGame)];
   const recent = profile.recent().map(gameById).filter((g): g is Game => !!g);
+  const solo = GAMES.filter(g => !g.external);
+  const together = GAMES.filter(g => g.tags.includes('Multiplayer'));
   return {
     title: 'Fewer Labs Games',
     nav: 'home',
-    html: `<div class="wrap">
-      <section class="spot" style="--c:${f.color}" aria-label="Featured game">
-        <a class="spot-art" href="/game/${f.id}" data-link tabindex="-1" aria-hidden="true">
-          <picture>
-            <source media="(max-width: 640px)" srcset="${shot(f, 'hero-wide')}" />
-            <img src="${shot(f, 'hero-wide')}" alt="" width="1200" height="630" />
-          </picture>
-        </a>
-        <div class="spot-copy">
-          <span class="eyebrow">Featured</span>
-          <div class="spot-app">
-            <img class="app-icon" src="${iconUrl(f)}" alt="" width="64" height="64" />
-            <div><h1>${f.title}</h1><p class="spot-tag">${f.tagline}</p></div>
-          </div>
-          <p class="spot-desc">${f.description.split('. ').slice(0, 2).join('. ')}.</p>
-          <div class="spot-actions">
-            ${playLink(f, 'btn btn-light btn-lg', `${icon('play')}Play now`)}
-            <a class="btn btn-glass btn-lg" href="/game/${f.id}" data-link>Details</a>
-          </div>
-          <div class="meta">${f.tags.map(t => `<span>${t}</span>`).join('')}${f.external ? `<span>Opens ${host(f)}</span>` : ''}</div>
+    html: `
+      <section class="billboard" aria-roledescription="carousel" aria-label="Featured games" style="--dwell:${DWELL}ms">
+        ${slides.map(slide).join('')}
+        <button class="bb-arrow prev" type="button" aria-label="Previous game">${icon('back')}</button>
+        <button class="bb-arrow next" type="button" aria-label="Next game">${icon('next')}</button>
+        <div class="bb-dots" role="tablist">
+          ${slides.map((g, i) => `<button class="bb-dot${i === 0 ? ' on' : ''}" role="tab" aria-selected="${i === 0}" aria-label="Show ${g.title}"><i></i></button>`).join('')}
         </div>
       </section>
-
-      ${recent.length ? `
-      <section class="section">
-        <div class="section-head"><h2>Continue playing</h2></div>
-        <div class="recent">${recent.map(g => {
-          const s = profile.stats(g.id);
-          const inner = `<img class="app-icon" src="${iconUrl(g)}" alt="" width="52" height="52" />
-            <span class="recent-copy"><b>${g.title}</b><small>${s.best > 0 ? `${g.scoreLabel} ${fmt(s.best, g.unit)}` : g.tagline}</small></span>
-            <span class="btn btn-sm btn-primary">Play</span>`;
-          return g.external
-            ? `<a class="recent-item" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}">${inner}</a>`
-            : `<a class="recent-item" href="/play/${g.id}" data-link>${inner}</a>`;
-        }).join('')}</div>
-      </section>` : ''}
-
-      <section class="section" id="all">
-        <div class="section-head"><h2>All games</h2><p>${GAMES.length} games · all free</p></div>
-        <div class="grid">${GAMES.map(card).join('')}</div>
-      </section>
-
-      <section class="section">
-        <div class="features">
-          <div class="feature">${icon('bolt')}<div><b>Play instantly</b><span>Runs right in your browser. Nothing to download, no account.</span></div></div>
-          <div class="feature">${icon('devices')}<div><b>Phone or desktop</b><span>Touch, mouse or keyboard, portrait or landscape.</span></div></div>
-          <div class="feature">${icon('offline')}<div><b>Works offline</b><span>Solo games keep working without a connection after your first visit.</span></div></div>
+      <div class="rails">
+        ${rail('Continue playing', recent)}
+        ${rail('All games', [featuredGame, ...GAMES.filter(g => g !== featuredGame)], 'all')}
+        ${rail('Quick solo games', solo)}
+        ${together.length > 0 && together.length < GAMES.length ? rail('Play with your friends', together) : ''}
+        <div class="wrap">
+          <div class="features">
+            <div class="feature">${icon('bolt')}<div><b>Play instantly</b><span>Runs right in your browser. Nothing to download, no account.</span></div></div>
+            <div class="feature">${icon('devices')}<div><b>Phone or desktop</b><span>Touch, mouse or keyboard, portrait or landscape.</span></div></div>
+            <div class="feature">${icon('offline')}<div><b>Works offline</b><span>Solo games keep working without a connection after your first visit.</span></div></div>
+          </div>
         </div>
-      </section>
-    </div>`,
+      </div>`,
+    mount(root) {
+      // Rotate through the games. Arrows, dots and swipes jump; hovering or focusing holds it.
+      const bb = root.querySelector<HTMLElement>('.billboard')!;
+      const items = [...bb.querySelectorAll<HTMLElement>('.slide')];
+      const dots = [...bb.querySelectorAll<HTMLElement>('.bb-dot')];
+      const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      let i = 0, timer = 0, held = false;
+      const show = (n: number) => {
+        i = (n + items.length) % items.length;
+        items.forEach((s, k) => { s.classList.toggle('on', k === i); s.setAttribute('aria-hidden', String(k !== i)); });
+        dots.forEach((d, k) => {
+          d.classList.toggle('on', k === i);
+          d.setAttribute('aria-selected', String(k === i));
+          const bar = d.querySelector('i')!;
+          bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = '';
+        });
+      };
+      const play = () => {
+        clearInterval(timer);
+        bb.classList.toggle('paused', still || held);
+        if (!still && !held) timer = window.setInterval(() => show(i + 1), DWELL);
+      };
+      const go = (n: number) => { show(n); play(); };
+      const hold = (on: boolean) => { held = on; if (!on) show(i); play(); };
+      dots.forEach((d, k) => d.addEventListener('click', () => go(k)));
+      bb.querySelector('.bb-arrow.prev')!.addEventListener('click', () => go(i - 1));
+      bb.querySelector('.bb-arrow.next')!.addEventListener('click', () => go(i + 1));
+      const copy = [...bb.querySelectorAll<HTMLElement>('.slide-copy')];
+      copy.forEach(c => {
+        c.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') hold(true); });
+        c.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hold(false); });
+      });
+      bb.addEventListener('focusin', () => hold(true));
+      bb.addEventListener('focusout', () => hold(false));
+      let x0 = 0;
+      bb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+      bb.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - x0;
+        if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1));
+      });
+      play();
+      const offRails = mountRails(root);
+      return () => { clearInterval(timer); offRails(); };
+    },
   };
 }
 
@@ -152,10 +233,8 @@ export function gamePage(g: Game): Page {
         </aside>
       </div>
 
-      <section class="section">
-        <div class="section-head"><h2>More games</h2></div>
-        <div class="grid">${others.map(card).join('')}</div>
-      </section>
-    </div>`,
+    </div>
+    <div class="rails rails--page">${rail('More games', others)}</div>`,
+    mount: mountRails,
   };
 }

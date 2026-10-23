@@ -28,8 +28,10 @@ export interface Game {
    * (X-Frame-Options / frame-ancestors) or that need the full page, like a live multiplayer room.
    */
   external?: boolean;
-  /** The store's headline game. */
+  /** The store's headline game: first in the banner. */
   featured?: boolean;
+  /** Its banner art is a poster with its own title, so the banner frames it instead of filling with it. */
+  poster?: boolean;
 }
 
 const dev = (port: number) => (import.meta.env.DEV ? `http://${location.hostname}:${port}` : '');
@@ -58,6 +60,7 @@ export const GAMES: Game[] = [
     url: clean(import.meta.env.VITE_GAME_DRAW_AM_URL, 'https://www.drawam.app'),
     external: true,
     featured: true,
+    poster: true,
   },
   {
     id: 'deep-dive',
