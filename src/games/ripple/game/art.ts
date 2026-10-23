@@ -11,7 +11,7 @@ export const DOT_R = 4;        // 'dot' radius
 export const DROP_R = 4;       // 'drop' radius (outlined dot)
 export const RING_R = 12;      // 'ring' radius (wake)
 export const SHOCK_R = 20;     // 'shock' radius (outlined ring)
-export const DISC_R = 26;      // 'disc' radius (= dock capture radius)
+export const DISC_R = 26;      // 'target' radius (= dock capture radius)
 export const DOCK_TEX_R = 35;  // outer radius of the life-ring dock art (DOCK_R is 32)
 export const GLOW_SIZE = 64;
 export const PAD_R = 20;
@@ -87,8 +87,10 @@ export function buildNeutralTextures(scene: Phaser.Scene) {
     }
     ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); outline(ctx, 1.5);
   });
-  canvasTexture(scene, 'disc', DISC_R * 2, DISC_R * 2, ctx => {
-    ctx.fillStyle = '#fff'; circle(ctx, DISC_R, DISC_R, DISC_R); ctx.fill();
+  // inner target of a dock: a thin ring and an outlined centre dot (tinted with the lane colour)
+  canvasTexture(scene, 'target', DISC_R * 2, DISC_R * 2, ctx => {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.6; circle(ctx, DISC_R, DISC_R, 16); ctx.stroke();
+    circle(ctx, DISC_R, DISC_R, 5); ctx.fillStyle = '#fff'; ctx.fill(); outline(ctx, 1.8);
   });
   canvasTexture(scene, 'shimmer', SHIMMER_LEN + 2, 4, ctx => {
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';

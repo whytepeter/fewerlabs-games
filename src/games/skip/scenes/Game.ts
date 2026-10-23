@@ -19,6 +19,8 @@ const PARALLAX: Record<StripKey, number> = { clouds: 0.03, hillFar: 0.06, hillMi
 const STRIP_DEPTH: Record<StripKey, number> = { clouds: 3, hillFar: 4, hillMid: 5, trees: 6 };
 const FONT = 'Fredoka, ui-rounded, system-ui, sans-serif';
 const TAU = Math.PI * 2;
+/** The stone is drawn a little larger than its physics size so its face reads on a phone. */
+const STONE_DRAW = TEX_SCALE * 1.3;
 
 // Draw order
 const D = { sky: 0, glow: 1, sun: 2, water: 7, refl: 8, glitter: 9, pier: 10, ripples: 11, objs: 12, shadow: 13, trail: 14, aura: 14.5, stone: 15, fx: 16, front: 17, text: 18 };
@@ -53,6 +55,8 @@ export class Game extends Phaser.Scene {
   private squash = { x: 1, y: 1 };
   /** The stone squints happily for a moment after a Perfect. */
   private squintT = 0;
+  /** Dev only: ignore visibility auto-pause while a test drives frames by hand. */
+  private holdAutoPause = false;
 
   private views = new Map<number, View>();
   private ripples: Ripple[] = [];
@@ -125,7 +129,7 @@ export class Game extends Phaser.Scene {
     const onVis = () => {
       if (document.hidden) {
         sfx.suspend();
-        if (this.mode === 'flying' || this.mode === 'sinking' || this.mode === 'aiming') this.pause();
+        if (!this.holdAutoPause && (this.mode === 'flying' || this.mode === 'sinking' || this.mode === 'aiming')) this.pause();
       } else sfx.resume();
     };
     document.addEventListener('visibilitychange', onVis);
@@ -139,6 +143,8 @@ export class Game extends Phaser.Scene {
       (window as unknown as { __skip: unknown }).__skip = {
         scene: this,
         sim: this.sim,
+        /** Screenshot tools can flip the page hidden for a moment; this keeps it from auto-pausing. */
+        holdAutoPause: (on = true) => { this.holdAutoPause = on; },
         /** Advance whole frames even when the tab is hidden and rAF is stopped. */
         // Tweens time themselves with Date.now(), so stepping also nudges a dev-only clock offset forward.
         step: (frames = 1, ms = 1000 / 60) => {
@@ -157,7 +163,8 @@ export class Game extends Phaser.Scene {
   // ---------------------------------------------------------------- layout
 
   private layout() {
-    this.worldScale = Math.min(view.h / 560, view.w / 430);
+    // 500 rather than the prototype's 560: on short landscape phones the lake reads ~12% larger
+    this.worldScale = Math.min(view.h / 500, view.w / 430);
     this.cameras.main.setZoom(view.dpr * this.worldScale);
     this.W = view.w / this.worldScale;
     this.H = view.h / this.worldScale;
@@ -614,15 +621,15 @@ export class Game extends Phaser.Scene {
     const frame = (Math.floor((spin / TAU) * STONE_FRAMES) % STONE_FRAMES) + (this.squintT > 0 ? STONE_FRAMES : 0);
     this.stone.setVisible(stoneVisible).setPosition(sim.x, stY)
       .setFrame(frame).setRotation(Math.sin(sim.rot) * 0.15)
-      .setScale(TEX_SCALE * this.squash.x, TEX_SCALE * this.squash.y)
+      .setScale(STONE_DRAW * this.squash.x, STONE_DRAW * this.squash.y)
       .setAlpha(this.mode === 'sinking' ? Math.max(0, 1 - sim.sinkT) : 1);
 
     const heat = this.mode === 'flying' ? Phaser.Math.Clamp((sim.streak - 2) / 8, 0, 1) : 0;
     this.aura.setVisible(heat > 0);
     if (heat > 0) {
       this.aura.setPosition(sim.x - 2, stY).setTint(N.flame)
-        .setScale(TEX_SCALE * (0.55 + heat * 0.45) * (1 + Math.sin(t * 22) * 0.06))
-        .setAlpha(0.35 + heat * 0.45);
+        .setScale(TEX_SCALE * (0.6 + heat * 0.5) * (1 + Math.sin(t * 22) * 0.06))
+        .setAlpha(0.5 + heat * 0.5);
     }
 
     if (this.mode === 'flying') {
@@ -661,6 +668,10 @@ export class Game extends Phaser.Scene {
     const color = sim.fumbled ? N.bad : sim.pendingTap !== null ? N.perfect : N.accent;
     const y = this.waterY + 1;
     const fade = Math.min(1, (1 - k) * 3);
+    const rx = 15 + k * 46;
+    // a faint navy disc under the shrinking ring lifts it off bright water
+    f.fillStyle(OUTLINE_N, 0.14 * fade);
+    f.fillEllipse(lx, y, rx * 2, rx * 0.6);
     if (sim.pendingTap !== null) {
       f.fillStyle(color, 0.55);
       f.fillEllipse(lx, y, 30, 9);
@@ -668,7 +679,6 @@ export class Game extends Phaser.Scene {
     // "close enough" band once inside the window
     if (ttw <= GOOD && !sim.fumbled) this.ring(f, lx, y, 44, 14, color, 2.5, 0.7);
     this.ring(f, lx, y, 30, 9, color, 3.5, 0.9 * fade);
-    const rx = 15 + k * 46;
     this.ring(f, lx, y, rx * 2, rx * 0.6, color, 5, (0.5 + 0.5 * (1 - k)) * fade);
   }
 

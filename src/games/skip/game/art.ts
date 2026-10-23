@@ -270,18 +270,18 @@ export function paintAll(scene: Phaser.Scene) {
     ctx.fill();
     ctx.restore();
     // face looks the way it flies
-    const ex = [cx + 3.5, cx + 8.5], ey = cy + 0.4;
+    const ex = [cx + 3, cx + 8.6], ey = cy + 0.2;
     for (const x of ex) {
       if (squint) {
         ctx.strokeStyle = OUTLINE;
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = 1.9;
         ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(x - 1.8, ey + 0.6); ctx.lineTo(x, ey - 1.2); ctx.lineTo(x + 1.8, ey + 0.6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x - 2.2, ey + 0.8); ctx.lineTo(x, ey - 1.4); ctx.lineTo(x + 2.2, ey + 0.8); ctx.stroke();
       } else {
-        ell(ctx, x, ey, 1.9, 2.3);
-        ink(ctx, '#ffffff', 1.1);
+        ell(ctx, x, ey, 2.4, 2.8);
+        ink(ctx, '#ffffff', 1.2);
         ctx.fillStyle = OUTLINE;
-        ell(ctx, x + 0.6, ey + 0.3, 1.1, 1.4);
+        ell(ctx, x + 0.7, ey + 0.3, 1.35, 1.7);
         ctx.fill();
       }
     }

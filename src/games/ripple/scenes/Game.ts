@@ -37,6 +37,8 @@ const D = {
 export class Game extends Phaser.Scene {
   sim!: Sim;
   mode: Mode = 'title';
+  /** Dev hook only: hold the simulation still while still rendering (for screenshots). */
+  frozen = false;
   private best = 0;
   private clock = 0;
   private demoT = 1;
@@ -301,6 +303,7 @@ export class Game extends Phaser.Scene {
 
   /** One frame of game logic + view sync. Public so the dev hook can drive frames manually. */
   tick(dt: number) {
+    if (this.frozen) { this.draw(); return; }
     this.clock += dt;
     this.sim.ambient(dt);
     if (this.mode !== 'paused') {
@@ -412,7 +415,7 @@ export class Game extends Phaser.Scene {
       v.flower?.setPosition(p.x, p.y).setScale(TEX_SCALE * bob);
     }
 
-    // docks: soft shadow, tinted water inside, glow, rotating life ring
+    // docks: soft shadow, glow, inner target, rotating life ring
     this.sweep(sim.docks, this.dockViews, v => this.destroyDock(v));
     for (const d of sim.docks) {
       let v = this.dockViews.get(d);
@@ -420,7 +423,7 @@ export class Game extends Phaser.Scene {
       if (!v) {
         v = {
           shadow: this.add.image(d.x, d.y, 'docksh').setTint(OUTLINE_N).setDepth(D.dockShadow),
-          fill: this.add.image(d.x, d.y, 'disc').setTint(c).setDepth(D.dockFill).setBlendMode(glowBlend),
+          fill: this.add.image(d.x, d.y, 'target').setTint(c).setDepth(D.dockFill),
           glow: this.add.image(d.x, d.y, 'glow').setTint(c).setDepth(D.dockGlow).setBlendMode(glowBlend),
           ring: this.add.image(d.x, d.y, 'dock' + d.ci).setDepth(D.dockRing),
           born: d.isNew ? 0 : 1, pulse: 0,
@@ -436,7 +439,7 @@ export class Game extends Phaser.Scene {
       const pop = Math.max(0, v.born) * (1 + v.pulse * 0.22);
       const k = d.r / 32; // art is drawn for the default dock radius
       v.shadow.setPosition(d.x + 2, d.y + 4).setScale(TEX_SCALE * k * pop).setAlpha(a * shadowA);
-      v.fill.setPosition(d.x, d.y).setScale(TEX_SCALE * k * pop).setAlpha(a * ((dark ? 0.3 : 0.28) + Math.max(0, v.pulse) * 0.35));
+      v.fill.setPosition(d.x, d.y).setRotation(-t * 0.6).setScale(TEX_SCALE * k * pop * (1 + 0.06 * Math.sin(t * 3))).setAlpha(a * 0.9);
       v.glow.setPosition(d.x, d.y).setScale(TEX_SCALE * (d.r * 1.8 * 2) / GLOW_SIZE * pop)
         .setAlpha(a * Math.max(0, 0.22 + 0.12 * Math.sin(t * 2) + Math.max(0, v.pulse) * 0.45));
       v.ring.setPosition(d.x, d.y).setRotation(t * 0.4).setScale(TEX_SCALE * k * pop).setAlpha(a);

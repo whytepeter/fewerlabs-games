@@ -48,6 +48,8 @@ if (import.meta.env.DEV) {
       for (let i = 0; i < n; i++) { clock += dt * 1000; game.step(clock, dt * 1000); }
     },
     tap(x: number, y: number) { scene().sim.tap(x, y); },
+    /** Freeze/unfreeze the simulation (rendering continues) for screenshots. */
+    freeze(on = true) { scene().frozen = on; },
     /**
      * Playtest bot: every `interval` s, tap 48 px behind the most urgent boat (away from its dock).
      * With `useBot` false it just lets time run. Stops at game over.

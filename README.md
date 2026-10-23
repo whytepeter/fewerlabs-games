@@ -1,11 +1,11 @@
 # Fewer Labs Games
 
-Small, endless, one-thumb games in one site. Each game has its own page and can be installed to a home screen as its own app. One service worker caches the whole site, so everything plays offline after the first visit.
+Small, endless, one-thumb games in one site, with a bright cartoon look. Each game has its own page and can be installed to a home screen as its own app. One service worker caches the whole site, so everything plays offline after the first visit.
 
 | Path | Game |
 |---|---|
 | `/` | Hub with every game and your best scores |
-| `/deep-dive/` | Deep Dive: one-button diver in a darkening trench (landscape) |
+| `/deep-dive/` | Deep Dive: one-button diver in a darkening trench (landscape; in portrait the dive turns so you sink down the screen) |
 | `/ripple/` | Ripple: tap ripples to push paper boats to their docks |
 | `/skip/` | Skip: skip a stone across an endless lake with timed taps |
 
@@ -46,6 +46,8 @@ src/core/                  shared by every game
   settings.ts                per-device storage namespaced by game path, plus Sound and Vibration settings
   haptics.ts                 vibration on supported devices
   tex.ts                     draws art into 3x textures with the canvas API
+  kit.css                    cartoon UI kit: 3D buttons, panels, ribbons, logo text, HUD pills, stars (see its header)
+  icons.ts                   shared icon set (<i data-icon="...">), logo letter wobble, result star
 src/hub/                   hub script and styles
 src/games/<game>/          each game's scenes, logic, UI and styles
 scripts/icons.mjs          regenerates PNG icons from every icon.svg (npm run icons)

@@ -113,6 +113,7 @@
   transition: transform .08s ease, box-shadow .08s ease, filter .15s;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  text-decoration: none;
 }
 .k-btn {
   min-height: 56px; padding: 0 28px 4px;

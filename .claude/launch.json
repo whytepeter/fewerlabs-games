@@ -15,51 +15,6 @@
         "--strictPort"
       ],
       "port": 5180
-    },
-    {
-      "name": "deep-dive",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--prefix",
-        "/Users/apple/Documents/code/fewerlabs/deep-dive",
-        "--",
-        "--port",
-        "5173",
-        "--strictPort"
-      ],
-      "port": 5173
-    },
-    {
-      "name": "ripple",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--prefix",
-        "/Users/apple/Documents/code/fewerlabs/ripple",
-        "--",
-        "--port",
-        "5174",
-        "--strictPort"
-      ],
-      "port": 5174
-    },
-    {
-      "name": "skip",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "run",
-        "dev",
-        "--prefix",
-        "/Users/apple/Documents/code/fewerlabs/skip",
-        "--",
-        "--port",
-        "5175",
-        "--strictPort"
-      ],
-      "port": 5175
     }
   ]
 }

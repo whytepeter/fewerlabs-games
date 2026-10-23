@@ -7,8 +7,8 @@
   "scope": "/skip/",
   "display": "fullscreen",
   "orientation": "any",
-  "background_color": "#fde3c8",
-  "theme_color": "#f3b48e",
+  "background_color": "#ffe29a",
+  "theme_color": "#ff9e7a",
   "lang": "en",
   "icons": [
     { "src": "pwa-64x64.png", "sizes": "64x64", "type": "image/png" },

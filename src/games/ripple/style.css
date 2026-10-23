@@ -108,8 +108,7 @@ body {
 .toast.show { animation: toast 2.4s cubic-bezier(.2, 1.3, .4, 1) forwards; }
 
 .hint {
-  position: absolute; left: 50%; bottom: calc(var(--safe-b) + 24px);
-  transform: translateX(-50%);
+  position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(var(--safe-b) + 24px);
   font-size: 18px; white-space: nowrap;
   animation: k-pop .45s cubic-bezier(.2, 1.4, .4, 1) both;
 }
