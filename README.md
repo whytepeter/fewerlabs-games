@@ -11,7 +11,7 @@ Fewer Labs' games and the store that hosts them. Each folder is its own project 
 
 ## Deploying
 
-Each folder is its own Vercel project. In Vercel, import this repository once per folder and set the **Root Directory** to `store`, `deep-dive`, `ripple` or `skip`. Then point the store at the games with the `VITE_GAME_*_URL` variables (see [`store/README.md`](store/README.md)). Every folder's `vercel.json` sets the build and output.
+Each folder is its own Vercel project. In Vercel, import this repository once per folder and set the **Root Directory** to `store`, `deep-dive`, `ripple` or `skip`. Then point the store at the games with the `VITE_GAME_*_URL` variables (see [`store/README.md`](store/README.md)). Every folder's `vercel.json` sets the build and output, and an `ignoreCommand` ([`scripts/vercel-ignore.sh`](scripts/vercel-ignore.sh)) skips the build unless that folder changed since the last deploy, so a push to `deep-dive/` only rebuilds Deep Dive, and changes outside the four folders rebuild nothing.
 
 ## Working on a game
 
