@@ -9,7 +9,7 @@ import Phaser from 'phaser';
  */
 export const view = { w: 1, h: 1, dpr: 1 };
 
-const MAX_DPR = 2; // 3x canvases cost a lot of fill-rate for little visible gain
+const MAX_DPR = 3; // full resolution on modern phones (these scenes are light enough)
 
 function measure(parent: HTMLElement) {
   // Layout size, not the on-screen box: a game may rotate its container with CSS
@@ -63,12 +63,13 @@ export const isPortrait = () => view.h > view.w;
 
 /**
  * Scale DOM menus and HUDs with the screen: sets --ui on <html> (1 = a ~390x844 phone, either
- * orientation, at most 1.25 on big screens). kit.css applies it with CSS zoom to .k-screen contents and .k-scale elements.
+ * orientation, ~0.9 on phones, at most 1.15 on big screens). kit.css applies it with CSS zoom to .k-screen contents and .k-scale elements.
  */
-export function autoScaleUI(min = 0.85, max = 1.25) {
+export function autoScaleUI(min = 0.8, max = 1.15) {
   const apply = () => {
     const w = window.innerWidth, h = window.innerHeight;
-    const s = Math.min(Math.min(w, h) / 390, Math.max(w, h) / 844);
+    // ~0.9 on a typical phone so menus and HUDs leave more room for the game.
+    const s = Math.min(Math.min(w, h) / 430, Math.max(w, h) / 930);
     document.documentElement.style.setProperty('--ui', Math.max(min, Math.min(max, s)).toFixed(3));
   };
   apply();

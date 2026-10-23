@@ -195,7 +195,8 @@ export class Game extends Phaser.Scene {
     // The prototype used min(h/560, w/430). Phones now see a closer lake (~13% larger in both
     // orientations, ≈0.9–1.0). Big screens are capped at 1.35 (≈1.4× a phone) so a desktop window
     // stays comfortably sized and simply shows more lake ahead.
-    this.worldScale = Math.min(view.h / 440, view.w / 380, Math.max(view.w, view.h) / 720, 1.35);
+    // A wide view of the lake on phones (~0.83 portrait, ~0.75 landscape); big screens stop at 1.1.
+    this.worldScale = Math.min(view.h / 520, view.w / 450, Math.max(view.w, view.h) / 860, 1.1);
     this.cameras.main.setZoom(view.dpr * this.worldScale);
     this.W = view.w / this.worldScale;
     this.H = view.h / this.worldScale;

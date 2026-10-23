@@ -26,28 +26,22 @@ export function uiScale() {
 }
 
 /**
- * World zoom (CSS px per world unit). The pond is viewed closer than 1:1 on phones
- * (~1.17x portrait, ~1.22x landscape) so boats, docks and ripples read big under a thumb.
- * Tablets and desktops grow a little more but stop at 1.5x (~1.3x the phone view), so a big
- * window shows a comfortably sized pond rather than an oversized one.
+ * World zoom (CSS px per world unit). Phones see a wide view of the pond (~0.87x portrait,
+ * ~0.9x landscape) so there is room to plan ripples; big screens grow only a little, to 1.15x.
  */
-export const MAX_WORLD_SCALE = 1.5;
+export const MAX_WORLD_SCALE = 1.15;
 export function worldScale(w: number, h: number) {
-  return Math.max(1, Math.min(MAX_WORLD_SCALE, Math.min(Math.min(w, h) / 320, Math.max(w, h) / 680)));
+  return Math.max(0.8, Math.min(MAX_WORLD_SCALE, Math.min(Math.min(w, h) / 430, Math.max(w, h) / 930)));
 }
 
-const MARGIN = 10;
-// On big desktop windows the pond stops growing so trips stay phone-sized; the shore fills the rest.
-const MAX_W = 880, MAX_H = 780;
-
-/** Pond rect in world units for a world of w x h, given insets and HUD height already in world units. */
+/**
+ * Play area in world units for a world of w x h, given insets and HUD height already in world
+ * units. The water itself is drawn edge to edge (see Game.buildScenery); this is the part boats
+ * move in: the whole screen apart from the HUD strip and the notch/home-indicator insets.
+ */
 export function computePond(w: number, h: number, ins: Insets, hud: number): Rect {
-  let x = ins.l + MARGIN, y = ins.t + hud;
-  let pw = w - ins.l - ins.r - MARGIN * 2;
-  let ph = h - y - ins.b - MARGIN;
-  if (pw > MAX_W) { x += (pw - MAX_W) / 2; pw = MAX_W; }
-  if (ph > MAX_H) { y += (ph - MAX_H) / 2; ph = MAX_H; }
-  pw = Math.max(160, pw);
-  ph = Math.max(140, ph);
-  return { x, y, w: pw, h: ph, r: Math.min(60, pw * 0.12, ph * 0.2) };
+  const x = ins.l, y = ins.t + hud;
+  const pw = Math.max(160, w - ins.l - ins.r);
+  const ph = Math.max(140, h - y - ins.b);
+  return { x, y, w: pw, h: ph, r: 0 };
 }

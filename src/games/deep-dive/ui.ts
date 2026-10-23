@@ -72,9 +72,10 @@ export const ui = {
     }
 
     const syncOrientation = () => {
-      // In portrait the dive is turned 90°, so "up" is to the right of the screen.
-      $('howHoldText').textContent = portrait() ? 'to swim right' : 'to swim up';
-      $('hintText').textContent = portrait() ? 'Hold anywhere to swim right' : 'Hold anywhere to swim up';
+      // Portrait dives straight down the screen and steers with the left/right halves.
+      $('howHold').textContent = portrait() ? 'Touch' : 'Hold';
+      $('howHoldText').textContent = portrait() ? 'left / right to steer' : 'to swim up';
+      $('hintText').textContent = portrait() ? 'Touch left or right to steer' : 'Hold anywhere to swim up';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);

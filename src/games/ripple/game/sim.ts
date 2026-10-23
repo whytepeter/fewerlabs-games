@@ -257,7 +257,9 @@ export class Sim {
       if (!this.farFrom(x, y, this.docks, 50) && attempt < 11) continue;
       // one boat in 7 is golden once the player has the hang of it (never two at once, not in the title demo)
       const gold = this.phase === 'play' && this.docked >= 4 && !this.boats.some(o => o.gold && o.state === 'in') && this.rng() < 1 / 7;
-      const life = Math.max(BOAT_LIFE_MIN, BOAT_LIFE - this.docked * 0.35) * (gold ? 0.8 : 1);
+      // Bigger ponds (tablets, desktop) mean longer trips, so timers stretch with the pond's size.
+      const size = Math.min(1.6, Math.max(1, Math.hypot(p.w, p.h) / 800));
+      const life = Math.max(BOAT_LIFE_MIN, BOAT_LIFE - this.docked * 0.35) * size * (gold ? 0.8 : 1);
       this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0, gold });
       return;
     }

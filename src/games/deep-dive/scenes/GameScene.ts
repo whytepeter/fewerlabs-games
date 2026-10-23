@@ -34,16 +34,18 @@ const hash = (n: number) => { const s = Math.sin(n * 127.1) * 43758.5453; return
 
 const DIVER_R = 13;
 const HEARTS = 3;
-const WALL_AIR_COST = 12;      // a wall scrape costs air, not a life
 const HIT_INVULN = 1.6;        // seconds of blinking after losing a heart
-const WALL_INVULN = 0.7;
+const WALL_BONK_GAP = 0.35;    // walls are harmless: you just bounce off (sound/shake at most this often)
+const STEER = 1300;            // portrait steering acceleration
 const SHIELD_TIME = 12;
 const MAGNET_TIME = 9;
 const MAGNET_RANGE = 170;
-const BASE_H = 330;            // logical trench height the world is designed for; phones (~375–430 px) zoom in a bit, bigger screens more
+const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
 const MOTES = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1) }));
+/** Portrait turns the dive 90° (see style.css): you sink down the screen and steer left/right. */
+const portraitView = () => matchMedia('(orientation: portrait)').matches;
 const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish' };
 const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', shield: 'pk-shield', magnet: 'pk-magnet' };
 const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffe7a8, shield: 0x5fb4ff, magnet: 0xff8fa8 };
@@ -56,6 +58,8 @@ export class GameScene extends Phaser.Scene {
   private oxy = 100;
   private hearts = HEARTS;
   private invuln = 0;
+  private wallT = 0;
+  private touches = new Map<number, number>(); // pointerId -> clientX, for portrait steering
   private shieldT = 0;
   private magnetT = 0;
   private runPearls = 0;
@@ -101,7 +105,7 @@ export class GameScene extends Phaser.Scene {
   private pops!: Emitter;
   private sparks!: Emitter;
   private ambient = new Ambient();
-  private keys!: Record<'space' | 'up' | 'w', Phaser.Input.Keyboard.Key>;
+  private keys!: Record<'space' | 'up' | 'w' | 'left' | 'right' | 'a' | 'd', Phaser.Input.Keyboard.Key>;
 
   constructor() { super('game'); }
 
@@ -141,8 +145,17 @@ export class GameScene extends Phaser.Scene {
     }).setDepth(12);
 
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys({ space: 'SPACE', up: 'UP', w: 'W' }) as GameScene['keys'];
-    kb.addCapture('SPACE,UP');
+    this.keys = kb.addKeys({ space: 'SPACE', up: 'UP', w: 'W', left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D' }) as GameScene['keys'];
+    kb.addCapture('SPACE,UP,LEFT,RIGHT');
+    // Track touches in screen space: the canvas is rotated in portrait, so Phaser's own pointer
+    // coordinates don't say which half of the screen was touched.
+    const track = (e: PointerEvent) => {
+      if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
+      if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
+      if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, e.clientX);
+    };
+    for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
+    addEventListener('blur', () => this.touches.clear());
     kb.on('keydown-ESC', () => this.togglePause());
     kb.on('keydown-P', () => this.togglePause());
     kb.on('keydown-SPACE', () => { if (this.state === 'title' || this.state === 'over') this.startRun(); });
@@ -170,7 +183,7 @@ export class GameScene extends Phaser.Scene {
 
   private applyCamera() {
     // Bigger screens see the same trench, just larger, instead of a tiny diver in a huge cave.
-    this.k = clamp(view.h / BASE_H, 1, 1.5); // phones ~1.2, capped so desktop isn't oversized
+    this.k = clamp(view.h / BASE_H, 0.8, 1.2); // phones ~0.85–0.9 (a wide view), desktop at most 1.2
     fitCamera(this.cameras.main);
     this.cameras.main.setZoom(view.dpr * this.k);
   }
@@ -299,12 +312,27 @@ export class GameScene extends Phaser.Scene {
     return this.input.manager.pointers.some(p => p.isDown);
   }
 
+  /** Portrait steering: -1 left, +1 right, 0 none (touch halves of the screen or arrow keys). */
+  private steering() {
+    let dir = (this.keys.right.isDown || this.keys.d.isDown ? 1 : 0) - (this.keys.left.isDown || this.keys.a.isDown ? 1 : 0);
+    for (const x of this.touches.values()) dir += x > innerWidth / 2 ? 1 : -1;
+    return Math.sign(dir);
+  }
+
   private step(dt: number) {
-    const hold = this.holding();
     this.runT += dt;
-    // Sinking eases in so the first second isn't a surprise.
-    const sink = 680 * Math.min(1, 0.25 + this.runT / 2);
-    this.vy = clamp(this.vy + (hold ? -1150 : sink) * dt, -360, 400);
+    let hold: boolean;
+    if (portraitView()) {
+      // Straight down the screen: steer left/right, no current. Screen right is the world's "up".
+      const steer = this.steering();
+      hold = steer !== 0;
+      this.vy = clamp(this.vy * Math.exp(-2.6 * dt) - steer * STEER * dt, -340, 340);
+    } else {
+      hold = this.holding();
+      // Sinking eases in so the first second isn't a surprise.
+      const sink = 680 * Math.min(1, 0.25 + this.runT / 2);
+      this.vy = clamp(this.vy + (hold ? -1150 : sink) * dt, -360, 400);
+    }
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
@@ -328,6 +356,7 @@ export class GameScene extends Phaser.Scene {
 
     // Timers
     this.invuln = Math.max(0, this.invuln - dt);
+    this.wallT = Math.max(0, this.wallT - dt);
     if (this.shieldT > 0) { this.shieldT = Math.max(0, this.shieldT - dt); if (!this.shieldT) this.perkEnded(); }
     if (this.magnetT > 0) { this.magnetT = Math.max(0, this.magnetT - dt); if (!this.magnetT) this.perkEnded(); }
     ui.setPerk(this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null, this.shieldT ? this.shieldT / SHIELD_TIME : this.magnetT / MAGNET_TIME);
@@ -372,7 +401,7 @@ export class GameScene extends Phaser.Scene {
 
     this.collect(dt, leftEdge);
 
-    // Walls: bounce off and lose some air instead of dying outright.
+    // Walls are harmless: bounce off and keep going.
     const [top, bot] = cave(this.dist, this.H, this.cv);
     if (this.diverY - DIVER_R < top) this.hitWall(top + DIVER_R, 1);
     else if (this.diverY + DIVER_R > bot) this.hitWall(bot - DIVER_R, -1);
@@ -401,17 +430,13 @@ export class GameScene extends Phaser.Scene {
 
   private hitWall(y: number, dir: 1 | -1) {
     this.diverY = y;
-    this.vy = dir * 240;
-    if (this.invuln > 0) return;
-    this.invuln = WALL_INVULN;
-    this.cameras.main.shake(160, 0.006);
-    sfx.tone(140, 0.12, { type: 'triangle', vol: 0.14, slideTo: 90 });
-    sfx.noise(0.1, 0.08, 700);
-    this.sparks.explode(6, this.dist, y - dir * DIVER_R);
-    if (this.shieldT > 0) { this.useShield(); return; }
-    this.oxy -= WALL_AIR_COST;
-    buzz(25);
-    ui.damage(`-${WALL_AIR_COST} air`);
+    this.vy = dir * 220;
+    if (this.wallT > 0) return;
+    this.wallT = WALL_BONK_GAP;
+    this.cameras.main.shake(120, 0.004);
+    sfx.tone(150, 0.1, { type: 'triangle', vol: 0.1, slideTo: 100 });
+    this.pops.explode(4, this.dist, y - dir * DIVER_R);
+    buzz(10);
   }
 
   private hitCreature(o: Obstacle) {
@@ -596,7 +621,7 @@ export class GameScene extends Phaser.Scene {
 
     // Sun rays fade out as the light disappears.
     this.rays.clear();
-    const ray = clamp(1 - depth / 180, 0, 1);
+    const ray = portraitView() ? 0 : clamp(1 - depth / 180, 0, 1); // rays would fall sideways in portrait
     if (ray > 0) {
       this.rays.fillStyle(0xb4f0ff, 0.05 * ray);
       for (let i = 0; i < 5; i++) {

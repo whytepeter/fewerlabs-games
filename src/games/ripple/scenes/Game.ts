@@ -25,8 +25,8 @@ interface PickupView { img: Img; born: number }
 interface DockView { shadow: Img; fill: Img; glow: Img; ring: Img; born: number; pulse: number }
 interface RockView { img: Img; born: number }
 interface PadView { pad: Img; flower: Img | null }
-interface Shimmer { img: Img; x: number; y: number; i: number }
 interface Reed { img: Img; i: number; base: number }
+interface Shimmer { img: Img; x: number; y: number; i: number }
 
 /**
  * Points for 1, 2 and 3 stars. Bot playtests (30 runs each, portrait): a simple bot averages ~9
@@ -227,20 +227,24 @@ export class Game extends Phaser.Scene {
     this.splash.killAll(); this.wake.killAll(); this.confetti.killAll(); this.stars.killAll();
   }
 
-  /** Background, shimmer lines and reeds: everything that depends only on the pond rect. */
+  /** Background, shimmer lines and edge reeds: everything that depends only on the screen and pond rect. */
   private buildScenery() {
     this.destroyScenery();
     const pond = this.sim.pond;
-    const res = buildBackground(this, view.w / this.ws, view.h / this.ws, view.dpr * this.ws, pond);
+    const W = view.w / this.ws, H = view.h / this.ws;
+    // Water runs edge to edge: drawn a little past every side so no bank or outline shows.
+    const water: Rect = { x: -12, y: -12, w: W + 24, h: H + 24, r: 0 };
+    const res = buildBackground(this, W, H, view.dpr * this.ws, water);
     this.bg = this.add.image(0, 0, 'bg').setOrigin(0, 0).setScale(1 / res).setDepth(D.bg);
     if (!this.pondMask) {
       this.pondMask = this.make.graphics({}, false);
       this.rippleG.setMask(this.pondMask.createGeometryMask());
     }
-    this.pondMask.clear().fillStyle(0xffffff, 1).fillRoundedRect(pond.x, pond.y, pond.w, pond.h, pond.r);
+    this.pondMask.clear().fillStyle(0xffffff, 1).fillRect(water.x, water.y, water.w, water.h);
 
-    // shimmer streaks: deterministic positions inside the rounded pond
-    for (let i = 0; i < 40; i++) {
+    // shimmer streaks: deterministic positions across the water (more on bigger screens)
+    const streaks = Math.round(40 * Math.max(1, (W * H) / (430 * 930)));
+    for (let i = 0; i < streaks; i++) {
       const len = 6 + hash(i + 11) * 18;
       const x = pond.x + hash(i + 3) * pond.w, y = pond.y + hash(i + 7) * pond.h;
       if (!inPond(pond, x - 4, y, 8) || !inPond(pond, x + len + 4, y, 8)) continue;
@@ -249,21 +253,18 @@ export class Game extends Phaser.Scene {
       this.shimmers.push({ img, x, y, i });
     }
 
-    // reed tufts and cattails around the bank, pointing outward
-    const per = 2 * (pond.w + pond.h), n = Math.floor(per / 24);
+    // A light fringe of reeds and cattails growing in from the screen edges, in small clumps.
+    const per = 2 * (W + H), n = Math.floor(per / 22);
     for (let i = 0; i < n; i++) {
-      if (hash(i * 3.1) < 0.45) continue;
-      let s = i / n * per, x: number, y: number, nx: number, ny: number;
-      if (s < pond.w) { x = pond.x + s; y = pond.y; nx = 0; ny = -1; }
-      else if ((s -= pond.w) < pond.h) { x = pond.x + pond.w; y = pond.y + s; nx = 1; ny = 0; }
-      else if ((s -= pond.h) < pond.w) { x = pond.x + pond.w - s; y = pond.y + pond.h; nx = 0; ny = 1; }
-      else { s -= pond.w; x = pond.x; y = pond.y + pond.h - s; nx = -1; ny = 0; }
-      const cr = pond.r * 0.7;
-      if (x < pond.x + cr && (y < pond.y + cr || y > pond.y + pond.h - cr)) continue;
-      if (x > pond.x + pond.w - cr && (y < pond.y + cr || y > pond.y + pond.h - cr)) continue;
-      const len = 0.65 + hash(i) * 0.45;
-      const base = Math.atan2(ny, nx) + Math.PI / 2;
-      const img = this.add.image(x + nx * 2, y + ny * 2, hash(i + 77) < 0.3 ? 'cattail' : 'reed')
+      if (hash(i * 3.1) < 0.62 || hash(Math.floor(i / 4) * 7.7) < 0.35) continue; // gaps between clumps
+      let d = i / n * per, x: number, y: number, nx: number, ny: number;
+      if (d < W) { x = d; y = 0; nx = 0; ny = 1; }
+      else if ((d -= W) < H) { x = W; y = d; nx = -1; ny = 0; }
+      else if ((d -= H) < W) { x = W - d; y = H; nx = 0; ny = -1; }
+      else { d -= W; x = 0; y = H - d; nx = 1; ny = 0; }
+      const len = 0.5 + hash(i) * 0.4;
+      const base = Math.atan2(ny, nx) + Math.PI / 2; // (nx, ny) points into the water, so the tips do too
+      const img = this.add.image(x - nx * 3, y - ny * 3, hash(i + 77) < 0.3 ? 'cattail' : 'reed')
         .setOrigin(0.5, (REED_H - 2) / REED_H).setRotation(base).setScale(TEX_SCALE, TEX_SCALE * len).setDepth(D.reed);
       this.reeds.push({ img, i, base });
     }
@@ -451,12 +452,12 @@ export class Game extends Phaser.Scene {
     const glowBlend = dark ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL;
     const shadowA = dark ? 0.5 : 0.28;
 
-    // shimmer + reeds
+    // shimmer + swaying reeds
+    for (const r of this.reeds) r.img.rotation = r.base + Math.sin(t * 1.5 + r.i) * 0.12;
     for (const s of this.shimmers) {
       s.img.x = s.x + Math.sin(t * 0.6 + s.i) * 4;
       s.img.alpha = C.shimmer.a * (0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.2 + s.i * 1.7)));
     }
-    for (const r of this.reeds) r.img.rotation = r.base + Math.sin(t * 1.5 + r.i) * 0.12;
 
     // lily pads (static per run, gentle bob)
     if (this.padViews.size !== sim.pads.length) {
