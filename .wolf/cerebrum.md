@@ -1,0 +1,28 @@
+---
+description: learned preferences, project conventions, and Do-Not-Repeat rules
+budget_tokens: 2000
+---
+# Cerebrum
+
+> OpenWolf's learning memory. Updated automatically as the AI learns from interactions.
+> Do not edit manually unless correcting an error.
+> Last updated: 2026-10-23
+
+## User Preferences
+
+<!-- How the user likes things done. Code style, tools, patterns, communication. -->
+
+## Key Learnings
+
+- **Project:** fewerlabs-games
+- **Description:** Small, endless, one-thumb games in one site, with a bright cartoon look. Each game has its own page and can be installed to a home screen as its own app. One service worker caches the whole site, so e
+
+## Do-Not-Repeat
+- [2026-10-23] Store: when the user names a style reference (e.g. "Netflix") for one part, apply it only to that part. "Netflix vibe" meant the featured carousel only, not the buttons or the game lists.
+
+<!-- Mistakes made and corrected. Each entry prevents the same mistake recurring. -->
+<!-- Format: [YYYY-MM-DD] Description of what went wrong and what to do instead. -->
+
+## Decision Log
+
+<!-- Significant technical decisions with rationale. Why X was chosen over Y. -->

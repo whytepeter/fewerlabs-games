@@ -1,0 +1,3230 @@
+{
+  "version": 1,
+  "meta": {
+    "lastScanned": "2026-10-23T09:12:52.414Z",
+    "fileCount": 70,
+    "hits": 0,
+    "misses": 0,
+    "renderedHash": "f6db94114ec5dc7ff15876837df9921c5149f2e73e4d37fb98d4bd4eb6a73f6c",
+    "storeUpdatedAt": "2026-10-23T09:12:52.416Z",
+    "rootHash": "ebc9c2a994b22795"
+  },
+  "files": {
+    ".gitignore": {
+      "description": "Git ignore rules",
+      "tokens": 8,
+      "hash": "877c8d36f5cd89e4",
+      "size": 28,
+      "mtimeMs": 1792718177232.9392,
+      "updatedAt": "2026-10-23T09:12:52.287Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "404.html": {
+      "description": "Lost at sea · Fewer Labs",
+      "tokens": 246,
+      "hash": "2d905f1ccbd2cab1",
+      "size": 921,
+      "mtimeMs": 1792720490237.193,
+      "updatedAt": "2026-10-23T09:12:52.288Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "AGENTS.md": {
+      "description": "OpenWolf",
+      "tokens": 75,
+      "hash": "e401f79554a8d796",
+      "size": 297,
+      "mtimeMs": 1792746772274.5635,
+      "updatedAt": "2026-10-23T09:12:52.288Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "CLAUDE.md": {
+      "description": "OpenWolf",
+      "tokens": 99,
+      "hash": "074d6b42b583729a",
+      "size": 395,
+      "mtimeMs": 1792746772264.3433,
+      "updatedAt": "2026-10-23T09:12:52.288Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "deep-dive/index.html": {
+      "description": "Deep Dive",
+      "tokens": 2290,
+      "hash": "d9110f831f11753a",
+      "size": 8587,
+      "mtimeMs": 1792723521321.957,
+      "updatedAt": "2026-10-23T09:12:52.289Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "GEMINI.md": {
+      "description": "OpenWolf",
+      "tokens": 75,
+      "hash": "e401f79554a8d796",
+      "size": 297,
+      "mtimeMs": 1792746772275.0088,
+      "updatedAt": "2026-10-23T09:12:52.289Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "index.html": {
+      "description": "Fewer Labs Games",
+      "tokens": 1697,
+      "hash": "0b84665bb383f47f",
+      "size": 6361,
+      "mtimeMs": 1792723651883.561,
+      "updatedAt": "2026-10-23T09:12:52.289Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "package.json": {
+      "description": "Node.js package manifest",
+      "tokens": 170,
+      "hash": "e882ac311bd02c20",
+      "size": 593,
+      "mtimeMs": 1792719014370.4194,
+      "updatedAt": "2026-10-23T09:12:52.289Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "public/deep-dive/manifest.webmanifest": {
+      "description": "",
+      "tokens": 182,
+      "hash": "694ae8da8d9ed4fb",
+      "size": 682,
+      "mtimeMs": 1792719492655.1863,
+      "updatedAt": "2026-10-23T09:12:52.290Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "public/manifest.webmanifest": {
+      "description": "",
+      "tokens": 165,
+      "hash": "e86a474c2fdaa3c6",
+      "size": 616,
+      "mtimeMs": 1792719648017.8945,
+      "updatedAt": "2026-10-23T09:12:52.291Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "public/ripple/manifest.webmanifest": {
+      "description": "",
+      "tokens": 189,
+      "hash": "b76c38e7b01b4c84",
+      "size": 706,
+      "mtimeMs": 1792718849869.533,
+      "updatedAt": "2026-10-23T09:12:52.291Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "public/skip/manifest.webmanifest": {
+      "description": "",
+      "tokens": 179,
+      "hash": "764d25f67cd6f480",
+      "size": 671,
+      "mtimeMs": 1792720438533.597,
+      "updatedAt": "2026-10-23T09:12:52.291Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "README.md": {
+      "description": "Project documentation",
+      "tokens": 924,
+      "hash": "82b9aa860b907ee6",
+      "size": 3696,
+      "mtimeMs": 1792722164352.438,
+      "updatedAt": "2026-10-23T09:12:52.291Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "ripple/index.html": {
+      "description": "Ripple",
+      "tokens": 2807,
+      "hash": "048d1654fc48bf1d",
+      "size": 10526,
+      "mtimeMs": 1792723662208.0652,
+      "updatedAt": "2026-10-23T09:12:52.292Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "scripts/icons.mjs": {
+      "description": "/icon.svg.",
+      "tokens": 176,
+      "hash": "effb9d4090f994cc",
+      "size": 660,
+      "mtimeMs": 1792718258327.032,
+      "updatedAt": "2026-10-23T09:12:52.292Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "skip/index.html": {
+      "description": "Skip",
+      "tokens": 1860,
+      "hash": "c82652dbc35e492b",
+      "size": 6973,
+      "mtimeMs": 1792723755777.6794,
+      "updatedAt": "2026-10-23T09:12:52.293Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "src/core/haptics.ts": {
+      "description": "Short vibration on devices that support it (Android Chrome); a no-op elsewhere, including iOS Safari.",
+      "tokens": 146,
+      "hash": "61e663f238209c0d",
+      "size": 509,
+      "mtimeMs": 1792718354244.3289,
+      "updatedAt": "2026-10-23T09:12:52.293Z",
+      "source": "scan",
+      "imports": [
+        "src/core/settings.ts"
+      ],
+      "importance": 0.1309
+    },
+    "src/core/icons.ts": {
+      "description": "Replace every <i data-icon=\"name\"> in the page with its SVG.",
+      "tokens": 1254,
+      "hash": "17615f8250ed2de7",
+      "size": 4388,
+      "mtimeMs": 1792720956235.4226,
+      "updatedAt": "2026-10-23T09:12:52.294Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "IconName",
+          "kind": "section",
+          "startLine": 27,
+          "endLine": 27,
+          "tokens": 12
+        },
+        {
+          "name": "icon",
+          "kind": "fn",
+          "startLine": 29,
+          "endLine": 31,
+          "tokens": 39
+        },
+        {
+          "name": "hydrateIcons",
+          "kind": "fn",
+          "startLine": 34,
+          "endLine": 39,
+          "tokens": 66
+        },
+        {
+          "name": "wobbleLetters",
+          "kind": "fn",
+          "startLine": 42,
+          "endLine": 48,
+          "tokens": 89
+        }
+      ],
+      "symbolSource": "ts",
+      "importance": 0.3923
+    },
+    "src/core/kit.css": {
+      "description": "Styles: 65 rules, 39 vars",
+      "tokens": 5216,
+      "hash": "a3ed2b8e1dfcdb8e",
+      "size": 18259,
+      "mtimeMs": 1792723311327.45,
+      "updatedAt": "2026-10-23T09:12:52.294Z",
+      "source": "scan",
+      "importance": 0.1792
+    },
+    "src/core/meta.ts": {
+      "description": "Arcade-wide progression shared by every game, stored on this device:",
+      "tokens": 2182,
+      "hash": "f8077ae7b3ffa056",
+      "size": 7637,
+      "mtimeMs": 1792723277838.484,
+      "updatedAt": "2026-10-23T09:12:52.295Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Listener",
+          "kind": "section",
+          "startLine": 30,
+          "endLine": 30,
+          "tokens": 8
+        },
+        {
+          "name": "changed",
+          "kind": "fn",
+          "startLine": 32,
+          "endLine": 32,
+          "tokens": 15
+        },
+        {
+          "name": "onMeta",
+          "kind": "fn",
+          "startLine": 34,
+          "endLine": 34,
+          "tokens": 18
+        },
+        {
+          "name": "ShopItem",
+          "kind": "section",
+          "startLine": 57,
+          "endLine": 57,
+          "tokens": 20
+        },
+        {
+          "name": "shop",
+          "kind": "fn",
+          "startLine": 59,
+          "endLine": 86,
+          "tokens": 301
+        },
+        {
+          "name": "MissionDef",
+          "kind": "section",
+          "startLine": 96,
+          "endLine": 96,
+          "tokens": 37
+        },
+        {
+          "name": "Mission",
+          "kind": "section",
+          "startLine": 97,
+          "endLine": 97,
+          "tokens": 44
+        },
+        {
+          "name": "MissionResult",
+          "kind": "section",
+          "startLine": 98,
+          "endLine": 98,
+          "tokens": 24
+        },
+        {
+          "name": "missions",
+          "kind": "fn",
+          "startLine": 100,
+          "endLine": 145,
+          "tokens": 567
+        },
+        {
+          "name": "DailyInfo",
+          "kind": "section",
+          "startLine": 149,
+          "endLine": 149,
+          "tokens": 27
+        },
+        {
+          "name": "DailyResult",
+          "kind": "section",
+          "startLine": 150,
+          "endLine": 150,
+          "tokens": 28
+        },
+        {
+          "name": "soClose",
+          "kind": "fn",
+          "startLine": 190,
+          "endLine": 194,
+          "tokens": 72
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Listener = () => void;\nconst changed = () => listeners.forEach(fn => fn());\nexport function onMeta(fn: Listener) { listeners.push(fn); }\nexport interface ShopItem { id: string; name: string; price: number }\nexport function shop(game: string, slot: string, items: ShopItem[]) {\nexport interface MissionDef { id: string; text: string; stat: string; kind: 'run' | 'total'; targets: number[]; reward: number }\nexport interface Mission { id: string; text: string; stat: string; kind: 'run' | 'total'; target: number; reward: number; progress: number; tier: number }\nexport interface MissionResult { mission: Mission; done: boolean; gained: number }\nexport function missions(game: string, pool: MissionDef[]) {\nexport interface DailyInfo { key: string; seed: number; best: number; playedToday: boolean }\nexport interface DailyResult { firstToday: boolean; isBest: boolean; bonus: number; best: number }\nexport function soClose(score: number, best: number, unit = '') {",
+      "imports": [
+        "src/core/rng.ts"
+      ],
+      "importance": 0.815
+    },
+    "src/core/metaui.ts": {
+      "description": "DOM pieces for the arcade meta (coins, missions, daily), styled by kit.css (.k-coins,",
+      "tokens": 833,
+      "hash": "91dd0aebc8798150",
+      "size": 2914,
+      "mtimeMs": 1792724121974.0776,
+      "updatedAt": "2026-10-23T09:12:52.295Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "coinIcon",
+          "kind": "fn",
+          "startLine": 10,
+          "endLine": 10,
+          "tokens": 12
+        },
+        {
+          "name": "mountCoins",
+          "kind": "fn",
+          "startLine": 13,
+          "endLine": 18,
+          "tokens": 78
+        },
+        {
+          "name": "mountStreak",
+          "kind": "fn",
+          "startLine": 21,
+          "endLine": 31,
+          "tokens": 110
+        },
+        {
+          "name": "renderMissions",
+          "kind": "fn",
+          "startLine": 34,
+          "endLine": 46,
+          "tokens": 259
+        },
+        {
+          "name": "renderEarned",
+          "kind": "fn",
+          "startLine": 49,
+          "endLine": 55,
+          "tokens": 114
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/meta.ts",
+        "src/core/icons.ts"
+      ],
+      "importance": 0.1654
+    },
+    "src/core/music.ts": {
+      "description": "Generated background music: a small step sequencer on the shared AudioContext, so there are",
+      "tokens": 2097,
+      "hash": "1f4b34ce8c322c54",
+      "size": 7349,
+      "mtimeMs": 1792720844683.575,
+      "updatedAt": "2026-10-23T09:12:52.296Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Song",
+          "kind": "section",
+          "startLine": 12,
+          "endLine": 39,
+          "tokens": 236
+        },
+        {
+          "name": "midiHz",
+          "kind": "fn",
+          "startLine": 57,
+          "endLine": 57,
+          "tokens": 18
+        },
+        {
+          "name": "start",
+          "kind": "fn",
+          "startLine": 79,
+          "endLine": 88,
+          "tokens": 95
+        },
+        {
+          "name": "tick",
+          "kind": "fn",
+          "startLine": 90,
+          "endLine": 102,
+          "tokens": 138
+        },
+        {
+          "name": "playStep",
+          "kind": "fn",
+          "startLine": 104,
+          "endLine": 131,
+          "tokens": 442
+        },
+        {
+          "name": "NoteOpts",
+          "kind": "section",
+          "startLine": 133,
+          "endLine": 133,
+          "tokens": 31
+        },
+        {
+          "name": "note",
+          "kind": "fn",
+          "startLine": 135,
+          "endLine": 156,
+          "tokens": 208
+        },
+        {
+          "name": "kick",
+          "kind": "fn",
+          "startLine": 158,
+          "endLine": 169,
+          "tokens": 124
+        },
+        {
+          "name": "hit",
+          "kind": "fn",
+          "startLine": 171,
+          "endLine": 185,
+          "tokens": 162
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "export interface Song {\nconst midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);\nfunction start() {\nfunction tick() {\nfunction playStep(sg: Song, n: number, t: number, s16: number) {\ninterface NoteOpts { type: OscillatorType; vol: number; attack: number; release?: number; cutoff?: number }\nfunction note(freq: number, t: number, dur: number, o: NoteOpts) {\nfunction kick(t: number) {\nfunction hit(t: number, dur: number, freq: number, vol: number) {",
+      "imports": [
+        "src/core/settings.ts",
+        "src/core/sfx.ts"
+      ],
+      "importance": 0.4038
+    },
+    "src/core/pwa.ts": {
+      "description": "Service worker registration with an update prompt, shared by every page.",
+      "tokens": 520,
+      "hash": "fba23ee511356bb1",
+      "size": 1817,
+      "mtimeMs": 1792722044770.3433,
+      "updatedAt": "2026-10-23T09:12:52.296Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "initPWA",
+          "kind": "fn",
+          "startLine": 15,
+          "endLine": 27,
+          "tokens": 133
+        },
+        {
+          "name": "showBanner",
+          "kind": "fn",
+          "startLine": 29,
+          "endLine": 46,
+          "tokens": 233
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/icons.ts"
+      ],
+      "importance": 0.1504
+    },
+    "src/core/rng.ts": {
+      "description": "Small seeded random number generator (mulberry32): same seed, same sequence, on every device.",
+      "tokens": 240,
+      "hash": "6d48e1e589c11013",
+      "size": 840,
+      "mtimeMs": 1792723277733.3118,
+      "updatedAt": "2026-10-23T09:12:52.296Z",
+      "source": "scan",
+      "importance": 0.8066
+    },
+    "src/core/settings.ts": {
+      "description": "Per-device persistence. Storage can be unavailable (private mode, blocked site data),",
+      "tokens": 418,
+      "hash": "070f57595f739be9",
+      "size": 1460,
+      "mtimeMs": 1792720827713.7793,
+      "updatedAt": "2026-10-23T09:12:52.296Z",
+      "source": "scan",
+      "importance": 1
+    },
+    "src/core/sfx.ts": {
+      "description": "Call from a pointer/key handler. Safe to call repeatedly.",
+      "tokens": 874,
+      "hash": "b8ef8aa568e8ea3a",
+      "size": 3059,
+      "mtimeMs": 1792720827714.2554,
+      "updatedAt": "2026-10-23T09:12:52.297Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "unlockListeners",
+          "kind": "fn",
+          "startLine": 11,
+          "endLine": 11,
+          "tokens": 17
+        },
+        {
+          "name": "ToneOpts",
+          "kind": "section",
+          "startLine": 18,
+          "endLine": 18,
+          "tokens": 29
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/settings.ts"
+      ],
+      "importance": 0.5967
+    },
+    "src/core/tex.ts": {
+      "description": "Art is drawn procedurally with the 2D canvas API into Phaser textures at TEX_RES times",
+      "tokens": 673,
+      "hash": "1709b1fb8b87efd2",
+      "size": 2354,
+      "mtimeMs": 1792718177240.6157,
+      "updatedAt": "2026-10-23T09:12:52.297Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Draw",
+          "kind": "section",
+          "startLine": 11,
+          "endLine": 11,
+          "tokens": 15
+        },
+        {
+          "name": "canvasTexture",
+          "kind": "fn",
+          "startLine": 14,
+          "endLine": 23,
+          "tokens": 96
+        },
+        {
+          "name": "sheetTexture",
+          "kind": "fn",
+          "startLine": 26,
+          "endLine": 46,
+          "tokens": 182
+        },
+        {
+          "name": "glowTexture",
+          "kind": "fn",
+          "startLine": 49,
+          "endLine": 59,
+          "tokens": 121
+        },
+        {
+          "name": "hexToNum",
+          "kind": "fn",
+          "startLine": 61,
+          "endLine": 61,
+          "tokens": 20
+        },
+        {
+          "name": "mixNum",
+          "kind": "fn",
+          "startLine": 62,
+          "endLine": 66,
+          "tokens": 85
+        }
+      ],
+      "symbolSource": "ts",
+      "importance": 0.3537
+    },
+    "src/core/view.ts": {
+      "description": "Crisp rendering on high-DPI phones.",
+      "tokens": 857,
+      "hash": "e23db560491a84c8",
+      "size": 2999,
+      "mtimeMs": 1792722562592.1565,
+      "updatedAt": "2026-10-23T09:12:52.297Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "measure",
+          "kind": "fn",
+          "startLine": 14,
+          "endLine": 20,
+          "tokens": 108
+        },
+        {
+          "name": "createGame",
+          "kind": "fn",
+          "startLine": 22,
+          "endLine": 52,
+          "tokens": 290
+        },
+        {
+          "name": "fitCamera",
+          "kind": "fn",
+          "startLine": 55,
+          "endLine": 59,
+          "tokens": 55
+        },
+        {
+          "name": "isTouch",
+          "kind": "fn",
+          "startLine": 61,
+          "endLine": 61,
+          "tokens": 20
+        },
+        {
+          "name": "isPortrait",
+          "kind": "fn",
+          "startLine": 62,
+          "endLine": 62,
+          "tokens": 14
+        },
+        {
+          "name": "autoScaleUI",
+          "kind": "fn",
+          "startLine": 68,
+          "endLine": 78,
+          "tokens": 142
+        }
+      ],
+      "symbolSource": "ts",
+      "importance": 0.1655
+    },
+    "src/games/deep-dive/game/ambient.ts": {
+      "description": "A low underwater drone that gets darker (lower filter cutoff) with depth.",
+      "tokens": 508,
+      "hash": "b01c6cde110d6daa",
+      "size": 1775,
+      "mtimeMs": 1792718198140.6912,
+      "updatedAt": "2026-10-23T09:12:52.297Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Ambient",
+          "kind": "class",
+          "startLine": 4,
+          "endLine": 52,
+          "tokens": 472
+        },
+        {
+          "name": "Ambient.start",
+          "kind": "method",
+          "startLine": 8,
+          "endLine": 35,
+          "tokens": 275
+        },
+        {
+          "name": "Ambient.setDepth",
+          "kind": "method",
+          "startLine": 37,
+          "endLine": 43,
+          "tokens": 88
+        },
+        {
+          "name": "Ambient.stop",
+          "kind": "method",
+          "startLine": 45,
+          "endLine": 51,
+          "tokens": 64
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/sfx.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/deep-dive/game/biomes.ts": {
+      "description": "Depth zones in metres. Colours blend over the last 80 m before each boundary.",
+      "tokens": 442,
+      "hash": "abc9225d57a87a84",
+      "size": 1544,
+      "mtimeMs": 1792719492654.4595,
+      "updatedAt": "2026-10-23T09:12:52.297Z",
+      "source": "scan",
+      "imports": [
+        "src/core/tex.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/deep-dive/game/cave.ts": {
+      "description": "Trench ceiling and floor at a world x, for a view of height H.",
+      "tokens": 190,
+      "hash": "6dcbca34fd853545",
+      "size": 664,
+      "mtimeMs": 1792718198142.1174,
+      "updatedAt": "2026-10-23T09:12:52.298Z",
+      "source": "scan",
+      "importance": 0.1077
+    },
+    "src/games/deep-dive/game/missions.ts": {
+      "description": "Deep Dive mission templates. Stats reported at the end of each dive:",
+      "tokens": 502,
+      "hash": "1fc52567638aacb1",
+      "size": 1757,
+      "mtimeMs": 1792723605700.5627,
+      "updatedAt": "2026-10-23T09:12:52.298Z",
+      "source": "scan",
+      "imports": [
+        "src/core/meta.ts"
+      ],
+      "importance": 0.1178
+    },
+    "src/games/deep-dive/game/skins.ts": {
+      "description": "Diver suits, bought with arcade coins.",
+      "tokens": 254,
+      "hash": "722ed8984a00f98b",
+      "size": 888,
+      "mtimeMs": 1792723393237.8098,
+      "updatedAt": "2026-10-23T09:12:52.298Z",
+      "source": "scan",
+      "imports": [
+        "src/core/meta.ts"
+      ],
+      "importance": 0.1697
+    },
+    "src/games/deep-dive/game/song.ts": {
+      "description": "Dreamy A-minor loop (Am F C G), in the same key as the ambient drone. Builds with depth.",
+      "tokens": 219,
+      "hash": "82f3f4d05f4ef2b9",
+      "size": 764,
+      "mtimeMs": 1792720984572.1592,
+      "updatedAt": "2026-10-23T09:12:52.298Z",
+      "source": "scan",
+      "imports": [
+        "src/core/music.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/deep-dive/main.ts": {
+      "description": "Declares game",
+      "tokens": 263,
+      "hash": "4cf1a83544439ada",
+      "size": 918,
+      "mtimeMs": 1792722044964.5984,
+      "updatedAt": "2026-10-23T09:12:52.299Z",
+      "source": "scan",
+      "imports": [
+        "src/core/kit.css",
+        "src/games/deep-dive/style.css",
+        "src/core/view.ts",
+        "src/games/deep-dive/scenes/BootScene.ts",
+        "src/games/deep-dive/scenes/GameScene.ts",
+        "src/core/pwa.ts"
+      ],
+      "importance": 0.1015
+    },
+    "src/games/deep-dive/scenes/BootScene.ts": {
+      "description": "Radius of the headlamp's light pool and the darkness texture's on-screen width (logical px).",
+      "tokens": 4248,
+      "hash": "9feecc2b34bf833e",
+      "size": 14866,
+      "mtimeMs": 1792723409745.8677,
+      "updatedAt": "2026-10-23T09:12:52.299Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Ctx",
+          "kind": "section",
+          "startLine": 12,
+          "endLine": 12,
+          "tokens": 11
+        },
+        {
+          "name": "BootScene",
+          "kind": "class",
+          "startLine": 15,
+          "endLine": 265,
+          "tokens": 3852
+        },
+        {
+          "name": "BootScene.constructor",
+          "kind": "method",
+          "startLine": 16,
+          "endLine": 16,
+          "tokens": 10
+        },
+        {
+          "name": "BootScene.create",
+          "kind": "method",
+          "startLine": 18,
+          "endLine": 36,
+          "tokens": 214
+        },
+        {
+          "name": "BootScene.frames",
+          "kind": "method",
+          "startLine": 38,
+          "endLine": 40,
+          "tokens": 33
+        },
+        {
+          "name": "BootScene.makeDiver",
+          "kind": "method",
+          "startLine": 42,
+          "endLine": 69,
+          "tokens": 446
+        },
+        {
+          "name": "BootScene.makePickups",
+          "kind": "method",
+          "startLine": 71,
+          "endLine": 104,
+          "tokens": 616
+        },
+        {
+          "name": "BootScene.makeJelly",
+          "kind": "method",
+          "startLine": 106,
+          "endLine": 129,
+          "tokens": 414
+        },
+        {
+          "name": "BootScene.makeMine",
+          "kind": "method",
+          "startLine": 131,
+          "endLine": 155,
+          "tokens": 400
+        },
+        {
+          "name": "BootScene.makeAngler",
+          "kind": "method",
+          "startLine": 157,
+          "endLine": 185,
+          "tokens": 612
+        },
+        {
+          "name": "BootScene.makeEel",
+          "kind": "method",
+          "startLine": 187,
+          "endLine": 209,
+          "tokens": 422
+        },
+        {
+          "name": "BootScene.makeAir",
+          "kind": "method",
+          "startLine": 211,
+          "endLine": 219,
+          "tokens": 114
+        },
+        {
+          "name": "BootScene.makeLight",
+          "kind": "method",
+          "startLine": 221,
+          "endLine": 242,
+          "tokens": 328
+        },
+        {
+          "name": "BootScene.makeParticles",
+          "kind": "method",
+          "startLine": 244,
+          "endLine": 264,
+          "tokens": 227
+        },
+        {
+          "name": "setup",
+          "kind": "fn",
+          "startLine": 267,
+          "endLine": 267,
+          "tokens": 22
+        },
+        {
+          "name": "fillOut",
+          "kind": "fn",
+          "startLine": 269,
+          "endLine": 275,
+          "tokens": 52
+        },
+        {
+          "name": "eye",
+          "kind": "fn",
+          "startLine": 277,
+          "endLine": 280,
+          "tokens": 71
+        },
+        {
+          "name": "roundRect",
+          "kind": "fn",
+          "startLine": 282,
+          "endLine": 290,
+          "tokens": 84
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Ctx = CanvasRenderingContext2D;\nexport class BootScene extends Phaser.Scene {\n  constructor() { super('boot'); }\n  create() {\n  private frames(key: string, n: number) {\n  private makeDiver(skin: Skin) {\n  private makePickups() {\n  private makeJelly() {\n  private makeMine() {\n  private makeAngler() {\n  private makeEel() {\n  private makeAir() {\n  private makeLight() {\n  private makeParticles() {\nfunction setup(ctx: Ctx) { ctx.lineJoin = 'round'; ctx.lineCap = 'round'; }\nfunction fillOut(ctx: Ctx, fill: string | CanvasGradient, width = LINE) {\nfunction eye(ctx: Ctx, x: number, y: number, r: number) {\nfunction roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {",
+      "imports": [
+        "src/core/tex.ts",
+        "src/games/deep-dive/game/skins.ts"
+      ],
+      "importance": 0.122
+    },
+    "src/games/deep-dive/scenes/GameScene.ts": {
+      "description": "angler: seconds left in its lunge wind-up / dash; eel: charge cycle offset",
+      "tokens": 10599,
+      "hash": "6c74a1abc7baefbc",
+      "size": 37103,
+      "mtimeMs": 1792723620963.2756,
+      "updatedAt": "2026-10-23T09:12:52.300Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Sprite",
+          "kind": "section",
+          "startLine": 19,
+          "endLine": 19,
+          "tokens": 12
+        },
+        {
+          "name": "Image",
+          "kind": "section",
+          "startLine": 20,
+          "endLine": 20,
+          "tokens": 11
+        },
+        {
+          "name": "Emitter",
+          "kind": "section",
+          "startLine": 21,
+          "endLine": 21,
+          "tokens": 18
+        },
+        {
+          "name": "Point",
+          "kind": "section",
+          "startLine": 22,
+          "endLine": 22,
+          "tokens": 11
+        },
+        {
+          "name": "Kind",
+          "kind": "section",
+          "startLine": 23,
+          "endLine": 23,
+          "tokens": 14
+        },
+        {
+          "name": "Perk",
+          "kind": "section",
+          "startLine": 24,
+          "endLine": 24,
+          "tokens": 10
+        },
+        {
+          "name": "State",
+          "kind": "section",
+          "startLine": 25,
+          "endLine": 25,
+          "tokens": 15
+        },
+        {
+          "name": "Obstacle",
+          "kind": "section",
+          "startLine": 27,
+          "endLine": 34,
+          "tokens": 111
+        },
+        {
+          "name": "Pickup",
+          "kind": "section",
+          "startLine": 36,
+          "endLine": 36,
+          "tokens": 32
+        },
+        {
+          "name": "rand",
+          "kind": "fn",
+          "startLine": 41,
+          "endLine": 41,
+          "tokens": 20
+        },
+        {
+          "name": "pick",
+          "kind": "fn",
+          "startLine": 42,
+          "endLine": 42,
+          "tokens": 18
+        },
+        {
+          "name": "hash",
+          "kind": "fn",
+          "startLine": 44,
+          "endLine": 44,
+          "tokens": 30
+        },
+        {
+          "name": "MOTES",
+          "kind": "fn",
+          "startLine": 57,
+          "endLine": 57,
+          "tokens": 31
+        },
+        {
+          "name": "portraitView",
+          "kind": "fn",
+          "startLine": 59,
+          "endLine": 59,
+          "tokens": 21
+        },
+        {
+          "name": "GameScene",
+          "kind": "class",
+          "startLine": 66,
+          "endLine": 869,
+          "tokens": 9606
+        },
+        {
+          "name": "GameScene.constructor",
+          "kind": "method",
+          "startLine": 130,
+          "endLine": 130,
+          "tokens": 10
+        },
+        {
+          "name": "GameScene.W",
+          "kind": "method",
+          "startLine": 133,
+          "endLine": 133,
+          "tokens": 13
+        },
+        {
+          "name": "GameScene.H",
+          "kind": "method",
+          "startLine": 134,
+          "endLine": 134,
+          "tokens": 13
+        },
+        {
+          "name": "GameScene.create",
+          "kind": "method",
+          "startLine": 136,
+          "endLine": 205,
+          "tokens": 1166
+        },
+        {
+          "name": "GameScene.applyCamera",
+          "kind": "method",
+          "startLine": 207,
+          "endLine": 212,
+          "tokens": 89
+        },
+        {
+          "name": "GameScene.cr",
+          "kind": "method",
+          "startLine": 215,
+          "endLine": 215,
+          "tokens": 21
+        },
+        {
+          "name": "GameScene.cpick",
+          "kind": "method",
+          "startLine": 216,
+          "endLine": 216,
+          "tokens": 20
+        },
+        {
+          "name": "GameScene.setSkin",
+          "kind": "method",
+          "startLine": 219,
+          "endLine": 227,
+          "tokens": 84
+        },
+        {
+          "name": "GameScene.toTitle",
+          "kind": "method",
+          "startLine": 231,
+          "endLine": 242,
+          "tokens": 97
+        },
+        {
+          "name": "GameScene.startRun",
+          "kind": "method",
+          "startLine": 244,
+          "endLine": 286,
+          "tokens": 335
+        },
+        {
+          "name": "GameScene.pause",
+          "kind": "method",
+          "startLine": 288,
+          "endLine": 293,
+          "tokens": 38
+        },
+        {
+          "name": "GameScene.resume",
+          "kind": "method",
+          "startLine": 295,
+          "endLine": 300,
+          "tokens": 37
+        },
+        {
+          "name": "GameScene.togglePause",
+          "kind": "method",
+          "startLine": 302,
+          "endLine": 305,
+          "tokens": 37
+        },
+        {
+          "name": "GameScene.onResize",
+          "kind": "method",
+          "startLine": 312,
+          "endLine": 323,
+          "tokens": 116
+        },
+        {
+          "name": "GameScene.clearWorld",
+          "kind": "method",
+          "startLine": 325,
+          "endLine": 333,
+          "tokens": 84
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Sprite = Phaser.GameObjects.Sprite;\ntype Image = Phaser.GameObjects.Image;\ntype Emitter = Phaser.GameObjects.Particles.ParticleEmitter;\ntype Point = { x: number; y: number };\ntype Kind = 'jelly' | 'mine' | 'angler' | 'eel';\ntype Perk = 'shield' | 'magnet';\ntype State = 'title' | 'play' | 'paused' | 'over';\ninterface Obstacle {\ninterface Pickup { type: 'air' | 'pearl' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }\nconst rand = (a: number, b: number) => a + Math.random() * (b - a);\nconst pick = <T>(a: T[]) => a[(Math.random() * a.length) | 0];\nconst hash = (n: number) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };\nconst MOTES = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1) }));\nconst portraitView = () => matchMedia('(orientation: portrait)').matches;\nexport class GameScene extends Phaser.Scene {\n  constructor() { super('game'); }\n  private get W() { return view.w / this.k; }\n  private get H() { return view.h / this.k; }\n  create() {\n  private applyCamera() {\n  private cr(a: number, b: number) { return a + this.rng() * (b - a); }\n  private cpick<T>(a: T[]) { return a[(this.rng() * a.length) | 0]; }\n  private setSkin(id: string) {\n  private toTitle() {\n  private startRun(dailyMode = ui.dailySelected()) {\n  private pause() {\n  private resume() {\n  private togglePause() {",
+      "imports": [
+        "src/core/view.ts",
+        "src/core/sfx.ts",
+        "src/core/music.ts",
+        "src/core/haptics.ts",
+        "src/core/settings.ts",
+        "src/core/tex.ts",
+        "src/games/deep-dive/game/biomes.ts",
+        "src/games/deep-dive/game/cave.ts",
+        "src/games/deep-dive/game/ambient.ts",
+        "src/games/deep-dive/game/song.ts",
+        "src/games/deep-dive/game/skins.ts",
+        "src/games/deep-dive/game/missions.ts",
+        "src/core/meta.ts",
+        "src/core/rng.ts",
+        "src/games/deep-dive/ui.ts",
+        "src/games/deep-dive/scenes/BootScene.ts"
+      ],
+      "importance": 0.1159
+    },
+    "src/games/deep-dive/style.css": {
+      "description": "Styles: 99 rules, 5 vars, 6 media queries, 6 animations",
+      "tokens": 4007,
+      "hash": "af99cfee4d6b544e",
+      "size": 14024,
+      "mtimeMs": 1792723667482.2754,
+      "updatedAt": "2026-10-23T09:12:52.301Z",
+      "source": "scan",
+      "importance": 0.1159
+    },
+    "src/games/deep-dive/ui.ts": {
+      "description": "Equip (buying if needed); false when the player can't afford it.",
+      "tokens": 2943,
+      "hash": "ec645a54dfd85c64",
+      "size": 10304,
+      "mtimeMs": 1792723546028.1604,
+      "updatedAt": "2026-10-23T09:12:52.301Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "$",
+          "kind": "fn",
+          "startLine": 11,
+          "endLine": 11,
+          "tokens": 20
+        },
+        {
+          "name": "Handlers",
+          "kind": "section",
+          "startLine": 13,
+          "endLine": 21,
+          "tokens": 63
+        },
+        {
+          "name": "Screen",
+          "kind": "section",
+          "startLine": 26,
+          "endLine": 26,
+          "tokens": 14
+        },
+        {
+          "name": "portrait",
+          "kind": "fn",
+          "startLine": 28,
+          "endLine": 28,
+          "tokens": 20
+        },
+        {
+          "name": "onSkin",
+          "kind": "fn",
+          "startLine": 36,
+          "endLine": 36,
+          "tokens": 15
+        },
+        {
+          "name": "bump",
+          "kind": "fn",
+          "startLine": 256,
+          "endLine": 260,
+          "tokens": 34
+        },
+        {
+          "name": "enterFullscreen",
+          "kind": "fn",
+          "startLine": 263,
+          "endLine": 266,
+          "tokens": 59
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "const $ = (id: string) => document.getElementById(id) as HTMLElement;\nexport interface Handlers {\ntype Screen = 'title' | 'pause' | 'over' | null;\nconst portrait = () => matchMedia('(orientation: portrait)').matches;\nlet onSkin: (id: string) => boolean = () => false;\nfunction bump(el: HTMLElement) {\nfunction enterFullscreen() {",
+      "imports": [
+        "src/core/settings.ts",
+        "src/core/meta.ts",
+        "src/core/metaui.ts",
+        "src/games/deep-dive/game/missions.ts",
+        "src/core/sfx.ts",
+        "src/core/haptics.ts",
+        "src/core/view.ts",
+        "src/core/icons.ts",
+        "src/games/deep-dive/game/skins.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/ripple/game/art.ts": {
+      "description": "The equipped boat style (shop); set before building themed textures.",
+      "tokens": 4332,
+      "hash": "cca2e1b1ad749d23",
+      "size": 15159,
+      "mtimeMs": 1792723609205.9675,
+      "updatedAt": "2026-10-23T09:12:52.301Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "setBoatSkin",
+          "kind": "fn",
+          "startLine": 9,
+          "endLine": 9,
+          "tokens": 17
+        },
+        {
+          "name": "circle",
+          "kind": "fn",
+          "startLine": 32,
+          "endLine": 35,
+          "tokens": 44
+        },
+        {
+          "name": "hash",
+          "kind": "fn",
+          "startLine": 37,
+          "endLine": 37,
+          "tokens": 33
+        },
+        {
+          "name": "softShadow",
+          "kind": "fn",
+          "startLine": 44,
+          "endLine": 54,
+          "tokens": 92
+        },
+        {
+          "name": "outline",
+          "kind": "fn",
+          "startLine": 56,
+          "endLine": 59,
+          "tokens": 49
+        },
+        {
+          "name": "buildNeutralTextures",
+          "kind": "fn",
+          "startLine": 62,
+          "endLine": 134,
+          "tokens": 1159
+        },
+        {
+          "name": "THEMED",
+          "kind": "fn",
+          "startLine": 136,
+          "endLine": 137,
+          "tokens": 55
+        },
+        {
+          "name": "buildThemedTextures",
+          "kind": "fn",
+          "startLine": 140,
+          "endLine": 237,
+          "tokens": 1528
+        },
+        {
+          "name": "pondPath",
+          "kind": "fn",
+          "startLine": 239,
+          "endLine": 244,
+          "tokens": 80
+        },
+        {
+          "name": "buildBackground",
+          "kind": "fn",
+          "startLine": 250,
+          "endLine": 291,
+          "tokens": 586
+        },
+        {
+          "name": "inPond",
+          "kind": "fn",
+          "startLine": 294,
+          "endLine": 300,
+          "tokens": 111
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "export function setBoatSkin(id: string) { boatSkin = id; }\nfunction circle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {\nexport function hash(n: number) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }\nfunction softShadow(ctx: CanvasRenderingContext2D, path: () => void, blur: number, color = 'rgba(12,24,48,1)') {\nfunction outline(ctx: CanvasRenderingContext2D, w = OW) {\nexport function buildNeutralTextures(scene: Phaser.Scene) {\nconst THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'boatsh', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',\nexport function buildThemedTextures(scene: Phaser.Scene) {\nfunction pondPath(ctx: CanvasRenderingContext2D, p: Rect, grow = 0) {\nexport function buildBackground(scene: Phaser.Scene, w: number, h: number, dpr: number, pond: Rect) {\nexport function inPond(p: Rect, x: number, y: number, inset = 0) {",
+      "imports": [
+        "src/core/tex.ts",
+        "src/games/ripple/game/palette.ts",
+        "src/games/ripple/game/sim.ts",
+        "src/games/ripple/game/skins.ts"
+      ],
+      "importance": 0.148
+    },
+    "src/games/ripple/game/audio.ts": {
+      "description": "Rising chime: `n` climbs with the combo and with score.",
+      "tokens": 621,
+      "hash": "8f728aeff648c0cc",
+      "size": 2171,
+      "mtimeMs": 1792721031490.5896,
+      "updatedAt": "2026-10-23T09:12:52.301Z",
+      "source": "scan",
+      "imports": [
+        "src/core/sfx.ts"
+      ],
+      "importance": 0.1208
+    },
+    "src/games/ripple/game/layout.ts": {
+      "description": "Safe-area insets (notch, home indicator) measured from the #safe probe element.",
+      "tokens": 599,
+      "hash": "149a6f8f85a44ef1",
+      "size": 2096,
+      "mtimeMs": 1792722755291.1238,
+      "updatedAt": "2026-10-23T09:12:52.302Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Insets",
+          "kind": "section",
+          "startLine": 3,
+          "endLine": 3,
+          "tokens": 20
+        },
+        {
+          "name": "readInsets",
+          "kind": "fn",
+          "startLine": 6,
+          "endLine": 15,
+          "tokens": 113
+        },
+        {
+          "name": "isCompact",
+          "kind": "fn",
+          "startLine": 18,
+          "endLine": 18,
+          "tokens": 22
+        },
+        {
+          "name": "hudHeight",
+          "kind": "fn",
+          "startLine": 20,
+          "endLine": 20,
+          "tokens": 23
+        },
+        {
+          "name": "uiScale",
+          "kind": "fn",
+          "startLine": 23,
+          "endLine": 26,
+          "tokens": 42
+        },
+        {
+          "name": "worldScale",
+          "kind": "fn",
+          "startLine": 33,
+          "endLine": 35,
+          "tokens": 45
+        },
+        {
+          "name": "computePond",
+          "kind": "fn",
+          "startLine": 42,
+          "endLine": 47,
+          "tokens": 72
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/games/ripple/game/sim.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/ripple/game/meta.ts": {
+      "description": "Ripple's hooks into the arcade meta (core/meta.ts): missions, boat shop, Classic/Daily mode.",
+      "tokens": 676,
+      "hash": "f7d2de5effddd99a",
+      "size": 2364,
+      "mtimeMs": 1792724141434.9648,
+      "updatedAt": "2026-10-23T09:12:52.302Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Mode",
+          "kind": "section",
+          "startLine": 29,
+          "endLine": 29,
+          "tokens": 12
+        },
+        {
+          "name": "runCoins",
+          "kind": "fn",
+          "startLine": 36,
+          "endLine": 38,
+          "tokens": 43
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/meta.ts",
+        "src/core/settings.ts",
+        "src/games/ripple/game/skins.ts"
+      ],
+      "importance": 0.1673
+    },
+    "src/games/ripple/game/palette.ts": {
+      "description": "Raw CSS colour strings, usable directly with the 2D canvas API.",
+      "tokens": 705,
+      "hash": "e1bf4a97836991ed",
+      "size": 2465,
+      "mtimeMs": 1792719482173.3794,
+      "updatedAt": "2026-10-23T09:12:52.302Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "PaletteKey",
+          "kind": "section",
+          "startLine": 8,
+          "endLine": 8,
+          "tokens": 14
+        },
+        {
+          "name": "laneKey",
+          "kind": "fn",
+          "startLine": 15,
+          "endLine": 15,
+          "tokens": 24
+        },
+        {
+          "name": "parse",
+          "kind": "fn",
+          "startLine": 21,
+          "endLine": 34,
+          "tokens": 155
+        },
+        {
+          "name": "readPalette",
+          "kind": "fn",
+          "startLine": 37,
+          "endLine": 47,
+          "tokens": 90
+        },
+        {
+          "name": "isDark",
+          "kind": "fn",
+          "startLine": 50,
+          "endLine": 50,
+          "tokens": 24
+        },
+        {
+          "name": "listeners",
+          "kind": "fn",
+          "startLine": 52,
+          "endLine": 52,
+          "tokens": 11
+        },
+        {
+          "name": "onTheme",
+          "kind": "fn",
+          "startLine": 53,
+          "endLine": 56,
+          "tokens": 44
+        },
+        {
+          "name": "check",
+          "kind": "fn",
+          "startLine": 57,
+          "endLine": 57,
+          "tokens": 22
+        }
+      ],
+      "symbolSource": "ts",
+      "importance": 0.2292
+    },
+    "src/games/ripple/game/sim.ts": {
+      "description": "Pause between losing the last boat and the game-over screen.",
+      "tokens": 8245,
+      "hash": "89608b174f9cc0e7",
+      "size": 28856,
+      "mtimeMs": 1792723544280.7898,
+      "updatedAt": "2026-10-23T09:12:52.302Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Twist",
+          "kind": "section",
+          "startLine": 25,
+          "endLine": 25,
+          "tokens": 19
+        },
+        {
+          "name": "Rect",
+          "kind": "section",
+          "startLine": 34,
+          "endLine": 34,
+          "tokens": 23
+        },
+        {
+          "name": "BoatState",
+          "kind": "section",
+          "startLine": 35,
+          "endLine": 35,
+          "tokens": 14
+        },
+        {
+          "name": "Boat",
+          "kind": "section",
+          "startLine": 36,
+          "endLine": 44,
+          "tokens": 117
+        },
+        {
+          "name": "PickupKind",
+          "kind": "section",
+          "startLine": 45,
+          "endLine": 45,
+          "tokens": 13
+        },
+        {
+          "name": "Pickup",
+          "kind": "section",
+          "startLine": 47,
+          "endLine": 47,
+          "tokens": 34
+        },
+        {
+          "name": "Dock",
+          "kind": "section",
+          "startLine": 48,
+          "endLine": 51,
+          "tokens": 47
+        },
+        {
+          "name": "Rock",
+          "kind": "section",
+          "startLine": 52,
+          "endLine": 52,
+          "tokens": 30
+        },
+        {
+          "name": "Pad",
+          "kind": "section",
+          "startLine": 53,
+          "endLine": 53,
+          "tokens": 24
+        },
+        {
+          "name": "Ripple",
+          "kind": "section",
+          "startLine": 54,
+          "endLine": 54,
+          "tokens": 18
+        },
+        {
+          "name": "Mote",
+          "kind": "section",
+          "startLine": 55,
+          "endLine": 55,
+          "tokens": 20
+        },
+        {
+          "name": "WallPad",
+          "kind": "section",
+          "startLine": 57,
+          "endLine": 57,
+          "tokens": 40
+        },
+        {
+          "name": "SimEvent",
+          "kind": "section",
+          "startLine": 59,
+          "endLine": 72,
+          "tokens": 156
+        },
+        {
+          "name": "Phase",
+          "kind": "section",
+          "startLine": 75,
+          "endLine": 75,
+          "tokens": 16
+        },
+        {
+          "name": "clamp",
+          "kind": "fn",
+          "startLine": 77,
+          "endLine": 77,
+          "tokens": 23
+        },
+        {
+          "name": "Circle",
+          "kind": "section",
+          "startLine": 78,
+          "endLine": 78,
+          "tokens": 15
+        },
+        {
+          "name": "Sim",
+          "kind": "class",
+          "startLine": 80,
+          "endLine": 616,
+          "tokens": 7104
+        },
+        {
+          "name": "Sim.constructor",
+          "kind": "method",
+          "startLine": 129,
+          "endLine": 131,
+          "tokens": 21
+        },
+        {
+          "name": "Sim.setRng",
+          "kind": "method",
+          "startLine": 134,
+          "endLine": 134,
+          "tokens": 14
+        },
+        {
+          "name": "Sim.rand",
+          "kind": "method",
+          "startLine": 136,
+          "endLine": 136,
+          "tokens": 21
+        },
+        {
+          "name": "Sim.setPond",
+          "kind": "method",
+          "startLine": 141,
+          "endLine": 147,
+          "tokens": 66
+        },
+        {
+          "name": "Sim.refit",
+          "kind": "method",
+          "startLine": 150,
+          "endLine": 163,
+          "tokens": 172
+        },
+        {
+          "name": "Sim.relax",
+          "kind": "method",
+          "startLine": 169,
+          "endLine": 195,
+          "tokens": 371
+        },
+        {
+          "name": "Sim.clearance",
+          "kind": "method",
+          "startLine": 197,
+          "endLine": 201,
+          "tokens": 54
+        },
+        {
+          "name": "Sim.farFrom",
+          "kind": "method",
+          "startLine": 202,
+          "endLine": 204,
+          "tokens": 35
+        },
+        {
+          "name": "Sim.placeInPond",
+          "kind": "method",
+          "startLine": 206,
+          "endLine": 216,
+          "tokens": 136
+        },
+        {
+          "name": "Sim.addDock",
+          "kind": "method",
+          "startLine": 218,
+          "endLine": 221,
+          "tokens": 73
+        },
+        {
+          "name": "Sim.layout",
+          "kind": "method",
+          "startLine": 223,
+          "endLine": 240,
+          "tokens": 267
+        },
+        {
+          "name": "Sim.resetCounters",
+          "kind": "method",
+          "startLine": 242,
+          "endLine": 249,
+          "tokens": 146
+        },
+        {
+          "name": "Sim.prepare",
+          "kind": "method",
+          "startLine": 252,
+          "endLine": 258,
+          "tokens": 38
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "export type Twist = 'none' | 'calm' | 'wind' | 'whirl' | 'lilies';\nexport interface Rect { x: number; y: number; w: number; h: number; r: number }\nexport type BoatState = 'in' | 'dock' | 'sink';\nexport interface Boat {\nexport type PickupKind = 'freeze' | 'life';\nexport interface Pickup { id: number; x: number; y: number; kind: PickupKind; age: number; life: number; ph: number }\nexport interface Dock {\nexport interface Rock { id: number; x: number; y: number; r: number; variant: number; isNew: boolean }\nexport interface Pad { x: number; y: number; r: number; a: number; flower: boolean }\nexport interface Ripple { x: number; y: number; age: number }\nexport interface Mote { x: number; y: number; ph: number; sp: number }\nexport interface WallPad { id: number; x: number; y: number; vx: number; vy: number; r: number; a: number; age: number; sinking: number }\nexport type SimEvent =\nexport type Phase = 'idle' | 'play' | 'ending' | 'over';\nconst clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));\ntype Circle = { x: number; y: number; r?: number };\nexport class Sim {\n  constructor(rng: () => number = Math.random) {\n  setRng(rng: () => number) { this.rng = rng; }\n  private rand(a: number, b: number) { return a + this.rng() * (b - a); }\n  setPond(p: Rect) {\n  private refit(old: Rect) {\n  private relax() {\n  private clearance(x: number, y: number, avoid: Circle[]) {",
+      "importance": 0.2307
+    },
+    "src/games/ripple/game/skins.ts": {
+      "description": "Draw one boat of a style at (0, 0).",
+      "tokens": 2019,
+      "hash": "33b9fa4b08929f30",
+      "size": 7064,
+      "mtimeMs": 1792723588904.0173,
+      "updatedAt": "2026-10-23T09:12:52.303Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Skin",
+          "kind": "section",
+          "startLine": 8,
+          "endLine": 8,
+          "tokens": 16
+        },
+        {
+          "name": "SkinId",
+          "kind": "section",
+          "startLine": 17,
+          "endLine": 17,
+          "tokens": 15
+        },
+        {
+          "name": "Ctx",
+          "kind": "section",
+          "startLine": 19,
+          "endLine": 19,
+          "tokens": 11
+        },
+        {
+          "name": "BoatLook",
+          "kind": "section",
+          "startLine": 20,
+          "endLine": 20,
+          "tokens": 17
+        },
+        {
+          "name": "circle",
+          "kind": "fn",
+          "startLine": 22,
+          "endLine": 22,
+          "tokens": 34
+        },
+        {
+          "name": "stroke",
+          "kind": "fn",
+          "startLine": 23,
+          "endLine": 23,
+          "tokens": 42
+        },
+        {
+          "name": "eyes",
+          "kind": "fn",
+          "startLine": 25,
+          "endLine": 31,
+          "tokens": 100
+        },
+        {
+          "name": "lantern",
+          "kind": "fn",
+          "startLine": 32,
+          "endLine": 35,
+          "tokens": 74
+        },
+        {
+          "name": "gloss",
+          "kind": "fn",
+          "startLine": 36,
+          "endLine": 40,
+          "tokens": 49
+        },
+        {
+          "name": "shade",
+          "kind": "fn",
+          "startLine": 41,
+          "endLine": 45,
+          "tokens": 48
+        },
+        {
+          "name": "hull",
+          "kind": "fn",
+          "startLine": 50,
+          "endLine": 53,
+          "tokens": 56
+        },
+        {
+          "name": "crane",
+          "kind": "fn",
+          "startLine": 54,
+          "endLine": 58,
+          "tokens": 86
+        },
+        {
+          "name": "leaf",
+          "kind": "fn",
+          "startLine": 59,
+          "endLine": 65,
+          "tokens": 64
+        },
+        {
+          "name": "duck",
+          "kind": "fn",
+          "startLine": 66,
+          "endLine": 69,
+          "tokens": 46
+        },
+        {
+          "name": "boatSilhouette",
+          "kind": "fn",
+          "startLine": 71,
+          "endLine": 76,
+          "tokens": 55
+        },
+        {
+          "name": "drawBoat",
+          "kind": "fn",
+          "startLine": 79,
+          "endLine": 143,
+          "tokens": 927
+        },
+        {
+          "name": "skinPreview",
+          "kind": "fn",
+          "startLine": 146,
+          "endLine": 154,
+          "tokens": 86
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "export interface Skin extends ShopItem { blurb: string }\nexport type SkinId = (typeof SKINS)[number]['id'];\ntype Ctx = CanvasRenderingContext2D;\nexport interface BoatLook { lamp: string; gold?: boolean }\nconst circle = (ctx: Ctx, x: number, y: number, r: number) => { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); };\nfunction stroke(ctx: Ctx, w = 2.5) { ctx.lineWidth = w; ctx.strokeStyle = OUTLINE; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke(); }\nfunction eyes(ctx: Ctx, x: number, dy: number, r = 2.9) {\nfunction lantern(ctx: Ctx, x: number, y: number, color: string, r = 5.3) {\nfunction gloss(ctx: Ctx, path: () => void) {\nfunction shade(ctx: Ctx, path: () => void) {\nconst hull = (ctx: Ctx) => {\nconst crane = (ctx: Ctx) => {\nconst leaf = (ctx: Ctx) => {\nconst duck = (ctx: Ctx) => {\nexport function boatSilhouette(ctx: Ctx, skin: string) {\nexport function drawBoat(ctx: Ctx, skin: string, look: BoatLook) {\nexport function skinPreview(skin: string, lamp = P.c1) {",
+      "imports": [
+        "src/core/meta.ts",
+        "src/games/ripple/game/palette.ts"
+      ],
+      "importance": 0.1934
+    },
+    "src/games/ripple/game/song.ts": {
+      "description": "\"Lily Pond\": a cozy F-major loop at 92 bpm with a little swing. Pluck-like arp (filtered",
+      "tokens": 341,
+      "hash": "628e19de867cd0bd",
+      "size": 1205,
+      "mtimeMs": 1792721031468.8455,
+      "updatedAt": "2026-10-23T09:12:52.303Z",
+      "source": "scan",
+      "imports": [
+        "src/core/music.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/ripple/main.ts": {
+      "description": "Run n full frames (logic, tweens, rendering) at a fixed step, independent of rAF.",
+      "tokens": 1125,
+      "hash": "84d14b0c6d92dd11",
+      "size": 3937,
+      "mtimeMs": 1792723764491.0312,
+      "updatedAt": "2026-10-23T09:12:52.303Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "inCard",
+          "kind": "fn",
+          "startLine": 25,
+          "endLine": 25,
+          "tokens": 26
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/kit.css",
+        "src/games/ripple/style.css",
+        "src/core/view.ts",
+        "src/core/sfx.ts",
+        "src/core/music.ts",
+        "src/core/icons.ts",
+        "src/core/metaui.ts",
+        "src/games/ripple/game/palette.ts",
+        "src/games/ripple/scenes/Boot.ts",
+        "src/games/ripple/scenes/Game.ts",
+        "src/core/pwa.ts"
+      ],
+      "importance": 0.1015
+    },
+    "src/games/ripple/scenes/Boot.ts": {
+      "description": "Draws every texture once (no image files to load), then hands over to the game.",
+      "tokens": 134,
+      "hash": "8ec48ec70ecd8b60",
+      "size": 469,
+      "mtimeMs": 1792723744698.662,
+      "updatedAt": "2026-10-23T09:12:52.303Z",
+      "source": "scan",
+      "imports": [
+        "src/games/ripple/game/art.ts",
+        "src/games/ripple/game/meta.ts"
+      ],
+      "importance": 0.1094
+    },
+    "src/games/ripple/scenes/Game.ts": {
+      "description": "Points for 1, 2 and 3 stars. Bot playtests (30 runs each, portrait): a simple bot averages ~9",
+      "tokens": 9764,
+      "hash": "55ee10b082bf8afd",
+      "size": 34172,
+      "mtimeMs": 1792723991863.384,
+      "updatedAt": "2026-10-23T09:12:52.304Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Mode",
+          "kind": "section",
+          "startLine": 22,
+          "endLine": 22,
+          "tokens": 14
+        },
+        {
+          "name": "Img",
+          "kind": "section",
+          "startLine": 23,
+          "endLine": 23,
+          "tokens": 11
+        },
+        {
+          "name": "Squash",
+          "kind": "section",
+          "startLine": 24,
+          "endLine": 24,
+          "tokens": 12
+        },
+        {
+          "name": "BoatView",
+          "kind": "section",
+          "startLine": 26,
+          "endLine": 26,
+          "tokens": 33
+        },
+        {
+          "name": "PickupView",
+          "kind": "section",
+          "startLine": 27,
+          "endLine": 27,
+          "tokens": 14
+        },
+        {
+          "name": "DockView",
+          "kind": "section",
+          "startLine": 28,
+          "endLine": 28,
+          "tokens": 28
+        },
+        {
+          "name": "RockView",
+          "kind": "section",
+          "startLine": 29,
+          "endLine": 29,
+          "tokens": 13
+        },
+        {
+          "name": "PadView",
+          "kind": "section",
+          "startLine": 30,
+          "endLine": 30,
+          "tokens": 15
+        },
+        {
+          "name": "Reed",
+          "kind": "section",
+          "startLine": 31,
+          "endLine": 31,
+          "tokens": 15
+        },
+        {
+          "name": "Shimmer",
+          "kind": "section",
+          "startLine": 32,
+          "endLine": 32,
+          "tokens": 18
+        },
+        {
+          "name": "Game",
+          "kind": "class",
+          "startLine": 50,
+          "endLine": 754,
+          "tokens": 9029
+        },
+        {
+          "name": "Game.constructor",
+          "kind": "method",
+          "startLine": 93,
+          "endLine": 93,
+          "tokens": 10
+        },
+        {
+          "name": "Game.fitWorldCamera",
+          "kind": "method",
+          "startLine": 95,
+          "endLine": 100,
+          "tokens": 48
+        },
+        {
+          "name": "Game.popAt",
+          "kind": "method",
+          "startLine": 103,
+          "endLine": 105,
+          "tokens": 41
+        },
+        {
+          "name": "Game.create",
+          "kind": "method",
+          "startLine": 107,
+          "endLine": 154,
+          "tokens": 456
+        },
+        {
+          "name": "Game.toTitle",
+          "kind": "method",
+          "startLine": 158,
+          "endLine": 169,
+          "tokens": 103
+        },
+        {
+          "name": "Game.startRun",
+          "kind": "method",
+          "startLine": 171,
+          "endLine": 190,
+          "tokens": 211
+        },
+        {
+          "name": "Game.pause",
+          "kind": "method",
+          "startLine": 192,
+          "endLine": 196,
+          "tokens": 29
+        },
+        {
+          "name": "Game.resume",
+          "kind": "method",
+          "startLine": 198,
+          "endLine": 202,
+          "tokens": 29
+        },
+        {
+          "name": "Game.gameOver",
+          "kind": "method",
+          "startLine": 204,
+          "endLine": 239,
+          "tokens": 452
+        },
+        {
+          "name": "Game.measurePond",
+          "kind": "method",
+          "startLine": 243,
+          "endLine": 247,
+          "tokens": 73
+        },
+        {
+          "name": "Game.onResize",
+          "kind": "method",
+          "startLine": 249,
+          "endLine": 256,
+          "tokens": 77
+        },
+        {
+          "name": "Game.onTheme",
+          "kind": "method",
+          "startLine": 258,
+          "endLine": 268,
+          "tokens": 112
+        },
+        {
+          "name": "Game.killParticles",
+          "kind": "method",
+          "startLine": 270,
+          "endLine": 273,
+          "tokens": 54
+        },
+        {
+          "name": "Game.buildScenery",
+          "kind": "method",
+          "startLine": 276,
+          "endLine": 316,
+          "tokens": 674
+        },
+        {
+          "name": "Game.destroyScenery",
+          "kind": "method",
+          "startLine": 318,
+          "endLine": 324,
+          "tokens": 56
+        },
+        {
+          "name": "Game.destroyBoat",
+          "kind": "method",
+          "startLine": 326,
+          "endLine": 326,
+          "tokens": 45
+        },
+        {
+          "name": "Game.destroyDock",
+          "kind": "method",
+          "startLine": 327,
+          "endLine": 327,
+          "tokens": 41
+        },
+        {
+          "name": "Game.clearWorldViews",
+          "kind": "method",
+          "startLine": 329,
+          "endLine": 340,
+          "tokens": 212
+        },
+        {
+          "name": "Game.createEmitters",
+          "kind": "method",
+          "startLine": 342,
+          "endLine": 374,
+          "tokens": 580
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Mode = 'title' | 'play' | 'paused' | 'over';\ntype Img = Phaser.GameObjects.Image;\ntype Squash = { x: number; y: number };\ninterface BoatView { shadow: Img; glow: Img; body: Img; born: number; sq: Squash; pushed: boolean; sparkT: number }\ninterface PickupView { img: Img; born: number }\ninterface DockView { shadow: Img; fill: Img; glow: Img; ring: Img; born: number; pulse: number }\ninterface RockView { img: Img; born: number }\ninterface PadView { pad: Img; flower: Img | null }\ninterface Reed { img: Img; i: number; base: number }\ninterface Shimmer { img: Img; x: number; y: number; i: number }\nexport class Game extends Phaser.Scene {\n  constructor() { super('game'); }\n  private fitWorldCamera() {\n  private popAt(x: number, y: number, text: string, color: string, big = false) {\n  create() {\n  private toTitle(keepWorld = false) {\n  startRun() {\n  pause() {\n  resume() {\n  private gameOver(score: number) {\n  private measurePond(): Rect {\n  private onResize() {\n  private onTheme() {\n  private killParticles() {\n  private buildScenery() {\n  private destroyScenery() {\n  private destroyBoat(v: BoatView) { this.tweens.killTweensOf(v); this.tweens.killTweensOf(v.sq); v.shadow.destroy(); v.glow.destroy(); v.body.destroy(); }\n  private destroyDock(v: DockView) { this.tweens.killTweensOf(v); v.shadow.destroy(); v.fill.destroy(); v.glow.destroy(); v.ring.destroy(); }",
+      "imports": [
+        "src/core/view.ts",
+        "src/core/tex.ts",
+        "src/core/sfx.ts",
+        "src/core/haptics.ts",
+        "src/core/settings.ts",
+        "src/core/music.ts",
+        "src/core/meta.ts",
+        "src/core/rng.ts",
+        "src/games/ripple/game/sim.ts",
+        "src/games/ripple/game/meta.ts",
+        "src/games/ripple/game/song.ts",
+        "src/games/ripple/game/palette.ts",
+        "src/games/ripple/game/audio.ts",
+        "src/games/ripple/game/layout.ts",
+        "src/games/ripple/ui.ts"
+      ],
+      "importance": 0.1094
+    },
+    "src/games/ripple/style.css": {
+      "description": "Styles: 109 rules, 66 vars, 2 media queries",
+      "tokens": 4435,
+      "hash": "44edbf2d726d248a",
+      "size": 15522,
+      "mtimeMs": 1792724033877.6902,
+      "updatedAt": "2026-10-23T09:12:52.304Z",
+      "source": "scan",
+      "importance": 0.1094
+    },
+    "src/games/ripple/ui.ts": {
+      "description": "The equipped boat style changed (bought or picked).",
+      "tokens": 2760,
+      "hash": "49679e8f16e8b5e0",
+      "size": 9661,
+      "mtimeMs": 1792723683726.7937,
+      "updatedAt": "2026-10-23T09:12:52.305Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "$",
+          "kind": "fn",
+          "startLine": 12,
+          "endLine": 12,
+          "tokens": 28
+        },
+        {
+          "name": "ScreenName",
+          "kind": "section",
+          "startLine": 14,
+          "endLine": 14,
+          "tokens": 17
+        },
+        {
+          "name": "UIHandlers",
+          "kind": "section",
+          "startLine": 16,
+          "endLine": 24,
+          "tokens": 59
+        },
+        {
+          "name": "OverInfo",
+          "kind": "section",
+          "startLine": 26,
+          "endLine": 29,
+          "tokens": 64
+        },
+        {
+          "name": "restartAnim",
+          "kind": "fn",
+          "startLine": 50,
+          "endLine": 54,
+          "tokens": 38
+        },
+        {
+          "name": "on",
+          "kind": "fn",
+          "startLine": 56,
+          "endLine": 58,
+          "tokens": 32
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;\nexport type ScreenName = 'title' | 'pause' | 'over' | null;\nexport interface UIHandlers {\nexport interface OverInfo {\nfunction restartAnim(el: HTMLElement, cls: string) {\nfunction on(id: string, fn: () => void) {",
+      "imports": [
+        "src/core/settings.ts",
+        "src/core/icons.ts",
+        "src/core/meta.ts",
+        "src/core/metaui.ts",
+        "src/games/ripple/game/audio.ts",
+        "src/games/ripple/game/meta.ts",
+        "src/games/ripple/game/skins.ts"
+      ],
+      "importance": 0.1077
+    },
+    "src/games/skip/game/art.ts": {
+      "description": "Parallax strips are wide, so they use a lower resolution to stay under 4096 px.",
+      "tokens": 5172,
+      "hash": "29ee9bf253a84b47",
+      "size": 18099,
+      "mtimeMs": 1792723580901.1133,
+      "updatedAt": "2026-10-23T09:12:52.305Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Draw",
+          "kind": "section",
+          "startLine": 10,
+          "endLine": 10,
+          "tokens": 15
+        },
+        {
+          "name": "StripKey",
+          "kind": "section",
+          "startLine": 24,
+          "endLine": 24,
+          "tokens": 13
+        },
+        {
+          "name": "repaint",
+          "kind": "fn",
+          "startLine": 35,
+          "endLine": 45,
+          "tokens": 98
+        },
+        {
+          "name": "single",
+          "kind": "fn",
+          "startLine": 47,
+          "endLine": 50,
+          "tokens": 58
+        },
+        {
+          "name": "sheet",
+          "kind": "fn",
+          "startLine": 52,
+          "endLine": 73,
+          "tokens": 206
+        },
+        {
+          "name": "strip",
+          "kind": "fn",
+          "startLine": 75,
+          "endLine": 79,
+          "tokens": 68
+        },
+        {
+          "name": "ell",
+          "kind": "fn",
+          "startLine": 83,
+          "endLine": 86,
+          "tokens": 55
+        },
+        {
+          "name": "rrect",
+          "kind": "fn",
+          "startLine": 87,
+          "endLine": 91,
+          "tokens": 58
+        },
+        {
+          "name": "ink",
+          "kind": "fn",
+          "startLine": 93,
+          "endLine": 101,
+          "tokens": 65
+        },
+        {
+          "name": "hash",
+          "kind": "fn",
+          "startLine": 102,
+          "endLine": 102,
+          "tokens": 31
+        },
+        {
+          "name": "mod",
+          "kind": "fn",
+          "startLine": 103,
+          "endLine": 103,
+          "tokens": 16
+        },
+        {
+          "name": "pnoise",
+          "kind": "fn",
+          "startLine": 105,
+          "endLine": 110,
+          "tokens": 72
+        },
+        {
+          "name": "rgba",
+          "kind": "fn",
+          "startLine": 111,
+          "endLine": 111,
+          "tokens": 27
+        },
+        {
+          "name": "hills",
+          "kind": "fn",
+          "startLine": 113,
+          "endLine": 140,
+          "tokens": 300
+        },
+        {
+          "name": "trees",
+          "kind": "fn",
+          "startLine": 142,
+          "endLine": 177,
+          "tokens": 405
+        },
+        {
+          "name": "clouds",
+          "kind": "fn",
+          "startLine": 179,
+          "endLine": 211,
+          "tokens": 340
+        },
+        {
+          "name": "drawStone",
+          "kind": "fn",
+          "startLine": 214,
+          "endLine": 261,
+          "tokens": 465
+        },
+        {
+          "name": "paintAll",
+          "kind": "fn",
+          "startLine": 265,
+          "endLine": 488,
+          "tokens": 2414
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Draw = (ctx: CanvasRenderingContext2D) => void;\nexport type StripKey = keyof typeof STRIPS;\nfunction repaint(scene: Phaser.Scene, key: string, res: number, draw: Draw) {\nfunction single(scene: Phaser.Scene, key: string, w: number, h: number, draw: Draw) {\nfunction sheet(scene: Phaser.Scene, key: string, fw: number, fh: number, frames: number, draw: (ctx: CanvasRenderingContext2D, f: number) => void) {\nfunction strip(scene: Phaser.Scene, key: StripKey, draw: Draw) {\nfunction ell(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number) {\nfunction rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {\nfunction ink(ctx: CanvasRenderingContext2D, fill: string, lw = LW) {\nfunction hash(n: number) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }\nconst mod = (a: number, n: number) => ((a % n) + n) % n;\nfunction pnoise(x: number, period: number, seed: number) {\nconst rgba = (n: number, a: number) => `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`;\nfunction hills(ctx: CanvasRenderingContext2D, key: 'hillFar' | 'hillMid', base: number, amp: number, n: number, seed: number, color: string, outlineAlpha: number) {\nfunction trees(ctx: CanvasRenderingContext2D) {\nfunction clouds(ctx: CanvasRenderingContext2D) {\nfunction drawStone(ctx: CanvasRenderingContext2D, look: StoneLook, f: number) {",
+      "imports": [
+        "src/core/tex.ts",
+        "src/games/skip/game/palette.ts",
+        "src/games/skip/game/progress.ts"
+      ],
+      "importance": 0.2052
+    },
+    "src/games/skip/game/audio.ts": {
+      "description": "Pitch climbs with the Perfect streak and holds at the top note instead of wrapping.",
+      "tokens": 865,
+      "hash": "321f41097485fb60",
+      "size": 3025,
+      "mtimeMs": 1792721004285.8582,
+      "updatedAt": "2026-10-23T09:12:52.305Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "note",
+          "kind": "fn",
+          "startLine": 7,
+          "endLine": 7,
+          "tokens": 26
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/sfx.ts"
+      ],
+      "importance": 0.1084
+    },
+    "src/games/skip/game/palette.ts": {
+      "description": "CSS colour strings, for canvas drawing.",
+      "tokens": 618,
+      "hash": "ef19ba63271c5ecf",
+      "size": 2162,
+      "mtimeMs": 1792719518571.1733,
+      "updatedAt": "2026-10-23T09:12:52.305Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "PKey",
+          "kind": "section",
+          "startLine": 9,
+          "endLine": 9,
+          "tokens": 12
+        },
+        {
+          "name": "parse",
+          "kind": "fn",
+          "startLine": 18,
+          "endLine": 30,
+          "tokens": 120
+        },
+        {
+          "name": "readPalette",
+          "kind": "fn",
+          "startLine": 32,
+          "endLine": 39,
+          "tokens": 66
+        },
+        {
+          "name": "isDark",
+          "kind": "fn",
+          "startLine": 41,
+          "endLine": 42,
+          "tokens": 55
+        },
+        {
+          "name": "onTheme",
+          "kind": "fn",
+          "startLine": 45,
+          "endLine": 49,
+          "tokens": 92
+        }
+      ],
+      "symbolSource": "ts",
+      "importance": 0.1789
+    },
+    "src/games/skip/game/progress.ts": {
+      "description": "Coins for one throw: distance/25 + Perfects/3 + 3 per hoop. A decent throw pays ~15–40.",
+      "tokens": 943,
+      "hash": "920f900d8ddbb269",
+      "size": 3302,
+      "mtimeMs": 1792723944613.9346,
+      "updatedAt": "2026-10-23T09:12:52.306Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "coinsForRun",
+          "kind": "fn",
+          "startLine": 9,
+          "endLine": 14,
+          "tokens": 87
+        },
+        {
+          "name": "RunStats",
+          "kind": "section",
+          "startLine": 17,
+          "endLine": 20,
+          "tokens": 56
+        },
+        {
+          "name": "StoneLook",
+          "kind": "section",
+          "startLine": 45,
+          "endLine": 45,
+          "tokens": 36
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/meta.ts"
+      ],
+      "importance": 0.2281
+    },
+    "src/games/skip/game/sim.ts": {
+      "description": "The timing ring appears this long before the stone reaches the water.",
+      "tokens": 5109,
+      "hash": "667fc47ac8d6211a",
+      "size": 17881,
+      "mtimeMs": 1792723557654.4314,
+      "updatedAt": "2026-10-23T09:12:52.306Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Grade",
+          "kind": "section",
+          "startLine": 30,
+          "endLine": 30,
+          "tokens": 14
+        },
+        {
+          "name": "StoneDef",
+          "kind": "section",
+          "startLine": 33,
+          "endLine": 52,
+          "tokens": 165
+        },
+        {
+          "name": "SimState",
+          "kind": "section",
+          "startLine": 65,
+          "endLine": 65,
+          "tokens": 18
+        },
+        {
+          "name": "Obj",
+          "kind": "section",
+          "startLine": 67,
+          "endLine": 81,
+          "tokens": 105
+        },
+        {
+          "name": "SimEvent",
+          "kind": "section",
+          "startLine": 83,
+          "endLine": 99,
+          "tokens": 197
+        },
+        {
+          "name": "Velocity",
+          "kind": "section",
+          "startLine": 101,
+          "endLine": 101,
+          "tokens": 20
+        },
+        {
+          "name": "mulberry32",
+          "kind": "fn",
+          "startLine": 104,
+          "endLine": 113,
+          "tokens": 79
+        },
+        {
+          "name": "clamp",
+          "kind": "fn",
+          "startLine": 115,
+          "endLine": 115,
+          "tokens": 23
+        },
+        {
+          "name": "aimVelocity",
+          "kind": "fn",
+          "startLine": 118,
+          "endLine": 124,
+          "tokens": 88
+        },
+        {
+          "name": "previewThrow",
+          "kind": "fn",
+          "startLine": 127,
+          "endLine": 138,
+          "tokens": 124
+        },
+        {
+          "name": "LateWindow",
+          "kind": "section",
+          "startLine": 140,
+          "endLine": 140,
+          "tokens": 28
+        },
+        {
+          "name": "Sim",
+          "kind": "class",
+          "startLine": 142,
+          "endLine": 477,
+          "tokens": 3442
+        },
+        {
+          "name": "Sim.constructor",
+          "kind": "method",
+          "startLine": 173,
+          "endLine": 175,
+          "tokens": 27
+        },
+        {
+          "name": "Sim.reset",
+          "kind": "method",
+          "startLine": 177,
+          "endLine": 189,
+          "tokens": 195
+        },
+        {
+          "name": "Sim.drain",
+          "kind": "method",
+          "startLine": 192,
+          "endLine": 196,
+          "tokens": 26
+        },
+        {
+          "name": "Sim.emit",
+          "kind": "method",
+          "startLine": 197,
+          "endLine": 197,
+          "tokens": 15
+        },
+        {
+          "name": "Sim.r",
+          "kind": "method",
+          "startLine": 198,
+          "endLine": 198,
+          "tokens": 21
+        },
+        {
+          "name": "Sim.fever",
+          "kind": "method",
+          "startLine": 200,
+          "endLine": 200,
+          "tokens": 21
+        },
+        {
+          "name": "Sim.metres",
+          "kind": "method",
+          "startLine": 202,
+          "endLine": 202,
+          "tokens": 20
+        },
+        {
+          "name": "Sim.throwStone",
+          "kind": "method",
+          "startLine": 204,
+          "endLine": 209,
+          "tokens": 74
+        },
+        {
+          "name": "Sim.timeToWater",
+          "kind": "method",
+          "startLine": 212,
+          "endLine": 216,
+          "tokens": 45
+        },
+        {
+          "name": "Sim.tap",
+          "kind": "method",
+          "startLine": 219,
+          "endLine": 237,
+          "tokens": 182
+        },
+        {
+          "name": "Sim.step",
+          "kind": "method",
+          "startLine": 239,
+          "endLine": 281,
+          "tokens": 406
+        },
+        {
+          "name": "Sim.spawnGlass",
+          "kind": "method",
+          "startLine": 283,
+          "endLine": 289,
+          "tokens": 86
+        },
+        {
+          "name": "Sim.add",
+          "kind": "method",
+          "startLine": 291,
+          "endLine": 298,
+          "tokens": 83
+        },
+        {
+          "name": "Sim.spawnAhead",
+          "kind": "method",
+          "startLine": 300,
+          "endLine": 318,
+          "tokens": 311
+        },
+        {
+          "name": "Sim.updateObjs",
+          "kind": "method",
+          "startLine": 320,
+          "endLine": 332,
+          "tokens": 146
+        },
+        {
+          "name": "Sim.surfaceAt",
+          "kind": "method",
+          "startLine": 334,
+          "endLine": 340,
+          "tokens": 64
+        },
+        {
+          "name": "Sim.collide",
+          "kind": "method",
+          "startLine": 342,
+          "endLine": 369,
+          "tokens": 298
+        },
+        {
+          "name": "Sim.clearTiming",
+          "kind": "method",
+          "startLine": 371,
+          "endLine": 371,
+          "tokens": 26
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "export type Grade = 'perfect' | 'good' | 'miss';\nexport interface StoneDef {\nexport type SimState = 'ready' | 'flying' | 'sinking' | 'over';\nexport interface Obj {\nexport type SimEvent =\nexport interface Velocity { vx: number; vy: number; power: number }\nexport function mulberry32(seed: number) {\nconst clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));\nexport function aimVelocity(dx: number, dy: number): Velocity {\nexport function previewThrow(v: Velocity, out: { x: number; y: number }[]) {\ninterface LateWindow { t: number; vxIn: number; vyIn: number; a: number; streakBefore: number }\nexport class Sim {\n  constructor(seed = (Math.random() * 2 ** 32) >>> 0) {\n  reset(seed = (Math.random() * 2 ** 32) >>> 0) {\n  drain(): SimEvent[] {\n  private emit(e: SimEvent) { this.events.push(e); }\n  private r(a: number, b: number) { return a + this.rand() * (b - a); }\n  get fever() { return this.state === 'flying' && this.streak >= FEVER; }\n  get metres() { return Math.floor(Math.max(0, this.x / PX_PER_M)); }\n  throwStone(v: Velocity) {\n  timeToWater() {\n  tap() {\n  step(dt: number) {\n  private spawnGlass(x: number, high: boolean) {\n  private add(p: Partial<Obj> & { type: Obj['type']; x: number }) {\n  private spawnAhead() {\n  private updateObjs(dt: number) {\n  surfaceAt(x: number) {\n  private collide() {",
+      "importance": 0.1516
+    },
+    "src/games/skip/game/song.ts": {
+      "description": "\"Skip Song\": breezy C major, 112 bpm, I–V–vi–IV. A plucky triangle arp like a ukulele,",
+      "tokens": 373,
+      "hash": "5f09005ccdeef7a7",
+      "size": 1313,
+      "mtimeMs": 1792721004262.517,
+      "updatedAt": "2026-10-23T09:12:52.306Z",
+      "source": "scan",
+      "imports": [
+        "src/core/music.ts"
+      ],
+      "importance": 0.1084
+    },
+    "src/games/skip/main.ts": {
+      "description": "Block page gestures the game doesn't want: pinch zoom, double-tap zoom, long-press menus.",
+      "tokens": 405,
+      "hash": "507a6cec61036152",
+      "size": 1415,
+      "mtimeMs": 1792722044965.278,
+      "updatedAt": "2026-10-23T09:12:52.307Z",
+      "source": "scan",
+      "imports": [
+        "src/core/kit.css",
+        "src/games/skip/style.css",
+        "src/core/view.ts",
+        "src/games/skip/game/palette.ts",
+        "src/games/skip/scenes/Boot.ts",
+        "src/games/skip/scenes/Game.ts",
+        "src/core/pwa.ts"
+      ],
+      "importance": 0.1015
+    },
+    "src/games/skip/scenes/Boot.ts": {
+      "description": "Paints every texture from the current palette, then hands over to the game.",
+      "tokens": 86,
+      "hash": "ffb449d5ba4e0e9b",
+      "size": 298,
+      "mtimeMs": 1792719014335.8123,
+      "updatedAt": "2026-10-23T09:12:52.307Z",
+      "source": "scan",
+      "imports": [
+        "src/games/skip/game/art.ts"
+      ],
+      "importance": 0.1138
+    },
+    "src/games/skip/scenes/Game.ts": {
+      "description": "The stone is drawn a little larger than its physics size so its face reads on a phone.",
+      "tokens": 12471,
+      "hash": "0f21050fe447e6bd",
+      "size": 43658,
+      "mtimeMs": 1792723685964.6323,
+      "updatedAt": "2026-10-23T09:12:52.307Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "Mode",
+          "kind": "section",
+          "startLine": 17,
+          "endLine": 17,
+          "tokens": 21
+        },
+        {
+          "name": "View",
+          "kind": "section",
+          "startLine": 19,
+          "endLine": 19,
+          "tokens": 36
+        },
+        {
+          "name": "Ripple",
+          "kind": "section",
+          "startLine": 20,
+          "endLine": 20,
+          "tokens": 24
+        },
+        {
+          "name": "Game",
+          "kind": "class",
+          "startLine": 43,
+          "endLine": 976,
+          "tokens": 11764
+        },
+        {
+          "name": "Game.constructor",
+          "kind": "method",
+          "startLine": 107,
+          "endLine": 107,
+          "tokens": 10
+        },
+        {
+          "name": "Game.create",
+          "kind": "method",
+          "startLine": 109,
+          "endLine": 207,
+          "tokens": 1710
+        },
+        {
+          "name": "Game.layout",
+          "kind": "method",
+          "startLine": 211,
+          "endLine": 248,
+          "tokens": 615
+        },
+        {
+          "name": "Game.topY",
+          "kind": "method",
+          "startLine": 253,
+          "endLine": 253,
+          "tokens": 19
+        },
+        {
+          "name": "Game.anchor",
+          "kind": "method",
+          "startLine": 255,
+          "endLine": 255,
+          "tokens": 22
+        },
+        {
+          "name": "Game.snapCamera",
+          "kind": "method",
+          "startLine": 256,
+          "endLine": 256,
+          "tokens": 19
+        },
+        {
+          "name": "Game.seed",
+          "kind": "method",
+          "startLine": 261,
+          "endLine": 261,
+          "tokens": 33
+        },
+        {
+          "name": "Game.applyStone",
+          "kind": "method",
+          "startLine": 264,
+          "endLine": 269,
+          "tokens": 53
+        },
+        {
+          "name": "Game.refreshTitle",
+          "kind": "method",
+          "startLine": 271,
+          "endLine": 275,
+          "tokens": 87
+        },
+        {
+          "name": "Game.shownBest",
+          "kind": "method",
+          "startLine": 277,
+          "endLine": 277,
+          "tokens": 30
+        },
+        {
+          "name": "Game.pickStone",
+          "kind": "method",
+          "startLine": 279,
+          "endLine": 287,
+          "tokens": 61
+        },
+        {
+          "name": "Game.buyStone",
+          "kind": "method",
+          "startLine": 289,
+          "endLine": 298,
+          "tokens": 96
+        },
+        {
+          "name": "Game.setFlag",
+          "kind": "method",
+          "startLine": 300,
+          "endLine": 304,
+          "tokens": 53
+        },
+        {
+          "name": "Game.toTitle",
+          "kind": "method",
+          "startLine": 306,
+          "endLine": 321,
+          "tokens": 110
+        },
+        {
+          "name": "Game.toReady",
+          "kind": "method",
+          "startLine": 323,
+          "endLine": 333,
+          "tokens": 108
+        },
+        {
+          "name": "Game.newThrow",
+          "kind": "method",
+          "startLine": 335,
+          "endLine": 345,
+          "tokens": 71
+        },
+        {
+          "name": "Game.resetRun",
+          "kind": "method",
+          "startLine": 348,
+          "endLine": 355,
+          "tokens": 51
+        },
+        {
+          "name": "Game.tweenTint",
+          "kind": "method",
+          "startLine": 357,
+          "endLine": 360,
+          "tokens": 58
+        },
+        {
+          "name": "Game.setFever",
+          "kind": "method",
+          "startLine": 362,
+          "endLine": 372,
+          "tokens": 85
+        },
+        {
+          "name": "Game.checkProgress",
+          "kind": "method",
+          "startLine": 375,
+          "endLine": 393,
+          "tokens": 206
+        },
+        {
+          "name": "Game.clearFx",
+          "kind": "method",
+          "startLine": 395,
+          "endLine": 402,
+          "tokens": 83
+        },
+        {
+          "name": "Game.pause",
+          "kind": "method",
+          "startLine": 404,
+          "endLine": 410,
+          "tokens": 84
+        },
+        {
+          "name": "Game.resume",
+          "kind": "method",
+          "startLine": 412,
+          "endLine": 417,
+          "tokens": 37
+        },
+        {
+          "name": "Game.gameOver",
+          "kind": "method",
+          "startLine": 419,
+          "endLine": 453,
+          "tokens": 479
+        },
+        {
+          "name": "Game.logical",
+          "kind": "method",
+          "startLine": 457,
+          "endLine": 460,
+          "tokens": 37
+        },
+        {
+          "name": "Game.setupInput",
+          "kind": "method",
+          "startLine": 462,
+          "endLine": 498,
+          "tokens": 458
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "type Mode = 'title' | 'ready' | 'aiming' | 'flying' | 'sinking' | 'over';\ninterface View { img: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite; glow?: Phaser.GameObjects.Image; base: number }\ninterface Ripple { x: number; age: number; life: number; speed: number; k: number }\nexport class Game extends Phaser.Scene {\n  constructor() { super('Game'); }\n  create() {\n  private layout() {\n  private get topY() { return Math.max(112, this.waterY * 0.42); }\n  private get anchor() { return Phaser.Math.Clamp(this.W * 0.22, 70, 160); }\n  private snapCamera() { this.camX = this.sim.x - this.anchor; }\n  private seed() { return this.playMode === 'daily' ? daily.info(GAME_ID).seed : (Math.random() * 2 ** 32) >>> 0; }\n  private applyStone() {\n  private refreshTitle() {\n  private get shownBest() { return this.playMode === 'daily' ? daily.info(GAME_ID).best : this.best; }\n  private pickStone(id: string) {\n  private buyStone(id: string) {\n  private setFlag() {\n  private toTitle() {\n  private toReady() {\n  private newThrow() {\n  private resetRun() {\n  private tweenTint(mist: number, night: number, duration: number) {\n  private setFever(on: boolean) {\n  private checkProgress() {\n  private clearFx() {\n  private pause() {\n  private resume() {\n  private gameOver() {\n  private logical(p: Phaser.Input.Pointer) {\n  private setupInput() {",
+      "imports": [
+        "src/core/view.ts",
+        "src/core/tex.ts",
+        "src/core/sfx.ts",
+        "src/core/haptics.ts",
+        "src/core/settings.ts",
+        "src/games/skip/game/sim.ts",
+        "src/core/meta.ts",
+        "src/games/skip/game/progress.ts",
+        "src/games/skip/game/art.ts",
+        "src/games/skip/game/palette.ts",
+        "src/games/skip/game/audio.ts",
+        "src/core/music.ts",
+        "src/games/skip/game/song.ts",
+        "src/games/skip/ui.ts"
+      ],
+      "importance": 0.1138
+    },
+    "src/games/skip/style.css": {
+      "description": "Styles: 80 rules, 103 vars, 1 media queries, 5 animations",
+      "tokens": 4617,
+      "hash": "b37243194c594db6",
+      "size": 16159,
+      "mtimeMs": 1792723786393.4631,
+      "updatedAt": "2026-10-23T09:12:52.308Z",
+      "source": "scan",
+      "importance": 0.1138
+    },
+    "src/games/skip/tools/bot.mjs": {
+      "description": "Headless playtest: `npm run bot` (or `node src/tools/bot.mjs 300`). Needs Node 22.18+, which",
+      "tokens": 1683,
+      "hash": "e0252311cbf92616",
+      "size": 6311,
+      "mtimeMs": 1792723505468.9023,
+      "updatedAt": "2026-10-23T09:12:52.308Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "bestThrow",
+          "kind": "fn",
+          "startLine": 14,
+          "endLine": 26,
+          "tokens": 141
+        },
+        {
+          "name": "play",
+          "kind": "fn",
+          "startLine": 29,
+          "endLine": 73,
+          "tokens": 561
+        },
+        {
+          "name": "pct",
+          "kind": "fn",
+          "startLine": 106,
+          "endLine": 106,
+          "tokens": 25
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/games/skip/game/sim.ts",
+        "src/games/skip/game/progress.ts"
+      ],
+      "importance": 0.1015
+    },
+    "src/games/skip/ui.ts": {
+      "description": "Distance in metres for 1, 2 and 3 stars. From the bot: never tapping scores ~74 m (p90 106),",
+      "tokens": 3541,
+      "hash": "350e703bf077b228",
+      "size": 12401,
+      "mtimeMs": 1792723646341.8018,
+      "updatedAt": "2026-10-23T09:12:52.308Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "$",
+          "kind": "fn",
+          "startLine": 14,
+          "endLine": 14,
+          "tokens": 28
+        },
+        {
+          "name": "stoneSvg",
+          "kind": "fn",
+          "startLine": 21,
+          "endLine": 32,
+          "tokens": 391
+        },
+        {
+          "name": "UiHandlers",
+          "kind": "section",
+          "startLine": 56,
+          "endLine": 64,
+          "tokens": 114
+        },
+        {
+          "name": "OverStats",
+          "kind": "section",
+          "startLine": 66,
+          "endLine": 69,
+          "tokens": 75
+        },
+        {
+          "name": "PickerState",
+          "kind": "section",
+          "startLine": 70,
+          "endLine": 70,
+          "tokens": 34
+        },
+        {
+          "name": "bump",
+          "kind": "fn",
+          "startLine": 74,
+          "endLine": 74,
+          "tokens": 32
+        }
+      ],
+      "symbolSource": "ts",
+      "skeleton": "const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;\nexport function stoneSvg(id: string, face: 'eyes' | 'squint' = 'eyes') {\nexport interface UiHandlers {\nexport interface OverStats {\nexport interface PickerState { equipped: string; selected: string; owned: (id: string) => boolean; balance: number }\nconst bump = (e: HTMLElement) => { e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); };",
+      "imports": [
+        "src/core/settings.ts",
+        "src/core/icons.ts",
+        "src/core/metaui.ts",
+        "src/core/meta.ts",
+        "src/games/skip/game/progress.ts"
+      ],
+      "importance": 0.1084
+    },
+    "src/hub/404.ts": {
+      "description": "",
+      "tokens": 63,
+      "hash": "372b87781d4db376",
+      "size": 219,
+      "mtimeMs": 1792720490239.3584,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "imports": [
+        "src/core/kit.css",
+        "src/hub/hub.css",
+        "src/core/icons.ts"
+      ],
+      "importance": 0.1015
+    },
+    "src/hub/hub.css": {
+      "description": "Styles: 40 rules, 2 vars, 1 media queries, 1 animations",
+      "tokens": 1420,
+      "hash": "70fe7411119623c0",
+      "size": 4970,
+      "mtimeMs": 1792723651889.5454,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "importance": 0.1446
+    },
+    "src/hub/main.ts": {
+      "description": "Declares el",
+      "tokens": 615,
+      "hash": "27011af95aff621b",
+      "size": 2151,
+      "mtimeMs": 1792723651883.91,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "symbols": [
+        {
+          "name": "InstallEvent",
+          "kind": "section",
+          "startLine": 31,
+          "endLine": 31,
+          "tokens": 16
+        }
+      ],
+      "symbolSource": "ts",
+      "imports": [
+        "src/core/kit.css",
+        "src/hub/hub.css",
+        "src/core/icons.ts",
+        "src/core/meta.ts",
+        "src/core/metaui.ts",
+        "src/core/pwa.ts"
+      ],
+      "importance": 0.1015
+    },
+    "tsconfig.json": {
+      "description": "TypeScript configuration",
+      "tokens": 135,
+      "hash": "1b7b1875063c12ee",
+      "size": 472,
+      "mtimeMs": 1792718318255.2937,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "vercel.json": {
+      "description": "",
+      "tokens": 165,
+      "hash": "6f19394725e2a431",
+      "size": 577,
+      "mtimeMs": 1792720490231.6453,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "importance": 0.1015
+    },
+    "vite.config.ts": {
+      "description": "Vite build configuration",
+      "tokens": 494,
+      "hash": "8b7072c8b139cab2",
+      "size": 1729,
+      "mtimeMs": 1792722044963.841,
+      "updatedAt": "2026-10-23T09:12:52.309Z",
+      "source": "scan",
+      "importance": 0.1015
+    }
+  },
+  "preamble": [
+    "> Project structure index. Auto-maintained by OpenWolf hooks and daemon.",
+    "> Run `openwolf scan` to generate, or wait for the first Claude Code session.",
+    "> Status: Pending initial scan"
+  ]
+}
