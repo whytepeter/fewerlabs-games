@@ -284,3 +284,66 @@
 .k-update-close svg { width: 16px; height: 16px; }
 .k-update.busy { opacity: .7; pointer-events: none; }
 @keyframes k-update-in { from { opacity: 0; transform: translateY(-16px) scale(.9); } }
+
+/* ---------- Arcade meta (core/metaui.ts): coins, missions, earned summary, daily */
+.k-coins {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 2px 14px 2px 4px; border-radius: 999px;
+  background: rgba(22, 35, 59, .72); border: 3px solid var(--k-outline);
+  box-shadow: 0 4px 0 rgba(22, 35, 59, .6);
+  color: #fff; font-family: var(--k-font); font-weight: 700; font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.k-coins b { text-shadow: var(--k-text-outline); }
+.k-coin { width: 28px; height: 28px; flex: none; }
+.k-coin circle { fill: #ffc43d; stroke: var(--k-outline); stroke-width: 2.4; }
+.k-coin-mark { fill: none; stroke: #b36b00; stroke-width: 1.8; stroke-linecap: round; }
+.k-streak {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px 3px 6px; border-radius: 999px;
+  background: linear-gradient(180deg, #ffb36b, #ff7a2f); border: 3px solid var(--k-outline);
+  color: #fff; font-weight: 700; font-size: 14px; text-shadow: var(--k-text-outline);
+}
+.k-streak svg { width: 16px; height: 16px; fill: #fff3b8; }
+.k-streak small { font-size: 11px; opacity: .9; }
+
+.k-missions { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; text-align: left; }
+.k-mission {
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: 14px;
+  background: rgba(22, 35, 59, .07); color: var(--k-ink); font-size: 14px; line-height: 1.25;
+}
+.k-mission-check {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  border: 2.5px solid var(--k-outline); background: #fff;
+}
+.k-mission.done .k-mission-check { background: #3ad06b; animation: k-pop .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+.k-mission-check svg { width: 14px; height: 14px; fill: #fff; }
+.k-mission-body { display: grid; gap: 3px; min-width: 0; }
+.k-mission-text { font-weight: 600; }
+.k-mission-body small { color: var(--k-ink-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+.k-mission-bar { height: 7px; border-radius: 4px; background: rgba(22, 35, 59, .14); overflow: hidden; }
+.k-mission-bar i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #33dcb8, #3aa8ff); border-radius: 4px; transition: transform .6s ease; }
+.k-mission.done .k-mission-bar i { background: #3ad06b; }
+.k-mission.moved .k-mission-bar i { background: linear-gradient(90deg, #ffc43d, #ff9f43); }
+.k-mission-reward { display: inline-flex; align-items: center; gap: 3px; font-weight: 700; font-size: 14px; color: var(--k-ink); }
+.k-mission-reward .k-coin { width: 18px; height: 18px; }
+.k-mission.done .k-mission-reward { color: #1e8f45; }
+
+.k-earned { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 8px; }
+.k-earned-total {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: 22px; color: var(--k-ink);
+  animation: k-pop .5s cubic-bezier(.2, 1.6, .4, 1) .3s both;
+}
+.k-earned-total .k-coin { width: 26px; height: 26px; }
+.k-earned-parts { font-size: 12px; color: var(--k-ink-soft); }
+
+/* Daily challenge switch: <div class="k-mode"><button aria-pressed>Classic</button><button>Daily</button></div> */
+.k-mode { display: inline-flex; padding: 3px; gap: 3px; border-radius: 999px; background: rgba(22, 35, 59, .72); border: 3px solid var(--k-outline); }
+.k-mode button {
+  appearance: none; border: 0; cursor: pointer; font: inherit; font-family: var(--k-font); font-weight: 700; font-size: 14px;
+  min-height: 34px; padding: 0 14px; border-radius: 999px; background: transparent; color: rgba(255, 255, 255, .75);
+}
+.k-mode button[aria-pressed="true"] { background: linear-gradient(180deg, #ffe58f, #ffc43d); color: var(--k-outline); box-shadow: inset 0 -3px 0 #d18a00; }
+.k-mode button .k-done { margin-left: 4px; font-size: 11px; opacity: .8; }

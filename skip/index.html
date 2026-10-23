@@ -22,7 +22,10 @@
 
   <div id="ui">
     <header id="hud" class="hud k-scale" hidden>
-      <div class="hud-side"><div class="hud-best k-outline">BEST <b id="hudBest">0</b></div></div>
+      <div class="hud-side">
+        <div class="hud-best k-outline"><span id="hudBestLabel">BEST</span> <b id="hudBest">0</b></div>
+        <div class="lucky-pip" id="luckyPip" hidden title="Lucky: one broken streak forgiven"></div>
+      </div>
       <div class="hud-center">
         <div class="k-pill dist-pill"><span class="stone-ico" data-face="eyes"></span><b id="dist">0</b><small>m</small></div>
         <div class="k-pill streak-pill" id="streakPill" hidden><span class="stone-ico" data-face="squint"></span><b>×<span id="streak">0</span></b></div>
@@ -41,13 +44,29 @@
       <div class="title-top k-scale">
         <h1 class="k-logo" id="logo">Skip</h1>
         <p class="title-tag k-outline">Skip a stone across the lake!</p>
+        <div class="title-meta">
+          <div class="k-coins" data-coins></div>
+          <span class="k-streak" data-streak hidden></span>
+          <div class="k-mode" role="group" aria-label="Mode">
+            <button id="modeClassic" aria-pressed="true">Classic</button>
+            <button id="modeDaily" aria-pressed="false">Daily<span class="k-done" id="dailyDone"></span></button>
+          </div>
+        </div>
+        <div class="daily-line k-outline" id="dailyLine" hidden></div>
       </div>
-      <ul class="howto k-scale">
+
+      <div class="title-missions title-info k-scale" id="titleMissionsBox" hidden>
+        <div class="title-missions-head">Missions</div>
+        <ul class="k-missions" id="titleMissions"></ul>
+      </div>
+      <div class="title-bottom k-scale">
+        <ul class="howto" id="howto">
         <li><span class="howto-n">1</span><span><b>Pull back</b> anywhere, let go</span></li>
         <li><span class="howto-n">2</span><span><b>Tap</b> as the ring closes</span></li>
         <li><span class="howto-n">3</span><span>Chain <b>Perfects</b>, fly through <b>hoops</b></span></li>
       </ul>
-      <div class="title-bottom k-scale">
+        <div class="stone-picker" id="stonePicker" role="radiogroup" aria-label="Stone"></div>
+        <div class="stone-caption" id="stoneCaption"></div>
         <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>Throw</button>
         <div class="title-row">
           <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
@@ -82,14 +101,17 @@
           <div class="k-stars" id="overStars"></div>
           <div class="k-big-num"><span id="overDist">0</span><small>m</small></div>
           <div class="over-tag"><span class="k-tag" id="overTag">Best 0 m</span></div>
+          <div class="so-close" id="overClose" hidden></div>
+          <div class="k-earned" id="overEarned" hidden></div>
         </div>
         <div class="over-side">
-          <div class="k-stats">
-            <div class="k-stat"><span>Skips</span><b id="overSkips">0</b></div>
-            <div class="k-stat"><span>Best streak</span><b id="overStreak">0</b></div>
-            <div class="k-stat"><span>Lake glass</span><b id="overGlass">0</b></div>
-            <div class="k-stat"><span>Hoops</span><b id="overHoops">0</b></div>
+          <div class="mini-stats">
+            <div><b id="overSkips">0</b><span>skips</span></div>
+            <div><b id="overStreak">0</b><span>streak</span></div>
+            <div><b id="overGlass">0</b><span>glass</span></div>
+            <div><b id="overHoops">0</b><span>hoops</span></div>
           </div>
+          <ul class="k-missions over-missions" id="overMissions"></ul>
           <div class="over-btns">
             <button class="k-btn k-btn--block" id="againBtn"><i data-icon="restart"></i>Throw again</button>
             <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Home"><i data-icon="home"></i></button>

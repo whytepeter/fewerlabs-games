@@ -149,8 +149,8 @@ a.k-icon-btn { text-decoration: none; }
 .title-screen .k-logo { font-size: clamp(76px, 24vw, 120px); }
 .title-tag { margin-top: 10px; font-size: 20px; letter-spacing: .02em; }
 .howto {
-  list-style: none; margin-top: auto; margin-bottom: 14px;
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: min(440px, 100%);
+  list-style: none; margin: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%;
   animation: k-pop .55s cubic-bezier(.2, 1.4, .4, 1) .08s both;
 }
 .howto li {
@@ -166,12 +166,54 @@ a.k-icon-btn { text-decoration: none; }
   color: var(--k-outline); font-weight: 700; font-size: 13px;
 }
 .title-bottom {
-  display: grid; justify-items: center; gap: 16px; width: min(440px, 100%);
+  margin-top: auto;
+  display: grid; justify-items: center; gap: 12px; width: min(440px, 100%);
   animation: k-pop .55s cubic-bezier(.2, 1.4, .4, 1) .14s both;
 }
 .play-btn { width: 100%; text-transform: uppercase; }
 .title-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .best-pill { min-height: 46px; font-size: 21px; }
+
+/* ---------- Title meta: coins, streak, Classic/Daily, missions, stone picker */
+.title-meta { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.daily-line { margin-top: 6px; font-size: 13px; letter-spacing: .02em; }
+.title-missions {
+  margin-top: 12px; width: min(440px, 100%);
+  padding: 8px 10px 10px; border-radius: 18px;
+  background: rgba(255, 248, 234, .94); border: 3px solid var(--k-outline); box-shadow: 0 4px 0 rgba(22, 35, 59, .55);
+}
+.title-missions-head { font-weight: 700; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--k-ink-soft); margin: 0 0 6px 4px; }
+.title-missions .k-mission { padding: 4px 8px; font-size: 12px; gap: 6px; grid-template-columns: 20px 1fr auto; }
+.title-missions .k-mission-check { width: 20px; height: 20px; }
+.title-missions .k-missions { gap: 4px; }
+.stone-picker { display: flex; justify-content: center; gap: 6px; }
+.stone-pick {
+  appearance: none; cursor: pointer; font: inherit; font-family: var(--k-font);
+  display: grid; justify-items: center; gap: 1px; width: 60px; min-height: 54px; padding: 4px 2px 3px;
+  border-radius: 14px; border: 3px solid var(--k-outline);
+  background: rgba(255, 248, 234, .92); box-shadow: 0 3px 0 rgba(22, 35, 59, .55);
+  color: var(--k-ink); font-weight: 700; font-size: 11px;
+}
+.stone-pick svg { width: 40px; height: 27px; }
+.stone-pick span { display: inline-flex; align-items: center; gap: 2px; }
+.stone-pick .k-coin { width: 12px; height: 12px; }
+.stone-pick.locked svg { filter: grayscale(.45); opacity: .8; }
+.stone-pick.locked { background: rgba(214, 219, 230, .9); }
+.stone-pick.selected { transform: translateY(-3px); }
+.stone-pick.equipped { background: linear-gradient(180deg, #ffe58f, #ffc43d); box-shadow: 0 3px 0 var(--k-outline); }
+.stone-pick.shake { animation: shake .35s ease; }
+.stone-caption { min-height: 30px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #fff; text-shadow: var(--k-text-outline); }
+.stone-caption .buy-btn { min-height: 30px; font-size: 14px; padding: 0 10px 2px; border-radius: 12px; gap: 4px; }
+.stone-caption .buy-btn .k-coin { width: 16px; height: 16px; filter: none; }
+.stone-caption .buy-btn[disabled] { filter: grayscale(.8); opacity: .75; cursor: not-allowed; }
+@keyframes shake { 25% { transform: translateX(-4px) rotate(-4deg); } 75% { transform: translateX(4px) rotate(4deg); } }
+
+/* Lucky pip: a clover that pops and greys out when it saves your streak */
+.lucky-pip { width: 28px; height: 28px; margin-top: 6px; filter: drop-shadow(0 2px 0 rgba(22, 35, 59, .6)); }
+.lucky-pip svg { width: 100%; height: 100%; }
+.lucky-pip.used { filter: grayscale(1) opacity(.55); }
+.lucky-pip.bump { animation: luckyPop .5s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes luckyPop { 0% { transform: scale(1); } 40% { transform: scale(1.7) rotate(25deg); } 100% { transform: none; } }
 
 /* ---------- Pause */
 .panel-pause { width: min(340px, 100%); }
@@ -183,7 +225,14 @@ a.k-icon-btn { text-decoration: none; }
 .panel-over.record { --k-ribbon: #ffb02e; --k-ribbon-lo: #d17a00; }
 .over-main { display: grid; justify-items: center; }
 .over-tag { margin-top: 12px; }
-.over-btns { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+.over-btns { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+.so-close { margin-top: 8px; font-size: 13px; font-weight: 600; color: #e8551e; }
+.mini-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; }
+.mini-stats div { display: grid; padding: 6px 2px; border-radius: 12px; background: rgba(22, 35, 59, .07); }
+.mini-stats b { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mini-stats span { font-size: 11px; color: var(--k-ink-soft); }
+.over-missions { margin-top: 8px; }
+.over-missions .k-mission { padding: 4px 8px; font-size: 12px; }
 .over-btns .k-btn { flex: 1; white-space: nowrap; padding-left: 16px; padding-right: 16px; }
 .over-btns .k-icon-btn { flex: none; }
 
@@ -193,11 +242,12 @@ a.k-icon-btn { text-decoration: none; }
     display: grid; align-items: start;
     grid-template-columns: 1fr calc(400px * var(--ui, 1));
     grid-template-rows: auto 1fr auto;
-    grid-template-areas: "top ." ". ." "howto bottom";
+    grid-template-areas: "top ." ". ." "info bottom";
     column-gap: 20px;
   }
   .title-top { grid-area: top; justify-self: start; text-align: left; }
-  .howto { grid-area: howto; align-self: end; margin: 0; width: min(440px, 100%); }
+  .title-meta { justify-content: flex-start; }
+  .title-info { grid-area: info; align-self: end; margin: 0; width: min(440px, 100%); }
   .title-bottom { grid-area: bottom; align-self: end; width: 100%; }
 
   .pause-btns { grid-template-columns: 1fr 1fr; }

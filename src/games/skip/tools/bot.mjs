@@ -1,7 +1,12 @@
 // Headless playtest: `npm run bot` (or `node src/tools/bot.mjs 300`). Needs Node 22.18+, which
 // strips the types from sim.ts on import. Not part of the app bundle.
 // Same strong throw every time, four tapping styles, 60 fps frames like a phone.
-import { Sim, aimVelocity, previewThrow, mulberry32, PX_PER_M } from '../game/sim.ts';
+import { Sim, STONES, aimVelocity, previewThrow, mulberry32, PX_PER_M } from '../game/sim.ts';
+import { coinsForRun } from '../game/progress.ts';
+
+// `npm run bot:skip -- 300` for the default Pebble, `STONE=flat npm run bot:skip`, or
+// `STONES=1 npm run bot:skip -- 200` for a compact table of every stone.
+let stoneId = process.env.STONE ?? 'pebble';
 
 const FPS = 60, DT = 1 / FPS, RUNS = Number(process.argv[2] ?? 300);
 
@@ -23,6 +28,7 @@ function bestThrow() {
 const grades = { perfect: 0, good: 0, miss: 0 }, hits = { log: 0, duck: 0, pad: 0 };
 function play(style, seed, pull) {
   const sim = new Sim(seed);
+  sim.stone = STONES[stoneId];
   sim.viewW = 430;
   sim.reset(seed);
   const rng = mulberry32(seed * 7 + 1);
@@ -63,10 +69,30 @@ function play(style, seed, pull) {
     }
     if (++frames > FPS * 600) break;
   }
-  return { m: sim.x / PX_PER_M, s: sim.flightTime, skips: sim.skips, streak: sim.bestStreak, glass: sim.glass, perfects: sim.perfects, hoops: sim.hoops };
+  return { m: sim.x / PX_PER_M, s: sim.flightTime, skips: sim.skips, streak: sim.bestStreak, glass: sim.glass, perfects: sim.perfects, hoops: sim.hoops, coins: coinsForRun(sim.metres, sim.perfects, sim.hoops).total };
 }
 
+stoneId = 'pebble';
 const pull = bestThrow();
+if (process.env.STONES) {
+  const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  const pick = [
+    { name: 'never', mode: 'none' }, { name: 'spam', mode: 'spam' }, { name: 'u25', mode: 'timed', err: 0.025 },
+    { name: 'u40', mode: 'timed', err: 0.04 }, { name: 'g40', mode: 'timed', err: 0.04, gauss: true }, { name: 'g70', mode: 'timed', err: 0.07, gauss: true },
+  ];
+  console.log(`median m / median s / coins per throw, ${RUNS} seeds\n` + 'stone   '.padEnd(9) + pick.map(p => p.name.padStart(20)).join(''));
+  for (const id of Object.keys(STONES)) {
+    stoneId = id;
+    const cells = pick.map(st => {
+      const rs = Array.from({ length: RUNS }, (_, i) => play(st, i + 1, pull));
+      const med = (k) => rs.map(r => r[k]).sort((x, y) => x - y)[Math.floor(RUNS / 2)];
+      return `${med('m').toFixed(0)}m ${med('s').toFixed(0)}s ${avg(rs.map(r => r.coins)).toFixed(0)}c h${avg(rs.map(r => r.hoops)).toFixed(1)}`.padStart(20);
+    });
+    console.log(id.padEnd(9) + cells.join(''));
+  }
+  process.exit(0);
+}
+stoneId = process.env.STONE ?? 'pebble';
 const deg = Math.round((Math.atan2(pull.dy, pull.dx) * 180) / Math.PI);
 console.log(`throw: full power, pull angle ${deg} deg, ${RUNS} seeds each\n`);
 const styles = [
@@ -86,7 +112,7 @@ for (const st of styles) {
   console.log(
     `${st.name.padEnd(32)} dist m: med ${pct(m, 0.5).toFixed(0).padStart(5)} p10 ${pct(m, 0.1).toFixed(0).padStart(5)} p90 ${pct(m, 0.9).toFixed(0).padStart(5)} | ` +
     `time s: med ${pct(s, 0.5).toFixed(1).padStart(5)} p10 ${pct(s, 0.1).toFixed(1).padStart(5)} p90 ${pct(s, 0.9).toFixed(1).padStart(5)} | ` +
-    `skips ${avg(rs.map(r => r.skips)).toFixed(0).padStart(3)} perf ${avg(rs.map(r => r.perfects)).toFixed(0).padStart(3)} bestStreak ${avg(rs.map(r => r.streak)).toFixed(0).padStart(3)} glass ${avg(rs.map(r => r.glass)).toFixed(1)} hoops ${avg(rs.map(r => r.hoops)).toFixed(1)}`,
+    `skips ${avg(rs.map(r => r.skips)).toFixed(0).padStart(3)} perf ${avg(rs.map(r => r.perfects)).toFixed(0).padStart(3)} bestStreak ${avg(rs.map(r => r.streak)).toFixed(0).padStart(3)} glass ${avg(rs.map(r => r.glass)).toFixed(1)} hoops ${avg(rs.map(r => r.hoops)).toFixed(1)} coins ${avg(rs.map(r => r.coins)).toFixed(0)}`,
   );
   if (process.env.V) console.log('   per throw: perfect/good/miss', [grades.perfect, grades.good, grades.miss].map(x => (x / RUNS).toFixed(1)).join('/'), ' log/duck/pad', [hits.log, hits.duck, hits.pad].map(x => (x / RUNS).toFixed(1)).join('/'),
   );

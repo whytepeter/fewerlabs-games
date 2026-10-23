@@ -9,7 +9,10 @@ import { BIOMES, biomeIndex, palette, type Palette } from '../game/biomes';
 import { cave } from '../game/cave';
 import { Ambient } from '../game/ambient';
 import { DEEP_SONG } from '../game/song';
-import { SKINS, skinIndex } from '../game/skins';
+import { SKINS, skinIndex, suits } from '../game/skins';
+import { deepMissions } from '../game/missions';
+import { coins, daily, soClose, streak } from '../../../core/meta';
+import { mulberry32 } from '../../../core/rng';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
 
@@ -17,11 +20,18 @@ type Sprite = Phaser.GameObjects.Sprite;
 type Image = Phaser.GameObjects.Image;
 type Emitter = Phaser.GameObjects.Particles.ParticleEmitter;
 type Point = { x: number; y: number };
-type Kind = 'jelly' | 'mine' | 'angler';
+type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
 type Perk = 'shield' | 'magnet';
 type State = 'title' | 'play' | 'paused' | 'over';
 
-interface Obstacle { kind: Kind; x: number; y: number; y0: number; r: number; ph: number; amp: number; vx: number; floor: number; dy: number; sprite: Sprite; glow: Image; dead?: boolean }
+interface Obstacle {
+  kind: Kind; x: number; y: number; y0: number; r: number; ph: number; amp: number; vx: number; floor: number; dy: number;
+  sprite: Sprite; glow: Image; dead?: boolean;
+  /** angler: seconds left in its lunge wind-up / dash; eel: charge cycle offset */
+  lunge?: number; dash?: number;
+  /** counted for missions once it is behind the diver */
+  passed?: boolean;
+}
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
 
@@ -30,6 +40,7 @@ const clamp = Phaser.Math.Clamp;
 const lerp = Phaser.Math.Linear;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pick = <T>(a: T[]) => a[(Math.random() * a.length) | 0];
+void pick;
 const hash = (n: number) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
 
 const DIVER_R = 13;
@@ -46,7 +57,9 @@ const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
 const MOTES = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1) }));
 /** Portrait turns the dive 90° (see style.css): you sink down the screen and steer left/right. */
 const portraitView = () => matchMedia('(orientation: portrait)').matches;
-const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish' };
+const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish', eel: 'Zapped by an electric eel' };
+/** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
+const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
 const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', shield: 'pk-shield', magnet: 'pk-magnet' };
 const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffe7a8, shield: 0x5fb4ff, magnet: 0xff8fa8 };
 
@@ -63,6 +76,14 @@ export class GameScene extends Phaser.Scene {
   private shieldT = 0;
   private magnetT = 0;
   private runPearls = 0;
+  private runAir = 0;
+  private runPerks = 0;
+  private runAnglers = 0;
+  private runEels = 0;
+  private cleanDepth = -1; // depth when the first life was lost (-1 = none lost yet)
+  private dailyMode = false;
+  /** Course randomness (what spawns where). Seeded for the daily dive; visuals use Math.random. */
+  private rng: () => number = Math.random;
   private diverY = 0;
   private vy = 0;
   private runT = 0;
@@ -79,8 +100,7 @@ export class GameScene extends Phaser.Scene {
   private learned = store.get('learned', false);
   private best = store.get('best', 0);
   private bestZone = store.get('bestZone', 0);
-  private pearls = store.get('pearls', 0); // lifetime total; unlocks suits
-  private skin = store.get('skin', 'classic');
+  private skin = suits.equipped;
   private k = 1; // world zoom on top of the device pixel ratio
   private lastH = 0;
   private pal: Palette = { top: 0, bot: 0, rock: 0, dark: 0, vent: 0 };
@@ -177,6 +197,9 @@ export class GameScene extends Phaser.Scene {
       menu: () => this.toTitle(),
       skin: id => this.setSkin(id),
     });
+    // Pearls used to unlock suits directly; they're coins now. Convert any saved pearls once.
+    const legacy = store.get('pearls', 0);
+    if (legacy > 0) { coins.add(legacy); store.set('pearls', 0); }
     music.play(DEEP_SONG, 0.3);
     this.toTitle();
   }
@@ -188,13 +211,19 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setZoom(view.dpr * this.k);
   }
 
+  /** Course random number in [a, b). */
+  private cr(a: number, b: number) { return a + this.rng() * (b - a); }
+  private cpick<T>(a: T[]) { return a[(this.rng() * a.length) | 0]; }
+
+  /** Equip a suit, buying it first if needed. Returns false when the player can't afford it. */
   private setSkin(id: string) {
     const s = SKINS[skinIndex(id)];
-    if (s.cost > this.pearls) return;
-    this.skin = s.id;
-    store.set('skin', s.id);
-    this.diver.setTexture(`diver-${s.id}`, 0).play(`kick-${s.id}`);
-    ui.setSkins(this.pearls, this.skin);
+    const r = suits.buy(s.id);
+    if (r === 'poor') return false;
+    this.skin = suits.equipped;
+    this.diver.setTexture(`diver-${this.skin}`, 0).play(`kick-${this.skin}`);
+    ui.setSkins(this.skin);
+    return true;
   }
 
   // ---------- Flow
@@ -209,10 +238,12 @@ export class GameScene extends Phaser.Scene {
     this.diverY = this.caveMid(0);
     this.diver.setVisible(true).setAlpha(1).setRotation(0);
     this.shieldRing.setVisible(false);
-    ui.showTitle(this.best, this.pearls, this.skin);
+    ui.showTitle(this.best, this.skin);
   }
 
-  private startRun() {
+  private startRun(dailyMode = ui.dailySelected()) {
+    this.dailyMode = dailyMode;
+    this.rng = dailyMode ? mulberry32(daily.info('deep-dive').seed) : Math.random;
     sfx.unlock();
     sfx.resume();
     this.clearWorld();
@@ -224,6 +255,11 @@ export class GameScene extends Phaser.Scene {
     this.shieldT = 0;
     this.magnetT = 0;
     this.runPearls = 0;
+    this.runAir = 0;
+    this.runPerks = 0;
+    this.runAnglers = 0;
+    this.runEels = 0;
+    this.cleanDepth = -1;
     this.diverY = this.caveMid(0);
     this.vy = 0;
     this.runT = 0;
@@ -231,7 +267,7 @@ export class GameScene extends Phaser.Scene {
     this.nextObs = 520;
     this.nextAir = 320;
     this.nextPearls = 700;
-    this.nextPerk = rand(1600, 2400);
+    this.nextPerk = this.cr(1600, 2400);
     this.beepT = 0;
     this.diver.setVisible(true).setAlpha(1).setRotation(0);
     this.state = 'play';
@@ -384,13 +420,33 @@ export class GameScene extends Phaser.Scene {
     this.spawning(depth, dt);
 
     const leftEdge = this.dist - this.diverX() - 140;
+    const dark = palette(depth, this.pal).dark;
     for (const o of this.obs) {
       this.animate(o, dt);
       if (o.dead) continue;
-      if (o.kind === 'angler') { o.x += o.vx * dt; o.y += clamp(this.diverY - o.y, -1, 1) * 22 * dt; }
-      if (Math.hypot(o.x - this.dist, o.y + o.dy - this.diverY) < o.r + DIVER_R * 0.8) {
+      const ahead = o.x - this.dist;
+      if (o.kind === 'jelly' && dark > 0.3 && ahead > 0 && ahead < 240) {
+        // Jellies drift towards your headlamp in the dark.
+        o.y0 += clamp(this.diverY - o.y0, -1, 1) * 26 * dark * dt;
+      } else if (o.kind === 'angler') {
+        o.x += o.vx * dt;
+        o.y += clamp(this.diverY - o.y, -1, 1) * 22 * dt;
+        // Wind up when close (its lure flares), then lunge.
+        if (o.lunge === undefined && ahead > 0 && ahead < 190 && Math.abs(this.diverY - o.y) < 90) {
+          o.lunge = 0.45;
+          this.tweens.add({ targets: o.sprite, scaleX: TEX_SCALE * 1.15, scaleY: TEX_SCALE * 0.9, duration: 120, yoyo: true, repeat: 1 });
+        }
+        if (o.lunge !== undefined && o.lunge > 0) { o.lunge -= dt; if (o.lunge <= 0) { o.dash = 0.55; sfx.tone(200, 0.2, { type: 'square', vol: 0.04, slideTo: 120 }); } }
+        if (o.dash && o.dash > 0) { o.dash -= dt; o.x -= 300 * dt; o.y += clamp(this.diverY - o.y, -1, 1) * 70 * dt; }
+      }
+      if (this.hits(o)) {
         this.hitCreature(o);
         if (this.state !== 'play') return;
+      }
+      if (!o.passed && o.x < this.dist - 40) {
+        o.passed = true;
+        if (o.kind === 'angler') this.runAnglers++;
+        if (o.kind === 'eel') this.runEels++;
       }
     }
     this.obs = this.obs.filter(o => {
@@ -412,19 +468,19 @@ export class GameScene extends Phaser.Scene {
     const step = this.speed * dt;
     if ((this.nextObs -= step) <= 0) {
       this.spawnObstacle(depth);
-      this.nextObs = lerp(430, 200, clamp(depth / 1200, 0, 1)) * rand(0.75, 1.25);
+      this.nextObs = lerp(430, 200, clamp(depth / 1200, 0, 1)) * this.cr(0.75, 1.25);
     }
     if ((this.nextAir -= step) <= 0) {
       this.spawnRow('air', 3, 34);
-      this.nextAir = rand(420, 620) + depth * 0.08;
+      this.nextAir = this.cr(420, 620) + depth * 0.08;
     }
     if ((this.nextPearls -= step) <= 0) {
-      this.spawnRow('pearl', 5 + ((Math.random() * 4) | 0), 26);
-      this.nextPearls = rand(520, 900);
+      this.spawnRow('pearl', 5 + ((this.rng() * 4) | 0), 26);
+      this.nextPearls = this.cr(520, 900);
     }
     if ((this.nextPerk -= step) <= 0) {
-      this.spawnRow(Math.random() < 0.5 ? 'shield' : 'magnet', 1, 0);
-      this.nextPerk = rand(2200, 3400);
+      this.spawnRow(this.rng() < 0.5 ? 'shield' : 'magnet', 1, 0);
+      this.nextPerk = this.cr(2200, 3400);
     }
   }
 
@@ -439,6 +495,16 @@ export class GameScene extends Phaser.Scene {
     buzz(10);
   }
 
+  private eelCharged(o: Obstacle) { return ((this.clock + o.ph) % EEL_CYCLE) < EEL_ON; }
+
+  private hits(o: Obstacle) {
+    if (o.kind !== 'eel') return Math.hypot(o.x - this.dist, o.y + o.dy - this.diverY) < o.r + DIVER_R * 0.8;
+    // Eels are only dangerous while charged, along their whole body.
+    if (!this.eelCharged(o)) return false;
+    const dx = clamp(this.dist, o.x - EEL_HALF, o.x + EEL_HALF) - this.dist;
+    return Math.hypot(dx, o.y - this.diverY) < 8 + DIVER_R * 0.8;
+  }
+
   private hitCreature(o: Obstacle) {
     if (this.invuln > 0) return;
     if (o.kind === 'mine') { // mines go off either way
@@ -449,6 +515,7 @@ export class GameScene extends Phaser.Scene {
     this.vy = Math.sign(this.diverY - o.y || 1) * 320;
     if (this.shieldT > 0) { this.useShield(); this.invuln = 0.8; return; }
     this.hearts--;
+    if (this.cleanDepth < 0) this.cleanDepth = Math.floor(this.dist / 10);
     this.invuln = HIT_INVULN;
     ui.setHearts(this.hearts);
     if (this.hearts <= 0) { this.die(REASONS[o.kind]); return; }
@@ -491,6 +558,7 @@ export class GameScene extends Phaser.Scene {
 
   private take(p: Pickup) {
     if (p.type === 'air') {
+      this.runAir++;
       this.oxy = Math.min(100, this.oxy + 11);
       sfx.tone(rand(620, 820), 0.12, { vol: 0.12, slideTo: 1200 });
       buzz(8);
@@ -502,6 +570,7 @@ export class GameScene extends Phaser.Scene {
       sfx.tone(1180 + (this.runPearls % 5) * 120, 0.08, { type: 'triangle', vol: 0.06 });
       this.sparks.explode(3, p.x, p.y);
     } else {
+      this.runPerks++;
       if (p.type === 'shield') this.shieldT = SHIELD_TIME; else this.magnetT = MAGNET_TIME;
       ui.damage(p.type === 'shield' ? 'Shield up!' : 'Magnet!', true);
       sfx.tone(523, 0.18, { vol: 0.09 }); sfx.tone(784, 0.3, { vol: 0.08, delay: 0.08 });
@@ -536,17 +605,21 @@ export class GameScene extends Phaser.Scene {
     const kinds: Kind[] = ['jelly'];
     if (depth > 50) kinds.push('mine');
     if (depth > 200) kinds.push('angler');
-    if (depth > 450) kinds.push('jelly', 'angler', 'mine');
-    const kind = pick(kinds), y = rand(t + 45, b - 45);
-    const base = { kind, y, y0: y, ph: rand(0, TAU), amp: 0, vx: 0, floor: b, dy: 0 };
+    if (depth > 320) kinds.push('eel');
+    if (depth > 450) kinds.push('jelly', 'angler', 'mine', 'eel');
+    const kind = this.cpick(kinds), y = this.cr(t + 45, b - 45);
+    const base = { kind, y, y0: y, ph: this.cr(0, TAU), amp: 0, vx: 0, floor: b, dy: 0 };
     let o: Obstacle;
     if (kind === 'jelly') {
-      o = { ...base, x: wx, r: 15, amp: rand(18, 46), sprite: this.add.sprite(wx, y, 'jelly', 0).setOrigin(0.5, 20 / 60), glow: this.glow(0xff78d2) };
+      o = { ...base, x: wx, r: 15, amp: this.cr(18, 46), sprite: this.add.sprite(wx, y, 'jelly', 0).setOrigin(0.5, 20 / 60), glow: this.glow(0xff78d2) };
       o.sprite.play({ key: 'jelly', startFrame: (Math.random() * 6) | 0 });
     } else if (kind === 'mine') {
       o = { ...base, x: wx, r: 14, sprite: this.add.sprite(wx, y, 'mine'), glow: this.glow(0xff3c3c) };
+    } else if (kind === 'eel') {
+      o = { ...base, x: wx + EEL_HALF, r: 10, ph: this.cr(0, EEL_CYCLE), sprite: this.add.sprite(wx + EEL_HALF, y, 'eel', 0), glow: this.glow(0x8ff6ff) };
+      o.sprite.play({ key: 'eel', startFrame: (Math.random() * 4) | 0 });
     } else {
-      o = { ...base, x: wx + 140, r: 17, vx: -rand(70, 140), sprite: this.add.sprite(wx + 140, y, 'angler', 0).setOrigin(56 / 108, 38 / 72), glow: this.glow(0xbeff8c) };
+      o = { ...base, x: wx + 140, r: 17, vx: -this.cr(70, 140), sprite: this.add.sprite(wx + 140, y, 'angler', 0).setOrigin(56 / 108, 38 / 72), glow: this.glow(0xbeff8c) };
       o.sprite.play('angler');
     }
     o.sprite.setScale(TEX_SCALE).setDepth(5);
@@ -557,7 +630,7 @@ export class GameScene extends Phaser.Scene {
   private spawnRow(type: Pickup['type'], n: number, gap: number) {
     const wx = this.dist - this.diverX() + this.W + 60;
     const [t, b] = cave(wx, this.H, this.cv);
-    const y = rand(t + 40, b - 40), arc = n > 3 ? rand(-30, 30) : 0;
+    const y = this.cr(t + 40, b - 40), arc = n > 3 ? this.cr(-30, 30) : 0;
     for (let i = 0; i < n; i++) {
       const x = wx + i * gap, f = n > 1 ? i / (n - 1) : 0;
       const py = clamp(y + Math.sin(f * Math.PI) * arc + (type === 'air' ? Math.sin(i * 1.7) * 14 : 0), t + 30, b - 30);
@@ -587,19 +660,35 @@ export class GameScene extends Phaser.Scene {
     this.shieldRing.setVisible(false);
 
     const depth = Math.floor(this.dist / 10);
+    const prevBest = this.best;
     const isBest = depth > this.best;
     if (isBest) { this.best = depth; store.set('best', depth); }
     if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
-    const before = this.pearls;
-    this.pearls += this.runPearls;
-    store.set('pearls', this.pearls);
-    const unlocked = SKINS.find(s => s.cost > before && s.cost <= this.pearls);
+
+    // Arcade rewards: coins for the dive, missions, the daily bonus and the play streak.
+    streak.touch();
+    const runCoins = this.runPearls + Math.floor(depth / 40); // ~25–45 for a good dive
+    coins.add(runCoins);
+    const coinsBefore = coins.balance;
+    const results = deepMissions.report({
+      depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks,
+      cleanDepth: this.cleanDepth < 0 ? depth : this.cleanDepth,
+      anglers: this.runAnglers, eels: this.runEels, daily: this.dailyMode ? 1 : 0,
+    });
+    const missionCoins = coins.balance - coinsBefore;
+    const dayResult = this.dailyMode ? daily.record('deep-dive', depth) : null;
+    if (this.dailyMode) store.set('dailyFlag', { key: daily.info('deep-dive').key, depth: dayResult!.best });
+
     ui.lowO2(false);
     ui.hint(false);
     this.time.delayedCall(800, () => {
       if (this.state !== 'over') return;
-      ui.showOver({ depth, reason, zone: BIOMES[this.biome].name, best: this.best, isBest, pearls: this.runPearls, total: this.pearls, unlocked: unlocked?.name });
-      ui.setSkins(this.pearls, this.skin);
+      ui.showOver({
+        depth, reason, zone: BIOMES[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
+        close: soClose(depth, prevBest, ' m'), results, daily: dayResult,
+        earned: [{ label: 'Dive', n: runCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily', n: dayResult?.bonus ?? 0 }],
+      });
+      ui.setSkins(this.skin);
     });
   }
 
@@ -697,6 +786,22 @@ export class GameScene extends Phaser.Scene {
         g.lineStyle(4.5, 0x3ad06b, reef); g.strokePoints(pts);
       }
     }
+    // Flags on the trench floor at your best depth (gold) and today's daily best (blue).
+    const flags: [number, number][] = [[this.best, 0xffc43d]];
+    const df = store.get<{ key: string; depth: number } | null>('dailyFlag', null);
+    if (this.dailyMode && df && df.key === daily.info('deep-dive').key) flags.push([df.depth, 0x3aa8ff]);
+    for (const [m, col] of flags) {
+      const fx = m * 10;
+      if (m <= 0 || fx < x0 - 40 || fx > x0 + W + 40) continue;
+      const floor = cave(fx, H, this.cv)[1];
+      g.lineStyle(5, OUTLINE, 1); g.lineBetween(fx, floor + 2, fx, floor - 46);
+      g.lineStyle(2.4, 0xeef4f9, 1); g.lineBetween(fx, floor + 2, fx, floor - 46);
+      const wave = Math.sin(T * 4) * 3;
+      const flag = [{ x: fx, y: floor - 46 }, { x: fx + 26, y: floor - 40 + wave }, { x: fx, y: floor - 32 }];
+      g.fillStyle(col, 1); g.fillPoints(flag, true);
+      g.lineStyle(2.5, OUTLINE, 1); g.strokePoints(flag, true);
+    }
+
     // Mine chains to the floor.
     for (const o of this.obs) {
       if (o.kind !== 'mine' || o.dead) continue;
@@ -718,6 +823,12 @@ export class GameScene extends Phaser.Scene {
         o.glow.setPosition(o.x, o.y).setDisplaySize(72, 72).setAlpha(0.14 + pal.dark * 0.24);
       } else if (o.kind === 'mine') {
         o.glow.setPosition(o.x, o.y + o.dy - 3).setDisplaySize(34, 34).setAlpha(Math.sin(T * 6 + o.ph) > 0 ? 0.9 : 0);
+      } else if (o.kind === 'eel') {
+        // Charged: bright, crackling, a little jittery. Resting: dull. A brief flicker warns before it charges.
+        const phase = (T + o.ph) % EEL_CYCLE, on = phase < EEL_ON, warn = !on && phase > EEL_CYCLE - 0.35;
+        o.sprite.setTint(on ? 0xd9ffff : warn && Math.sin(T * 50) > 0 ? 0xbfefff : 0x9aa6b4);
+        o.sprite.setPosition(o.x + (on ? (Math.random() - 0.5) * 2 : 0), o.y + (on ? (Math.random() - 0.5) * 2 : 0));
+        o.glow.setPosition(o.x, o.y).setDisplaySize(EEL_HALF * 3, 46).setAlpha(on ? 0.75 + Math.random() * 0.25 : warn ? 0.25 : 0);
       } else {
         o.glow.setPosition(o.x - o.r * 2.2, o.y - o.r * 1.5).setDisplaySize(56, 56).setAlpha(0.6 + Math.sin(T * 4 + o.ph) * 0.2);
       }

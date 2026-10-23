@@ -88,3 +88,12 @@ header .k-logo { margin: 6px 0 14px; animation: k-float 3.4s ease-in-out infinit
 .lost .k-logo { font-size: clamp(40px, 11vw, 58px); margin: 4px 0 16px; }
 .lost p { font-size: 16px; line-height: 1.45; margin-bottom: 22px; }
 .lost .k-btn { text-decoration: none; }
+
+.hub-meta { display: flex; gap: 8px; justify-content: center; align-items: center; margin-bottom: 14px; }
+.daily-chip {
+  align-self: flex-start;
+  padding: 3px 10px 4px; border-radius: 999px;
+  background: linear-gradient(180deg, #ffe58f, #ffc43d); border: 2.5px solid var(--k-outline);
+  color: var(--k-outline); font-weight: 700; font-size: 12px;
+}
+.daily-chip.done { background: linear-gradient(180deg, #b6f5c8, #3ad06b); }

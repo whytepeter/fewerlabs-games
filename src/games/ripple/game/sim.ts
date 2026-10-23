@@ -21,6 +21,16 @@ const PICKUP_LIFE = 9;
 /** Boat timer: BOAT_LIFE seconds, shrinking 0.35 s per boat docked down to BOAT_LIFE_MIN. */
 const BOAT_LIFE = 30, BOAT_LIFE_MIN = 20;
 
+/* ---------- pond twists: one per wave from wave 2, announced in the wave banner */
+export type Twist = 'none' | 'calm' | 'wind' | 'whirl' | 'lilies';
+/** Wind: constant push (px/s^2). With DRAG 0.75 boats drift at most ~WIND_F / 0.75 = 9 px/s. */
+export const WIND_F = 7;
+/** Whirlpool: radius, tangential pull at the centre (px/s^2, fading to 0 at the rim), and a slight inward tug. */
+export const WHIRL_R = 125, WHIRL_SPIN = 34, WHIRL_PULL = 7;
+/** Lily wall pad radius and spacing (pads touch, so boats can't slip between until rippled apart). */
+export const WALL_R = 17;
+const WALL_STEP = 31, WALL_DRAG = 1.3, WALL_PUSH = 0.75;
+
 export interface Rect { x: number; y: number; w: number; h: number; r: number }
 export type BoatState = 'in' | 'dock' | 'sink';
 export interface Boat {
@@ -43,6 +53,8 @@ export interface Rock { id: number; x: number; y: number; r: number; variant: nu
 export interface Pad { x: number; y: number; r: number; a: number; flower: boolean }
 export interface Ripple { x: number; y: number; age: number }
 export interface Mote { x: number; y: number; ph: number; sp: number }
+/** A floating lily pad from a Lily wall twist: boats bounce off it, ripples push it. */
+export interface WallPad { id: number; x: number; y: number; vx: number; vy: number; r: number; a: number; age: number; sinking: number }
 
 export type SimEvent =
   | { type: 'drop'; x: number; y: number }
@@ -54,7 +66,7 @@ export type SimEvent =
   | { type: 'dockMove'; dock: Dock }
   | { type: 'wake'; x: number; y: number }
   | { type: 'over'; score: number }
-  | { type: 'wave'; wave: number }
+  | { type: 'wave'; wave: number; twist: Twist; perfect: boolean }
   | { type: 'pickup'; pickup: Pickup }
   | { type: 'pickupSpawn'; pickup: Pickup }
   | { type: 'hud' };
@@ -88,6 +100,17 @@ export class Sim {
   tapped = false;
   /** Longest chain of quick docks this run (1 = a single dock). */
   bestCombo = 0;
+  /** Run stats reported to missions. */
+  goldDocked = 0;
+  freezes = 0;
+  hearts = 0;
+  perfectWaves = 0;
+  private lostThisWave = false;
+  /** Current pond twist and its parameters. */
+  twist: Twist = 'none';
+  wind = { x: 0, y: 0 };
+  whirl = { x: 0, y: 0, dir: 1 };
+  wall: WallPad[] = [];
   /** Title-screen backdrop: a few timer-less boats drift about while idle. */
   demo = false;
   private demoT = 0;
@@ -106,6 +129,9 @@ export class Sim {
   constructor(rng: () => number = Math.random) {
     this.rng = rng;
   }
+
+  /** Swap the random source (Daily mode seeds it so every player gets the same run). */
+  setRng(rng: () => number) { this.rng = rng; }
 
   private rand(a: number, b: number) { return a + this.rng() * (b - a); }
 
@@ -128,7 +154,7 @@ export class Sim {
       o.x = p.x + (o.x - old.x) / old.w * p.w;
       o.y = p.y + (o.y - old.y) / old.h * p.h;
     };
-    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples, this.pickups] as { x: number; y: number }[][]) list.forEach(fit);
+    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples, this.pickups, this.wall] as { x: number; y: number }[][]) list.forEach(fit);
     this.relax();
     for (const b of this.boats) {
       b.x = clamp(b.x, p.x + BOAT_R, p.x + p.w - BOAT_R);
@@ -217,6 +243,8 @@ export class Sim {
     this.score = 0; this.lives = LIVES; this.t = 0; this.nextSpawn = 0.8; this.colors = 1;
     this.docked = 0; this.wave = 1; this.freezeT = 0; this.pickups = []; this.pickupT = 20; this.nextRockAt = 12;
     this.combo = 0; this.lastDock = -9; this.endT = 0; this.tapped = false; this.bestCombo = 0;
+    this.goldDocked = 0; this.freezes = 0; this.hearts = 0; this.perfectWaves = 0; this.lostThisWave = false;
+    this.twist = 'none'; this.wall = [];
     this.events.length = 0;
   }
 
@@ -294,6 +322,7 @@ export class Sim {
     this.lastDock = this.t;
     this.bestCombo = Math.max(this.bestCombo, this.combo + 1);
     this.score += b.gold ? GOLD_POINTS : 1; this.docked++; d.got++;
+    if (b.gold) this.goldDocked++;
     this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.docked / 10)) + (b.gold ? 2 : 0) });
     this.events.push({ type: 'hud' });
     // progression: more colours, more rocks, docks that move, waves
@@ -301,9 +330,13 @@ export class Sim {
     else if (this.docked >= 20 && this.colors < 3) { this.colors = 3; this.addDock(2); this.events.push({ type: 'unlock', ci: 2 }); }
     const wave = 1 + Math.floor(this.docked / WAVE_SIZE);
     if (wave > this.wave) {
+      const perfect = !this.lostThisWave;
+      if (perfect) this.perfectWaves++;
+      this.lostThisWave = false;
       this.wave = wave;
       this.nextSpawn = Math.max(this.nextSpawn, 2.5); // a short breather between waves
-      this.events.push({ type: 'wave', wave });
+      this.setTwist(this.pickTwist());
+      this.events.push({ type: 'wave', wave, twist: this.twist, perfect });
     }
     if (this.docked >= this.nextRockAt) {
       this.nextRockAt += 12;
@@ -315,7 +348,42 @@ export class Sim {
     if (d.got >= 4 && !d.moving) { d.moving = true; this.events.push({ type: 'dockMove', dock: d }); }
   }
 
+  /** Wave 2 gets a gentle twist (never the wall); later waves any of four, never the same twice running. */
+  private pickTwist(): Twist {
+    const opts: Twist[] = this.wave <= 2 ? ['wind', 'whirl', 'calm'] : ['wind', 'whirl', 'lilies', 'calm'];
+    const choices = opts.filter(t => t !== this.twist);
+    return choices[Math.floor(this.rng() * choices.length)];
+  }
+
+  setTwist(t: Twist) {
+    // last wave's lily wall sinks away
+    for (const w of this.wall) w.sinking = Math.max(w.sinking, 0.001);
+    this.twist = t;
+    const p = this.pond;
+    if (t === 'wind') {
+      const a = this.rng() * Math.PI * 2;
+      this.wind = { x: Math.cos(a) * WIND_F, y: Math.sin(a) * WIND_F };
+    } else if (t === 'whirl') {
+      const pt = this.placeInPond(WHIRL_R * 0.6, this.docks.map(d => ({ x: d.x, y: d.y, r: d.r + 40 })), WHIRL_R * 0.5);
+      this.whirl = { x: pt.x, y: pt.y, dir: this.rng() < 0.5 ? -1 : 1 };
+    } else if (t === 'lilies') {
+      // a row of touching pads across the pond's short way, skipping docks and rocks
+      const across = p.w >= p.h; // landscape: a vertical wall
+      const len = across ? p.h : p.w;
+      const at = (across ? p.x + p.w * this.rand(0.35, 0.65) : p.y + p.h * this.rand(0.35, 0.65));
+      const n = Math.floor((len - 8) / WALL_STEP);
+      const start = (len - (n - 1) * WALL_STEP) / 2;
+      for (let i = 0; i < n; i++) {
+        const x = across ? at : p.x + start + i * WALL_STEP, y = across ? p.y + start + i * WALL_STEP : at;
+        if (this.docks.some(d => Math.hypot(d.x - x, d.y - y) < d.r + WALL_R + 6)) continue;
+        if (this.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + WALL_R)) continue;
+        this.wall.push({ id: this.nextId++, x, y, vx: 0, vy: 0, r: WALL_R, a: this.rng() * 6, age: 0, sinking: 0 });
+      }
+    }
+  }
+
   private loseBoat(b: Boat) {
+    this.lostThisWave = true;
     b.state = 'sink'; b.k = 0;
     this.lives = Math.max(0, this.lives - 1);
     this.combo = 0;
@@ -348,8 +416,8 @@ export class Sim {
 
   private collect(pk: Pickup) {
     this.pickups = this.pickups.filter(o => o !== pk);
-    if (pk.kind === 'freeze') this.freezeT = FREEZE_TIME;
-    else { this.lives = Math.min(LIVES, this.lives + 1); this.events.push({ type: 'hud' }); }
+    if (pk.kind === 'freeze') { this.freezeT = FREEZE_TIME; this.freezes++; }
+    else { this.lives = Math.min(LIVES, this.lives + 1); this.hearts++; this.events.push({ type: 'hud' }); }
     this.events.push({ type: 'pickup', pickup: pk });
   }
 
@@ -368,6 +436,52 @@ export class Sim {
       m.x += Math.cos(m.ph * 0.5) * m.sp * dt;
       m.y += Math.sin(m.ph * 0.37) * m.sp * dt;
     }
+  }
+
+  /** Extra force from the current twist at a point (wind everywhere, whirlpool near its centre). */
+  twistForce(x: number, y: number) {
+    if (this.twist === 'wind') return this.wind;
+    if (this.twist === 'whirl') {
+      const dx = x - this.whirl.x, dy = y - this.whirl.y, d = Math.hypot(dx, dy) || 0.001;
+      if (d > WHIRL_R) return { x: 0, y: 0 };
+      const k = 1 - d / WHIRL_R, nx = dx / d, ny = dy / d, s = this.whirl.dir;
+      return { x: (-ny * s * WHIRL_SPIN - nx * WHIRL_PULL) * k, y: (nx * s * WHIRL_SPIN - ny * WHIRL_PULL) * k };
+    }
+    return { x: 0, y: 0 };
+  }
+
+  private updateWall(dt: number) {
+    if (!this.wall.length) return;
+    const p = this.pond, damp = Math.exp(-WALL_DRAG * dt);
+    for (const w of this.wall) {
+      w.age += dt;
+      if (w.sinking) { w.sinking += dt * 1.4; continue; }
+      let fx = 0, fy = 0;
+      for (const r of this.ripples) {
+        const dx = w.x - r.x, dy = w.y - r.y, d = Math.hypot(dx, dy) || 0.001;
+        const off = Math.abs(d - r.age * RIP_SPEED);
+        if (off < RIP_BAND) {
+          const fade = Math.pow(1 - r.age / RIP_LIFE, 1.4) * (1 - off / RIP_BAND) * (d < 26 ? 1.6 : 1);
+          fx += dx / d * RIP_PUSH * WALL_PUSH * fade; fy += dy / d * RIP_PUSH * WALL_PUSH * fade;
+        }
+      }
+      w.vx = (w.vx + fx * dt) * damp; w.vy = (w.vy + fy * dt) * damp;
+      w.x += w.vx * dt; w.y += w.vy * dt;
+      w.x = clamp(w.x, p.x + w.r, p.x + p.w - w.r); w.y = clamp(w.y, p.y + w.r, p.y + p.h - w.r);
+      // keep clear of docks and rocks
+      for (const o of [...this.docks, ...this.rocks]) {
+        const dx = w.x - o.x, dy = w.y - o.y, d = Math.hypot(dx, dy) || 0.001, md = o.r + w.r;
+        if (d < md) { w.x = o.x + dx / d * md; w.y = o.y + dy / d * md; }
+      }
+    }
+    // pads don't overlap each other
+    for (let i = 0; i < this.wall.length; i++) for (let j = i + 1; j < this.wall.length; j++) {
+      const a = this.wall[i], b = this.wall[j];
+      if (a.sinking || b.sinking) continue;
+      const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001, md = a.r + b.r - 3;
+      if (d < md) { const o = (md - d) / 2, nx = dx / d, ny = dy / d; a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o; }
+    }
+    if (this.wall.some(w => w.sinking >= 1)) this.wall = this.wall.filter(w => w.sinking < 1);
   }
 
   update(dt: number) {
@@ -421,6 +535,8 @@ export class Sim {
         b.push = Math.hypot(fx, fy);
         // gentle swirling current so the pond feels alive
         fx += Math.sin(b.y * 0.012 + this.t * 0.3) * 3; fy += Math.cos(b.x * 0.012 + this.t * 0.25) * 3;
+        const tw = this.twistForce(b.x, b.y);
+        fx += tw.x; fy += tw.y;
         b.vx += fx * dt; b.vy += fy * dt;
         const damp = Math.exp(-DRAG * dt); b.vx *= damp; b.vy *= damp;
         const sp = Math.hypot(b.vx, b.vy);
@@ -439,6 +555,16 @@ export class Sim {
             const nx = dx / d, ny = dy / d; b.x = k.x + nx * md; b.y = k.y + ny * md;
             const vn = b.vx * nx + b.vy * ny;
             if (vn < 0) { b.vx -= 1.6 * vn * nx; b.vy -= 1.6 * vn * ny; if (-vn > 30) this.events.push({ type: 'bump' }); }
+          }
+        }
+        // lily wall pads: boats bounce off and shove them a little
+        for (const w of this.wall) {
+          if (w.sinking) continue;
+          const dx = b.x - w.x, dy = b.y - w.y, d = Math.hypot(dx, dy), md = w.r + BOAT_R - 2;
+          if (d < md && d > 0) {
+            const nx = dx / d, ny = dy / d; b.x = w.x + nx * md; b.y = w.y + ny * md;
+            const vn = b.vx * nx + b.vy * ny;
+            if (vn < 0) { b.vx -= 1.5 * vn * nx; b.vy -= 1.5 * vn * ny; w.vx += vn * nx * 0.35; w.vy += vn * ny * 0.35; }
           }
         }
         // other boats
@@ -474,6 +600,8 @@ export class Sim {
       }
     }
     if (this.boats.some(b => b.state !== 'in' && b.k >= 1)) this.boats = this.boats.filter(b => !(b.state !== 'in' && b.k >= 1));
+
+    this.updateWall(dt);
 
     for (const d of this.docks) {
       if (!d.moving) continue;

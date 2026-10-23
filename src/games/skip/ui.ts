@@ -1,5 +1,8 @@
 import { onSettings, setSetting, settings, type Settings } from '../../core/settings';
 import { hydrateIcons, icon, wobbleLetters, STAR_SVG } from '../../core/icons';
+import { mountCoins, mountStreak, renderMissions, renderEarned, coinIcon } from '../../core/metaui';
+import type { DailyInfo, Mission, MissionResult } from '../../core/meta';
+import { STONE_LOOKS, STONE_ITEMS } from './game/progress';
 
 // The DOM layer: HUD, hint, title / pause / game-over screens, built from the shared cartoon kit.
 // The Game scene drives it.
@@ -14,17 +17,23 @@ hydrateIcons();
 wobbleLetters($('logo'));
 $('overStars').innerHTML = STAR_SVG.repeat(3);
 
-/** The in-game stone (outlined, with its face) for HUD pills, so the UI matches the lake art. */
-function stoneSvg(face: 'eyes' | 'squint') {
+/** The in-game stone (outlined, with its face) as SVG, so the UI matches the lake art. */
+export function stoneSvg(id: string, face: 'eyes' | 'squint' = 'eyes') {
+  const L = STONE_LOOKS[id] ?? STONE_LOOKS.pebble;
+  const ry = L.ry, eyeRy = Math.min(2.8, ry * 0.42);
   const eyes = face === 'eyes'
-    ? '<ellipse cx="21" cy="12.2" rx="2.4" ry="2.8" fill="#fff" stroke="#16233b" stroke-width="1.2"/><ellipse cx="21.7" cy="12.5" rx="1.35" ry="1.7" fill="#16233b"/>' +
-      '<ellipse cx="26.6" cy="12.2" rx="2.4" ry="2.8" fill="#fff" stroke="#16233b" stroke-width="1.2"/><ellipse cx="27.3" cy="12.5" rx="1.35" ry="1.7" fill="#16233b"/>'
+    ? [21, 26.6].map(x => `<ellipse cx="${x}" cy="12.2" rx="2.4" ry="${eyeRy}" fill="#fff" stroke="#16233b" stroke-width="1.2"/><ellipse cx="${x + 0.7}" cy="12.5" rx="1.35" ry="${Math.min(1.7, ry * 0.26)}" fill="#16233b"/>`).join('')
     : '<path d="M18.8 13l2.2-2.2 2.2 2.2M24.4 13l2.2-2.2 2.2 2.2" fill="none" stroke="#16233b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<ellipse cx="19.5" cy="15" rx="1.8" ry="1" fill="rgba(255,110,150,.6)"/><ellipse cx="28.5" cy="15" rx="1.8" ry="1" fill="rgba(255,110,150,.6)"/>';
-  return `<svg viewBox="0 0 36 24" aria-hidden="true"><ellipse cx="18" cy="12" rx="13" ry="7.4" fill="var(--stone)" stroke="#16233b" stroke-width="2.6"/>` +
-    `<ellipse cx="13" cy="8.2" rx="5.5" ry="2" fill="var(--stone-hi)"/>${eyes}</svg>`;
+  const band = L.band ? `<rect x="${18 - L.rx + 1.5}" y="10.6" width="${L.rx * 2 - 3}" height="2.8" fill="${L.band}"/>` : '';
+  const clover = L.clover ? [[0, -1.6], [1.6, 0], [0, 1.6], [-1.6, 0]].map(([dx, dy]) => `<circle cx="${12 + dx}" cy="${13 + dy}" r="1.5" fill="#fff"/>`).join('') : '';
+  return `<svg viewBox="0 0 36 24" aria-hidden="true"><ellipse cx="18" cy="12" rx="${L.rx}" ry="${ry}" fill="${L.body ?? 'var(--stone)'}" stroke="#16233b" stroke-width="2.6"/>` +
+    `${band}<ellipse cx="13" cy="${12 - ry * 0.52}" rx="5.5" ry="2" fill="${L.hi ?? 'var(--stone-hi)'}"/>${clover}${eyes}</svg>`;
 }
-document.querySelectorAll<HTMLElement>('.stone-ico').forEach(e => { e.innerHTML = stoneSvg(e.dataset.face === 'squint' ? 'squint' : 'eyes'); });
+const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="#16233b" stroke-width="2"><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
+
+mountCoins();
+mountStreak();
 
 const el = {
   hud: $('hud'), dist: $('dist'), streak: $('streak'), streakPill: $('streakPill'), hudBest: $('hudBest'), pauseBtn: $('pauseBtn'),
@@ -35,16 +44,30 @@ const el = {
   overStars: $('overStars'), overDist: $('overDist'), overTag: $('overTag'), overSkips: $('overSkips'),
   overStreak: $('overStreak'), overGlass: $('overGlass'), againBtn: $('againBtn'), overMenuBtn: $('overMenuBtn'), overHoops: $('overHoops'),
   banner: $('banner'), bannerSmall: $('bannerSmall'), bannerBig: $('bannerBig'), fever: $('fever'),
+  hudBestLabel: $('hudBestLabel'), luckyPip: $('luckyPip'),
+  modeClassic: $('modeClassic'), modeDaily: $('modeDaily'), dailyDone: $('dailyDone'), dailyLine: $('dailyLine'),
+  howto: $('howto'), titleMissionsBox: $('titleMissionsBox'), titleMissions: $('titleMissions'),
+  picker: $('stonePicker'), caption: $('stoneCaption'),
+  overClose: $('overClose'), overEarned: $('overEarned'), overMissions: $('overMissions'),
 };
+el.luckyPip.innerHTML = CLOVER_SVG;
 let bannerTimer = 0;
 
 export interface UiHandlers {
   play(): void; pause(): void; resume(): void; restart(): void; menu(): void; again(): void;
+  mode(m: 'classic' | 'daily'): void;
+  /** Tap on a stone in the picker: equips an owned stone, otherwise previews it for buying. */
+  stone(id: string): void;
+  buy(id: string): void;
   /** Any UI button press, so the scene can unlock audio and click. */
   press(): void;
 }
 
-export interface OverStats { metres: number; skips: number; bestStreak: number; glass: number; hoops: number; best: number; isBest: boolean; plunked: boolean }
+export interface OverStats {
+  metres: number; skips: number; bestStreak: number; glass: number; hoops: number; best: number; isBest: boolean; plunked: boolean;
+  daily: boolean; close: string; earned: { label: string; n: number }[]; missions: MissionResult[];
+}
+export interface PickerState { equipped: string; selected: string; owned: (id: string) => boolean; balance: number }
 
 let shownDist = -1, shownStreak = -1;
 
@@ -60,6 +83,16 @@ export const ui = {
     on(el.menuBtn, h.menu);
     on(el.againBtn, h.again);
     on(el.overMenuBtn, h.menu);
+    on(el.modeClassic, () => h.mode('classic'));
+    on(el.modeDaily, () => h.mode('daily'));
+    el.picker.addEventListener('click', e => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stone]');
+      if (b) { e.preventDefault(); h.press(); h.stone(b.dataset.stone!); }
+    });
+    el.caption.addEventListener('click', e => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-buy]');
+      if (b) { e.preventDefault(); h.press(); h.buy(b.dataset.buy!); }
+    });
     document.querySelectorAll<HTMLButtonElement>('[data-setting]').forEach(b => {
       const key = b.dataset.setting as keyof Settings;
       b.addEventListener('click', e => { e.preventDefault(); setSetting(key, !settings[key]); h.press(); });
@@ -86,9 +119,50 @@ export const ui = {
   get open() { return !el.title.hidden || !el.pause.hidden || !el.over.hidden; },
 
   hud(show: boolean) { el.hud.hidden = !show; },
-  setBest(m: number) {
+  setBest(m: number, daily = false) {
     el.hudBest.textContent = String(m);
+    el.hudBestLabel.textContent = daily ? 'DAILY BEST' : 'BEST';
     el.titleBest.textContent = String(m);
+  },
+  /** Title extras: mode switch, today's daily, missions (or the how-to before the first throw). */
+  setTitleMeta(mode: 'classic' | 'daily', d: DailyInfo, list: Mission[], firstRun: boolean) {
+    el.modeClassic.setAttribute('aria-pressed', String(mode === 'classic'));
+    el.modeDaily.setAttribute('aria-pressed', String(mode === 'daily'));
+    el.dailyDone.textContent = d.playedToday ? '✓' : '';
+    el.dailyLine.hidden = mode !== 'daily';
+    el.dailyLine.textContent = d.playedToday ? `Today's lake · your best ${d.best} m` : "Today's lake · same for everyone";
+    el.howto.hidden = !firstRun;
+    el.titleMissionsBox.hidden = firstRun;
+    if (!firstRun) renderMissions(el.titleMissions, list);
+  },
+  /** Stone row on the title, each drawn with its face; locked ones show a price. */
+  renderPicker(p: PickerState) {
+    el.picker.innerHTML = STONE_ITEMS.map(it => {
+      const own = p.owned(it.id);
+      return `<button class="stone-pick${it.id === p.equipped ? ' equipped' : ''}${it.id === p.selected ? ' selected' : ''}${own ? '' : ' locked'}"
+        data-stone="${it.id}" role="radio" aria-checked="${it.id === p.equipped}" aria-label="${it.name}${own ? '' : `, ${it.price} coins`}">
+        ${stoneSvg(it.id, it.id === p.equipped ? 'squint' : 'eyes')}<span>${own ? it.name : `${coinIcon()}${it.price}`}</span></button>`;
+    }).join('');
+    const sel = STONE_ITEMS.find(i => i.id === p.selected)!;
+    const own = p.owned(sel.id);
+    el.caption.innerHTML = own
+      ? `<b>${sel.name}</b> · ${sel.blurb}`
+      : `<b>${sel.name}</b> · ${sel.blurb} <button class="k-btn k-btn--sm k-btn--yellow buy-btn" data-buy="${sel.id}"${p.balance < sel.price ? ' disabled' : ''}>${coinIcon()}${sel.price}</button>`;
+  },
+  shakePicker(id: string) {
+    const b = el.picker.querySelector<HTMLElement>(`[data-stone="${id}"]`);
+    if (!b) return;
+    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+  },
+  /** HUD pills show the equipped stone. */
+  setHudStone(id: string) {
+    document.querySelectorAll<HTMLElement>('.stone-ico').forEach(e => { e.innerHTML = stoneSvg(id, e.dataset.face === 'squint' ? 'squint' : 'eyes'); });
+  },
+  /** Lucky stone pip: 'ready' (green clover), 'used' (pops and greys out) or hidden. */
+  lucky(state: 'hidden' | 'ready' | 'used') {
+    el.luckyPip.hidden = state === 'hidden';
+    el.luckyPip.classList.toggle('used', state === 'used');
+    if (state === 'used') bump(el.luckyPip);
   },
   setDist(m: number) {
     if (m === shownDist) return;
@@ -132,6 +206,11 @@ export const ui = {
     el.overStreak.textContent = s.bestStreak > 0 ? `×${s.bestStreak}` : '–';
     el.overGlass.textContent = String(s.glass);
     el.overHoops.textContent = String(s.hoops);
+    el.overClose.textContent = s.close;
+    el.overClose.hidden = !s.close;
+    renderEarned(el.overEarned, s.earned);
+    renderMissions(el.overMissions, s.missions.map(r => r.mission), s.missions);
+    if (s.daily && !record) el.overRibbon.textContent = 'Daily Lake';
     // restart the star pop-in every time
     el.overStars.querySelectorAll('.k-star').forEach((st, i) => {
       st.classList.remove('on');

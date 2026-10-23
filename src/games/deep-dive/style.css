@@ -255,3 +255,36 @@ body {
 .hint { bottom: calc(var(--safe-b) + 12px); gap: 8px; padding: 6px 14px 6px 8px; font-size: 13px; border-width: 2px; opacity: .92; pointer-events: none; }
 .hint-finger { width: 16px; height: 16px; border-width: 2px; }
 .hint { left: calc(var(--safe-l) + 12px); transform: none; }
+
+/* ---------- Arcade meta on the title and game-over card */
+.title-top { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.title-meta { display: flex; gap: 8px; align-items: center; justify-content: center; margin-bottom: 6px; }
+.title-missions { width: min(380px, 100%); padding: 26px 12px 12px; margin-top: 18px; }
+.title-missions .k-ribbon { font-size: 16px; padding: 4px 18px 6px; top: -18px; min-width: 0; }
+.suit.affordable { filter: none; box-shadow: 0 4px 0 var(--k-outline), 0 0 0 3px #ffc43d; }
+.suit small { display: inline-flex; align-items: center; gap: 1px; bottom: -19px; }
+.suit small .k-coin { width: 12px; height: 12px; }
+.suit.nope { animation: heart-shake .4s ease; }
+.over-close { margin-top: 8px; font-weight: 700; color: #e9558a; font-size: 15px; }
+.over-daily { margin-top: 8px; font-weight: 600; color: var(--k-ink-soft); font-size: 14px; }
+.over-panel { width: min(420px, 100%); }
+.over-side .k-missions { margin-top: 12px; }
+.k-mode { margin-bottom: 2px; }
+
+@media (orientation: portrait) and (max-height: 860px) {
+  .title-missions .k-mission { padding: 5px 8px; font-size: 13px; }
+  .title-tag { display: none; }
+}
+@media (max-height: 520px) {
+  .title-meta { margin-bottom: 0; }
+  .title-missions { margin-top: 14px; padding: 22px 10px 8px; }
+  .title-missions .k-mission { padding: 4px 8px; font-size: 12px; }
+  .title-missions .k-mission-bar { height: 5px; }
+  .over-panel { width: min(720px, 100%); }
+  .over-side .k-missions { margin-top: 0; }
+  .over-side .k-mission { padding: 4px 8px; font-size: 12px; }
+  .over-close, .over-daily { margin-top: 4px; font-size: 13px; }
+  .k-earned { margin-top: 4px; }
+  .k-mode button { min-height: 30px; }
+}
+.suits { margin-bottom: 14px; }

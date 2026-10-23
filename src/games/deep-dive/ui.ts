@@ -1,9 +1,12 @@
-import { onSettings, setSetting, settings, type Settings } from '../../core/settings';
+import { onSettings, setSetting, settings, store, type Settings } from '../../core/settings';
+import { coins, daily, type DailyResult, type MissionResult } from '../../core/meta';
+import { coinIcon, mountCoins, mountStreak, renderEarned, renderMissions } from '../../core/metaui';
+import { deepMissions } from './game/missions';
 import { sfx } from '../../core/sfx';
 import { buzz } from '../../core/haptics';
 import { isTouch } from '../../core/view';
 import { hydrateIcons, icon, STAR_SVG, wobbleLetters } from '../../core/icons';
-import { SKINS } from './game/skins';
+import { SKINS, suits } from './game/skins';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -13,7 +16,8 @@ export interface Handlers {
   resume(): void;
   restart(): void;
   menu(): void;
-  skin(id: string): void;
+  /** Equip (buying if needed); false when the player can't afford it. */
+  skin(id: string): boolean;
 }
 
 /** Depths that earn 1, 2 and 3 stars: reaching the Twilight Zone, Midnight Zone and the Abyss. */
@@ -29,12 +33,24 @@ let lowShown = false;
 let shownPerk: string | null = null;
 let toastTimer = 0;
 let hintTimer = 0;
-let onSkin: (id: string) => void = () => {};
+let onSkin: (id: string) => boolean = () => false;
+let dailyOn = false;
 
 export const ui = {
   init(h: Handlers) {
     hydrateIcons();
     wobbleLetters($('logo'));
+    mountCoins();
+    mountStreak();
+    const setMode = (d: boolean) => {
+      dailyOn = d;
+      $('modeClassic').setAttribute('aria-pressed', String(!d));
+      $('modeDaily').setAttribute('aria-pressed', String(d));
+      $('playLabel').textContent = d ? 'Daily dive' : 'Dive';
+      buzz(6);
+    };
+    $('modeClassic').addEventListener('click', () => setMode(false));
+    $('modeDaily').addEventListener('click', () => setMode(true));
     onSkin = h.skin;
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
@@ -91,42 +107,64 @@ export const ui = {
     if (!visible) { this.lowO2(false); this.hint(false); }
   },
 
-  showTitle(best: number, pearls: number, skin: string) {
+  showTitle(best: number, skin: string) {
     $('titleBest').textContent = best.toLocaleString();
-    this.setSkins(pearls, skin);
+    this.setSkins(skin);
+    const d = daily.info('deep-dive');
+    $('dailyDone').textContent = d.playedToday ? `✓ ${d.best} m` : '';
+    renderMissions($('missionList'), deepMissions.active);
+    // First-timers see how to play; after that the missions take the space.
+    const learned = store.get('learned', false);
+    $('howto').hidden = learned;
+    $('titleMissions').hidden = !learned;
     this.hud(false);
     this.screen('title');
   },
 
-  /** Suit picker: unlocked suits are selectable, locked ones show how many pearls they need. */
-  setSkins(pearls: number, current: string) {
-    $('titlePearls').textContent = pearls.toLocaleString();
+  /** Suit shop: owned suits are tap-to-wear; others show their coin price and are bought on tap. */
+  setSkins(current: string) {
     const box = $('suits');
+    const wallet = coins.balance;
     box.innerHTML = SKINS.map(s => {
-      const locked = s.cost > pearls;
-      return `<button class="suit${s.id === current ? ' on' : ''}${locked ? ' locked' : ''}" role="radio" aria-checked="${s.id === current}"
-        data-skin="${s.id}" ${locked ? 'disabled' : ''} aria-label="${s.name}${locked ? `, needs ${s.cost} pearls` : ''}"
-        style="--suit:${s.body};--fins:${s.fins}">${locked ? `${icon('lock')}<small>${s.cost}</small>` : ''}</button>`;
+      const owned = suits.owns(s.id), afford = wallet >= s.price;
+      return `<button class="suit${s.id === current ? ' on' : ''}${owned ? '' : ' locked'}${!owned && afford ? ' affordable' : ''}" role="radio" aria-checked="${s.id === current}"
+        data-skin="${s.id}" aria-label="${s.name}${owned ? '' : `, costs ${s.price} coins`}"
+        style="--suit:${s.body};--fins:${s.fins}">${owned ? '' : `${icon('lock')}<small>${coinIcon()}${s.price}</small>`}</button>`;
     }).join('');
     box.querySelectorAll<HTMLButtonElement>('[data-skin]').forEach(b => b.addEventListener('click', () => {
-      sfx.unlock(); buzz(8);
-      sfx.tone(660, 0.1, { vol: 0.08, slideTo: 990 });
-      onSkin(b.dataset.skin!);
+      sfx.unlock();
+      const wasOwned = suits.owns(b.dataset.skin!);
+      if (onSkin(b.dataset.skin!)) {
+        buzz(wasOwned ? 8 : [10, 40, 20]);
+        sfx.tone(660, 0.1, { vol: 0.08, slideTo: 990 });
+        if (!wasOwned) { sfx.tone(880, 0.25, { vol: 0.07, delay: 0.1 }); this.damage('New suit!', true); }
+      } else {
+        buzz(30);
+        sfx.tone(200, 0.15, { type: 'triangle', vol: 0.06 });
+        b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope');
+      }
     }));
   },
 
-  showOver(o: { depth: number; reason: string; zone: string; best: number; isBest: boolean; pearls: number; total: number; unlocked?: string }) {
+  dailySelected() { return dailyOn; },
+
+  showOver(o: {
+    depth: number; reason: string; zone: string; best: number; isBest: boolean; pearls: number;
+    close: string; results: MissionResult[]; daily: DailyResult | null; earned: { label: string; n: number }[];
+  }) {
     const stars = STAR_DEPTHS.filter(d => o.depth >= d).length;
     $('stars').innerHTML = STAR_DEPTHS.map((_, i) => STAR_SVG.replace('class="k-star"', `class="k-star${i < stars ? ' on' : ''}"`)).join('');
     $('overDepth').textContent = o.depth.toLocaleString();
-    $('overReason').textContent = o.reason;
-    $('overRibbon').textContent = o.isBest ? 'New Record!' : 'Game Over';
+    $('overReason').textContent = `${o.reason} · ${o.zone}`;
+    $('overRibbon').textContent = o.daily ? 'Daily Dive' : o.isBest ? 'New Record!' : 'Game Over';
     $('overBest').hidden = !o.isBest;
-    $('overUnlock').hidden = !o.unlocked;
-    $('overUnlock').textContent = o.unlocked ? `NEW SUIT: ${o.unlocked.toUpperCase()}!` : '';
-    $('overZone').textContent = o.zone;
-    $('overPearls').textContent = `+${o.pearls} (${o.total.toLocaleString()})`;
-    $('overBestVal').textContent = `${o.best.toLocaleString()} m`;
+    $('overClose').hidden = !o.close;
+    $('overClose').textContent = o.close;
+    const dEl = $('overDaily');
+    dEl.hidden = !o.daily;
+    if (o.daily) dEl.textContent = o.daily.isBest ? `Today's best: ${o.daily.best} m` : `Today's best: ${o.daily.best} m · try again!`;
+    renderEarned($('overEarned'), o.earned);
+    renderMissions($('overMissions'), [], o.results);
     this.hud(false);
     this.screen('over');
   },

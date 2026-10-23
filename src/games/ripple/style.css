@@ -137,35 +137,70 @@ body {
 .hint .k-pill-icon { color: #16233b; }
 .hint .k-pill-icon { width: 26px; height: 26px; border-width: 2px; }
 .hint .k-pill-icon svg { width: 16px; height: 16px; }
-.hint.top { bottom: auto; top: calc(var(--safe-t) + 60px); }
+.hint.top { bottom: auto; top: calc(var(--safe-t) + 96px); }
 
 /* ---------- Title */
 .title-screen { background: radial-gradient(ellipse at 50% 40%, rgba(10, 18, 40, .02), rgba(10, 18, 40, .38)); }
 .title-grid {
   width: min(420px, 100%);
-  display: grid; gap: 14px; justify-items: center;
-  grid-template-areas: "head" "howto" "actions";
+  display: grid; gap: 12px; justify-items: center;
+  grid-template-areas: "top" "head" "info" "actions";
 }
+.title-top { grid-area: top; display: flex; gap: 8px; align-items: center; justify-content: center; }
 .title-head { grid-area: head; text-align: center; }
-.title-head .k-logo { font-size: clamp(58px, 17vw, 100px); }
-.title-tag { margin-top: 12px; font-size: 18px; }
-.howto-panel { grid-area: howto; width: 100%; padding: 30px 14px 12px; }
-.howto-panel .k-ribbon { font-size: 19px; padding: 6px 22px 8px; top: -21px; }
-.howto { list-style: none; display: grid; gap: 7px; text-align: left; }
-.howto li { display: flex; align-items: center; gap: 11px; font-size: 15px; line-height: 1.25; color: var(--k-ink-soft); font-weight: 500; }
+.title-head .k-logo { font-size: clamp(54px, 15vw, 96px); }
+.title-tag { margin-top: 10px; font-size: 17px; }
+
+.info-panel { grid-area: info; width: 100%; padding: 30px 12px 10px; margin-top: 10px; }
+.info-tabs { display: flex; gap: 4px; padding: 4px 6px 6px; top: -21px; min-width: 0; }
+.info-tabs button {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-family: var(--k-font); font-weight: 700; font-size: 16px; color: #fff;
+  min-height: 32px; padding: 0 12px; border-radius: 10px; opacity: .6; white-space: nowrap;
+  text-shadow: var(--k-text-outline);
+}
+.info-tabs button[aria-pressed="true"] { opacity: 1; background: rgba(255, 255, 255, .18); }
+.info-panel .k-mission { padding: 6px 9px; font-size: 13.5px; }
+.howto { list-style: none; display: grid; gap: 6px; text-align: left; }
+.howto li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; line-height: 1.25; color: var(--k-ink-soft); font-weight: 500; }
 .howto b { color: var(--k-ink); font-weight: 700; }
 .howto-ico {
-  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%;
+  flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%;
   display: grid; place-items: center;
   border: 3px solid #16233b; box-shadow: 0 3px 0 #16233b;
 }
-.howto-ico svg { width: 27px; height: 27px; }
+.howto-ico svg { width: 25px; height: 25px; }
 .ico-tap { background: #3aa8ff; }
 .ico-dock { background: #8ff0ff; }
 .ico-time { background: #ff5a7a; }
 .ico-bonus { background: #9b6bff; }
-.title-actions { grid-area: actions; display: grid; gap: 14px; justify-items: center; }
+
+.title-actions { grid-area: actions; display: grid; gap: 12px; justify-items: center; }
 .play-btn { min-width: 250px; }
+.k-mode button { min-height: 38px; }
+
+/* boat style picker (shop): owned styles are selectable, locked ones show their price */
+.skins { display: flex; gap: 8px; justify-content: center; }
+.skin {
+  position: relative; appearance: none; cursor: pointer;
+  width: 52px; height: 44px; padding: 0; border-radius: 14px;
+  display: grid; place-items: center;
+  background: rgba(22, 35, 59, .55); border: 3px solid var(--k-outline); box-shadow: 0 3px 0 var(--k-outline);
+  transition: transform .1s;
+}
+.skin img { width: 42px; height: auto; pointer-events: none; }
+.skin.on { background: linear-gradient(180deg, #8ff0ff, #3aa8ff); transform: translateY(-2px); box-shadow: 0 5px 0 var(--k-outline); }
+.skin.locked img { filter: saturate(.75) brightness(.92); opacity: .85; }
+.skin small {
+  position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 1px 6px; border-radius: 999px; background: #16233b; color: #fff;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.skin small svg { width: 10px; height: 10px; fill: #fff; }
+.skin.afford small { background: #1e8f45; }
+.skin.shake { animation: skin-shake .35s ease; }
+
 .title-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .best-pill { min-height: 46px; font-size: 22px; }
 .best-pill .k-pill-icon { width: 34px; height: 34px; }
@@ -182,14 +217,24 @@ body {
 .pause-toggles .k-toggle { padding-right: 12px; font-size: 14px; }
 
 /* ---------- Game over */
-.over-panel { width: min(360px, 100%); padding-top: 38px; }
+.over-panel { width: min(370px, 100%); padding: 36px 18px 18px; }
 .k-ribbon.record { --k-ribbon: #ff5a7a; --k-ribbon-lo: #c22a4b; }
 .over-main { display: grid; justify-items: center; }
-.over-panel .k-big-num { font-size: 72px; margin-top: 2px; }
-.over-line { margin-top: 10px; font-size: 18px; font-weight: 600; color: var(--k-ink-soft); }
-.over-main .k-tag { margin-top: 10px; }
-.over-panel .k-stats { margin-top: 16px; }
-.over-actions { display: flex; gap: 10px; margin-top: 16px; }
+.over-panel .k-stars { margin-bottom: 2px; }
+.over-panel .k-star { width: 50px; height: 50px; }
+.over-panel .k-star:nth-child(2) { width: 64px; height: 64px; }
+.over-panel .k-big-num { font-size: 64px; margin-top: 0; }
+.over-line { margin-top: 6px; font-size: 16px; font-weight: 600; color: var(--k-ink-soft); }
+.over-main .k-tag { margin-top: 8px; }
+.so-close { margin-top: 6px; font-size: 14px; font-weight: 600; color: #c22a4b; }
+.over-panel .k-earned { margin-top: 6px; }
+.over-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
+.over-chips > div { display: grid; padding: 5px 4px; border-radius: 12px; background: rgba(22, 35, 59, .07); }
+.over-chips small { font-size: 11px; font-weight: 600; color: var(--k-ink-soft); }
+.over-chips b { font-size: 18px; color: var(--k-ink); }
+.over-missions { margin-top: 10px; }
+.over-missions .k-mission { padding: 5px 8px; font-size: 13px; }
+.over-actions { display: flex; gap: 10px; margin-top: 12px; }
 .over-actions .k-btn { flex: 1; white-space: nowrap; padding-left: 16px; padding-right: 16px; }
 .over-actions .k-icon-btn { flex: 0 0 56px; width: 56px; height: 56px; }
 
@@ -205,41 +250,45 @@ body {
   .toast { top: calc(var(--safe-t) + 50px); }
   .toast span { font-size: 20px; }
   .hint { bottom: calc(var(--safe-b) + 8px); }
-  .hint.top { top: calc(var(--safe-t) + 50px); }
+  .hint.top { top: calc(var(--safe-t) + 82px); }
 
   .k-screen { padding-top: calc(var(--safe-t) + 26px); padding-bottom: calc(var(--safe-b) + 10px); }
   .title-screen { padding-top: calc(var(--safe-t) + 10px); }
   .title-grid {
-    width: min(780px, 100%);
-    grid-template-columns: 1fr 1.05fr;
-    grid-template-areas: "head howto" "actions howto";
-    gap: 14px 28px; align-items: center;
+    width: min(800px, 100%);
+    grid-template-columns: 1fr 1.1fr;
+    grid-template-areas: "top info" "head info" "actions info";
+    gap: 8px 26px; align-items: center;
   }
-  .title-head { align-self: end; }
-  .title-head .k-logo { font-size: 66px; }
-  .title-tag { margin-top: 10px; font-size: 16px; }
-  .title-actions { align-self: start; gap: 14px; }
-  .play-btn { min-height: 60px; font-size: 26px; min-width: 220px; }
-  .howto-panel { padding: 30px 14px 12px; }
-  .howto li { font-size: 14px; }
-  .howto-ico { flex-basis: 40px; width: 40px; height: 40px; }
-  .howto-ico svg { width: 26px; height: 26px; }
+  .title-top { align-self: end; }
+  .title-head .k-logo { font-size: 54px; }
+  .title-tag { margin-top: 6px; font-size: 14px; }
+  .title-actions { align-self: start; gap: 9px; }
+  .play-btn { min-height: 54px; font-size: 24px; min-width: 210px; padding-bottom: 4px; }
+  .k-mode button { min-height: 32px; }
+  .info-panel { padding: 28px 12px 10px; align-self: center; }
+  .howto li { font-size: 13.5px; }
+  .howto-ico { flex-basis: 34px; width: 34px; height: 34px; }
+  .howto-ico svg { width: 22px; height: 22px; }
+  .skins .skin { width: 46px; height: 40px; }
+  .skin img { width: 38px; }
 
   .pause-panel { padding: 30px 18px 18px; }
   .pause-panel > * + * { margin-top: 10px; }
   .pause-panel .pause-toggles { margin-top: 12px; }
 
   .over-panel {
-    width: min(640px, 100%);
-    display: grid; grid-template-columns: 1fr 1.15fr; gap: 6px 22px; align-items: center;
-    padding: 32px 20px 18px;
+    width: min(700px, 100%);
+    display: grid; grid-template-columns: 1fr 1.3fr; gap: 6px 20px; align-items: center;
+    padding: 30px 18px 14px;
   }
-  .over-panel .k-star { width: 46px; height: 46px; }
-  .over-panel .k-star:nth-child(2) { width: 60px; height: 60px; margin-bottom: 6px; }
-  .over-panel .k-big-num { font-size: 60px; }
-  .over-line { margin-top: 6px; font-size: 16px; }
-  .over-panel .k-stats { margin-top: 0; gap: 5px; }
-  .over-panel .k-stat { padding: 6px 12px; }
+  .over-panel .k-star { width: 42px; height: 42px; }
+  .over-panel .k-star:nth-child(2) { width: 54px; height: 54px; margin-bottom: 4px; }
+  .over-panel .k-big-num { font-size: 52px; }
+  .over-line { margin-top: 4px; font-size: 14px; }
+  .over-chips { margin-top: 0; }
+  .over-missions { margin-top: 6px; gap: 4px; }
+  .over-missions .k-mission { padding: 4px 8px; }
   .over-actions { margin-top: 12px; }
 }
 /* very narrow portrait phones */
@@ -255,6 +304,7 @@ body {
   70% { opacity: 1; }
   100% { transform: translate(-50%, -210%) scale(.95); opacity: 0; }
 }
+@keyframes skin-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes frost { 50% { opacity: .65; } }
 @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes life-sink {

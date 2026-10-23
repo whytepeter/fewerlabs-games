@@ -49,21 +49,29 @@
     <section id="title" class="k-screen title-screen">
       <div class="title-layout">
         <div class="title-top">
+          <div class="title-meta"><div class="k-coins" data-coins></div><span class="k-streak" data-streak hidden></span></div>
           <h1 class="k-logo" id="logo">Deep Dive</h1>
           <p class="title-tag k-outline">How deep can you go?</p>
-        </div>
-        <div class="title-bottom">
-          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i>Dive</button>
-          <div class="pill-row">
-            <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
-            <div class="k-pill best-pill"><span class="k-pill-icon pearl-icon"><i data-icon="pearl"></i></span><b id="titlePearls">0</b></div>
+          <div class="k-panel title-missions" id="titleMissions">
+            <div class="k-ribbon">Missions</div>
+            <ul class="k-missions" id="missionList"></ul>
           </div>
-          <div class="suits" id="suits" role="radiogroup" aria-label="Diver suit"></div>
-          <div class="howto">
+          <div class="howto" id="howto">
             <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Hold</b><span id="howHoldText">to swim up</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
             <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b>3 lives</b><span>dodge critters</span></div>
           </div>
+        </div>
+        <div class="title-bottom">
+          <div class="k-mode" role="group" aria-label="Mode">
+            <button type="button" id="modeClassic" aria-pressed="true">Classic</button>
+            <button type="button" id="modeDaily" aria-pressed="false">Daily <span class="k-done" id="dailyDone"></span></button>
+          </div>
+          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i><span id="playLabel">Dive</span></button>
+          <div class="pill-row">
+            <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+          </div>
+          <div class="suits" id="suits" role="radiogroup" aria-label="Diver suit"></div>
           <div class="icon-row">
             <a class="k-icon-btn k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
             <button class="k-icon-btn k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
@@ -99,16 +107,13 @@
             <div class="k-stars" id="stars"></div>
             <div class="k-big-num"><span id="overDepth">0</span><small>m</small></div>
             <div class="over-reason" id="overReason"></div>
+            <div class="over-close" id="overClose" hidden></div>
             <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
-            <div class="k-tag unlock-tag" id="overUnlock" hidden></div>
+            <div class="over-daily" id="overDaily" hidden></div>
+            <div class="k-earned" id="overEarned" hidden></div>
           </div>
           <div class="over-side">
-            <div class="k-stats">
-              <div class="k-stat"><span>Zone</span><b id="overZone">Sunlit Reef</b></div>
-              <div class="k-stat"><span>Pearls</span><b id="overPearls">0</b></div>
-              <div class="k-stat"><span>Best</span><b id="overBestVal">0 m</b></div>
-              <div class="k-stat"><span>Next star</span><b id="overNext">150 m</b></div>
-            </div>
+            <ul class="k-missions" id="overMissions"></ul>
             <div class="k-row over-buttons">
               <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
               <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>

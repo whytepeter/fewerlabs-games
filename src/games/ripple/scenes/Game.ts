@@ -5,12 +5,15 @@ import { sfx } from '../../../core/sfx';
 import { buzz } from '../../../core/haptics';
 import { store } from '../../../core/settings';
 import { music } from '../../../core/music';
-import { Sim, RIP_LIFE, RIP_SPEED, GOLD_POINTS, PICKUP_R, type Boat, type Dock, type Rock, type Pad, type Mote, type Pickup, type Rect } from '../game/sim';
+import { daily, coins, soClose, streak } from '../../../core/meta';
+import { mulberry32 } from '../../../core/rng';
+import { Sim, RIP_LIFE, RIP_SPEED, GOLD_POINTS, PICKUP_R, WHIRL_R, type Boat, type Dock, type Rock, type Pad, type Mote, type Pickup, type Rect, type Twist, type WallPad } from '../game/sim';
+import { GAME, mode, rippleMissions, runCoins } from '../game/meta';
 import { MUSIC, RIPPLE_SONG } from '../game/song';
 import { C, P, LANE_NAMES, OUTLINE_N, isDark, laneKey, onTheme } from '../game/palette';
 import {
   DOCK_TEX_R, DOT_R, DROP_R, GLOW_SIZE, PAD_R, REED_H, RING_R, ROCK_ORIGIN, ROCK_R, SHIMMER_LEN, SHOCK_R,
-  buildBackground, buildThemedTextures, hash, inPond,
+  buildBackground, buildThemedTextures, hash, inPond, setBoatSkin,
 } from '../game/art';
 import { sounds } from '../game/audio';
 import { computePond, hudHeight, readInsets, uiScale, worldScale } from '../game/layout';
@@ -34,11 +37,13 @@ interface Shimmer { img: Img; x: number; y: number; i: number }
  */
 export const STAR_THRESHOLDS = [5, 15, 30];
 const GOLD = 0xffd23f;
+/** Wave banner text for each pond twist. */
+const TWIST_LABEL: Record<Twist, string> = { none: '', calm: 'Calm waters', wind: 'Windy!', whirl: 'Whirlpool!', lilies: 'Lily wall!' };
 const ICE = 0x9be7ff;
 
 const D = {
   bg: 0, shimmer: 1, pad: 2, flower: 2.1, dockShadow: 2.5, dockFill: 2.6, dockGlow: 2.7, dockRing: 3,
-  ripples: 4, wake: 4.5, splash: 5, rock: 6, pickup: 6.2, boatShadow: 6.5, boatGlow: 7, boat: 7.1, arcs: 7.5,
+  ripples: 4, wind: 4.6, wake: 4.5, splash: 5, rock: 6, wallPad: 5.8, pickup: 6.2, boatShadow: 6.5, boatGlow: 7, boat: 7.1, arcs: 7.5,
   burst: 8, shock: 8.1, mote: 9, hint: 10, reed: 11,
 };
 
@@ -72,6 +77,13 @@ export class Game extends Phaser.Scene {
   private padViews = new Map<Pad, PadView>();
   private moteViews = new Map<Mote, Img>();
   private pickupViews = new Map<Pickup, PickupView>();
+  private wallViews = new Map<WallPad, Img>();
+  private twistG!: Phaser.GameObjects.Graphics;
+  private windStreaks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private windLeaves!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private windDeg = 0;
+  /** This run is the seeded Daily challenge. */
+  private isDaily = false;
   /** World zoom (see layout.worldScale): world units x ws = CSS px. */
   private ws = 1;
   private frosty = false;
@@ -105,6 +117,7 @@ export class Game extends Phaser.Scene {
     this.rippleG = this.add.graphics().setDepth(D.ripples);
     this.arcG = this.add.graphics().setDepth(D.arcs);
     this.hintG = this.add.graphics().setDepth(D.hint);
+    this.twistG = this.add.graphics().setDepth(2.4);
     this.createEmitters();
     this.buildScenery();
 
@@ -126,13 +139,17 @@ export class Game extends Phaser.Scene {
       offTheme();
     });
 
-    ui.init({
+    const handlers = {
       play: () => this.startRun(),
       resume: () => this.resume(),
       restart: () => this.startRun(),
       menu: () => this.toTitle(),
       pause: () => this.pause(),
-    });
+      skin: (id: string) => { setBoatSkin(id); this.onTheme(); },
+    };
+    ui.init(handlers);
+    ui.initMeta(handlers);
+    ui.showTab(this.best > 0 ? 'missions' : 'howto');
     this.toTitle(true);
   }
 
@@ -146,14 +163,20 @@ export class Game extends Phaser.Scene {
     this.setFrost(false);
     ui.setBest(this.best);
     ui.clearToast();
+    ui.refreshTitle();
+    this.setWind(false);
     ui.show('title');
   }
 
   startRun() {
-    const fresh = this.mode === 'title' && this.sim.phase === 'idle';
-    if (!fresh) this.clearWorldViews();
+    // Daily: every random choice of the run comes from today's seed, so everyone gets the same pond.
+    this.isDaily = mode.current === 'daily';
+    const keep = this.mode === 'title' && this.sim.phase === 'idle' && !this.isDaily;
+    if (!keep) this.clearWorldViews();
     this.killParticles();
-    this.sim.start(fresh);
+    this.setWind(false);
+    this.sim.setRng(this.isDaily ? mulberry32(daily.info(GAME).seed) : Math.random);
+    this.sim.start(keep);
     this.mode = 'play';
     music.play(RIPPLE_SONG, MUSIC.forRun(0));
     music.setIntensity(MUSIC.forRun(0));
@@ -180,18 +203,38 @@ export class Game extends Phaser.Scene {
 
   private gameOver(score: number) {
     this.mode = 'over';
+    const sim = this.sim;
+    const prevBest = this.best, prevDaily = daily.info(GAME).best;
     const isNew = score > this.best && score > 0;
     if (isNew) { this.best = score; store.set('best', score); }
+
+    // arcade meta: streak, run coins, missions, daily bonus
+    streak.touch();
+    const stats = {
+      score, docked: sim.docked, golden: sim.goldDocked, combo: sim.bestCombo, wave: sim.wave,
+      freezes: sim.freezes, hearts: sim.hearts, perfectWaves: sim.perfectWaves, daily: this.isDaily ? 1 : 0,
+    };
+    const run = runCoins(stats);
+    coins.add(run);
+    const results = rippleMissions.report(stats);
+    const missionCoins = results.filter(r => r.done).reduce((n, r) => n + r.mission.reward, 0);
+    const dailyRes = this.isDaily ? daily.record(GAME, score) : null;
+    const dailyNew = !!dailyRes && score > prevDaily && score > 0;
+
     ui.hint(false);
     ui.clearToast();
     this.setFrost(false);
+    this.setWind(false);
     music.setIntensity(MUSIC.over);
     buzz([30, 60, 50]);
     sounds.over();
     ui.showOver({
-      score, best: this.best, isNew,
+      score, best: this.isDaily ? Math.max(prevDaily, score) : this.best, isNew: this.isDaily ? dailyNew : isNew,
       stars: STAR_THRESHOLDS.filter(t => score >= t).length,
-      wave: this.sim.wave, bestCombo: this.sim.bestCombo,
+      wave: sim.wave, bestCombo: sim.bestCombo, daily: this.isDaily,
+      earned: [{ label: 'Run', n: run }, { label: 'Missions', n: missionCoins }, { label: 'Daily', n: dailyRes?.bonus ?? 0 }],
+      missions: results,
+      close: soClose(score, this.isDaily ? prevDaily : prevBest),
     });
   }
 
@@ -209,6 +252,7 @@ export class Game extends Phaser.Scene {
     this.sim.setPond(this.measurePond());
     this.killParticles();
     this.buildScenery();
+    if (this.sim.twist === 'wind' && this.mode !== 'title' && this.mode !== 'over') this.setWind(true);
   }
 
   private onTheme() {
@@ -225,6 +269,7 @@ export class Game extends Phaser.Scene {
 
   private killParticles() {
     this.splash.killAll(); this.wake.killAll(); this.confetti.killAll(); this.stars.killAll();
+    this.windStreaks?.killAll(); this.windLeaves?.killAll();
   }
 
   /** Background, shimmer lines and edge reeds: everything that depends only on the screen and pond rect. */
@@ -289,10 +334,22 @@ export class Game extends Phaser.Scene {
     for (const v of this.moteViews.values()) v.destroy();
     for (const v of this.pickupViews.values()) { this.tweens.killTweensOf(v); v.img.destroy(); }
     this.pickupViews.clear();
+    for (const v of this.wallViews.values()) v.destroy();
+    this.wallViews.clear();
     this.boatViews.clear(); this.dockViews.clear(); this.rockViews.clear(); this.padViews.clear(); this.moteViews.clear();
   }
 
   private createEmitters() {
+    this.windStreaks = this.add.particles(0, 0, 'shimmer', {
+      emitting: false, frequency: 110, lifespan: 1500, speed: { min: 60, max: 95 },
+      angle: { onEmit: () => this.windDeg }, rotate: { onEmit: () => this.windDeg },
+      scale: { min: TEX_SCALE * 1.2, max: TEX_SCALE * 2 }, alpha: { start: 0.55, end: 0 }, tint: 0xffffff,
+    }).setDepth(D.wind);
+    this.windLeaves = this.add.particles(0, 0, 'windleaf', {
+      emitting: false, frequency: 650, lifespan: 3200, speed: { min: 40, max: 70 },
+      angle: { onEmit: () => this.windDeg + Phaser.Math.Between(-12, 12) }, rotate: { start: 0, end: 300 },
+      scale: TEX_SCALE * 1.1, alpha: { start: 0.95, end: 0, ease: 'Quad.In' },
+    }).setDepth(D.wind);
     const drop = TEX_SCALE / DROP_R;
     this.splash = this.add.particles(0, 0, 'drop', {
       emitting: false, lifespan: 420, speed: { min: 25, max: 75 },
@@ -330,6 +387,18 @@ export class Game extends Phaser.Scene {
     this.tweens.killTweensOf(v.sq);
     v.sq.x = x; v.sq.y = y;
     this.tweens.add({ targets: v.sq, x: 1, y: 1, duration: 520, ease: 'Elastic.Out', easeParams: [1.1, 0.45] });
+  }
+
+  /** Show or hide the drifting streaks and leaves of the Wind twist. */
+  private setWind(on: boolean) {
+    if (!this.windStreaks) return;
+    if (on) {
+      this.windDeg = Phaser.Math.RadToDeg(Math.atan2(this.sim.wind.y, this.sim.wind.x));
+      const zone = { type: 'random' as const, source: new Phaser.Geom.Rectangle(0, 0, view.w / this.ws, view.h / this.ws), quantity: 1 };
+      for (const e of [this.windStreaks, this.windLeaves]) { e.clearEmitZones(); e.addEmitZone(zone); e.start(); }
+    } else {
+      this.windStreaks.stop(); this.windLeaves.stop();
+    }
   }
 
   private setFrost(on: boolean) {
@@ -424,7 +493,12 @@ export class Game extends Phaser.Scene {
         case 'wave':
           sounds.wave();
           buzz([10, 40, 10]);
-          ui.toast('Get ready!', `Wave ${ev.wave}!`, '#ffd23f');
+          ui.toast(`Wave ${ev.wave}`, TWIST_LABEL[ev.twist] || 'Get ready!', '#ffd23f');
+          if (ev.perfect) {
+            const p = sim.pond;
+            this.popAt(p.x + p.w / 2, p.y + p.h * 0.45, 'Perfect wave!', '#8ff0ff', true);
+          }
+          this.setWind(ev.twist === 'wind');
           break;
         case 'pickupSpawn': sounds.pickupSpawn(); break;
         case 'pickup': {
@@ -579,6 +653,38 @@ export class Game extends Phaser.Scene {
         ag.lineStyle(3.6, frozen ? ICE : warn ? 0xff5a7a : col.n, blink * alpha);
         ag.beginPath(); ag.arc(b.x, b.y, 23, a0, a1); ag.strokePath();
       }
+    }
+
+    // pond twists: whirlpool swirl and the lily wall
+    const tg = this.twistG;
+    tg.clear();
+    if (sim.twist === 'whirl' && sim.phase !== 'idle') {
+      const { x, y, dir } = sim.whirl;
+      tg.fillStyle(OUTLINE_N, dark ? 0.18 : 0.08).fillCircle(x, y, WHIRL_R);
+      tg.fillStyle(OUTLINE_N, dark ? 0.25 : 0.14).fillCircle(x, y, 20);
+      for (let i = 0; i < 4; i++) {
+        const r = 28 + i * 28, a0 = dir * t * (1.5 - i * 0.25) + i * 1.7, a1 = a0 + 3.6;
+        tg.lineStyle(6, OUTLINE_N, 0.22).beginPath().arc(x, y, r, a0, a1).strokePath();
+        tg.lineStyle(3, 0xffffff, 0.5 - i * 0.08).beginPath().arc(x, y, r, a0, a1).strokePath();
+      }
+    }
+    // a vine links neighbouring wall pads, so the wall reads as one obstacle until ripples break it
+    for (let i = 1; i < sim.wall.length; i++) {
+      const a = sim.wall[i - 1], b = sim.wall[i];
+      if (a.sinking || b.sinking) continue;
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      if (d > 44) continue;
+      const k = 1 - Math.max(0, d - 30) / 14;
+      tg.lineStyle(5, OUTLINE_N, 0.6 * k).lineBetween(a.x, a.y, b.x, b.y);
+      tg.lineStyle(2.6, 0x3c9b46, k).lineBetween(a.x, a.y, b.x, b.y);
+    }
+    this.sweep(sim.wall, this.wallViews, v => v.destroy());
+    for (const w of sim.wall) {
+      let img = this.wallViews.get(w);
+      if (!img) { img = this.add.image(w.x, w.y, 'pad').setDepth(D.wallPad); this.wallViews.set(w, img); }
+      const pop = Math.min(1, w.age * 4) * (1 - w.sinking * 0.5);
+      img.setPosition(w.x, w.y).setRotation(w.a + Math.sin(t * 0.8 + w.id) * 0.08)
+        .setScale(TEX_SCALE * w.r / PAD_R * Math.max(0.01, pop)).setAlpha(1 - w.sinking);
     }
 
     // power-up bubbles: bob, pulse, and blink in their last two seconds

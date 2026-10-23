@@ -22,12 +22,14 @@ export class BootScene extends Phaser.Scene {
     this.makeJelly();
     this.makeMine();
     this.makeAngler();
+    this.makeEel();
     this.makeAir();
     this.makeLight();
     this.makeParticles();
 
     for (const skin of SKINS) this.anims.create({ key: `kick-${skin.id}`, frames: this.frames(`diver-${skin.id}`, 6), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'jelly', frames: this.frames('jelly', 6), frameRate: 7, repeat: -1 });
+    this.anims.create({ key: 'eel', frames: this.frames('eel', 4), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'angler', frames: this.frames('angler', 2), frameRate: 6, repeat: -1 });
 
     this.scene.start('game');
@@ -179,6 +181,30 @@ export class BootScene extends Phaser.Scene {
       ctx.beginPath(); ctx.moveTo(-r * 0.1, -r * 0.85); ctx.quadraticCurveTo(-r * 0.9, -r * 2.25, -r * 2.2, -r * 1.5);
       ctx.strokeStyle = OUT; ctx.lineWidth = 4.4; ctx.stroke(); ctx.strokeStyle = '#8a66c2'; ctx.lineWidth = 2; ctx.stroke();
       ctx.beginPath(); ctx.arc(-r * 2.2, -r * 1.5, 4.4, 0, TAU); fillOut(ctx, '#f4ffb0', 2);
+    });
+  }
+
+  private makeEel() {
+    // Faces left, body centred at (52, 18), about 90 px long. Frames wiggle; colours stay neutral
+    // so the scene can tint it bright when charged.
+    sheetTexture(this, 'eel', 104, 36, 4, (ctx, i) => {
+      const ph = (i / 4) * TAU;
+      setup(ctx);
+      ctx.translate(52, 18);
+      const pts: [number, number][] = [];
+      for (let k = 0; k <= 12; k++) { const x = -44 + k * 7.3; pts.push([x, Math.sin(k * 0.7 + ph) * 3.5 * (k / 12)]); }
+      const body = () => { ctx.beginPath(); pts.forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); };
+      body(); ctx.strokeStyle = OUT; ctx.lineWidth = 15; ctx.stroke();
+      body(); ctx.strokeStyle = '#4bbf7a'; ctx.lineWidth = 10; ctx.stroke();
+      body(); ctx.strokeStyle = '#ffe36b'; ctx.lineWidth = 3; ctx.setLineDash([4, 6]); ctx.stroke(); ctx.setLineDash([]);
+      // head
+      ctx.beginPath(); ctx.ellipse(-44, 0, 9, 7.5, 0, 0, TAU); fillOut(ctx, '#4bbf7a');
+      ctx.beginPath(); ctx.arc(-46, -2.5, 3, 0, TAU); fillOut(ctx, '#fff', 1.6);
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(-46.8, -2.5, 1.5, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-52, 3); ctx.lineTo(-45, 4); ctx.stroke();
+      // tail fin
+      const [tx, ty] = pts[pts.length - 1];
+      ctx.beginPath(); ctx.moveTo(tx - 2, ty); ctx.lineTo(tx + 8, ty - 6); ctx.lineTo(tx + 8, ty + 6); ctx.closePath(); fillOut(ctx, '#3aa86a', 2);
     });
   }
 

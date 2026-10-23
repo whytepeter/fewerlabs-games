@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { canvasTexture, sheetTexture, glowTexture, TEX_RES } from '../../../core/tex';
 import { P, N, isDark } from './palette';
+import { STONE_LOOKS, type StoneLook } from './progress';
 
 // Cartoon art: chunky shapes, saturated palette colours and bold navy outlines.
 // Every texture is painted from the current palette. Painting again (after a theme change)
@@ -209,6 +210,56 @@ function clouds(ctx: CanvasRenderingContext2D) {
   }
 }
 
+/** One stone frame: spin phase from the frame number, squinting eyes on the second half. */
+function drawStone(ctx: CanvasRenderingContext2D, look: StoneLook, f: number) {
+  const ph = ((f % STONE_FRAMES) / STONE_FRAMES) * Math.PI * 2;
+  const squint = f >= STONE_FRAMES;
+  const cx = 18, cy = 12, rx = look.rx, ry = look.ry;
+  ell(ctx, cx, cy, rx, ry);
+  ink(ctx, look.body ?? P.stone);
+  ctx.save();
+  ell(ctx, cx, cy, rx, ry);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(22,35,59,.16)';
+  ell(ctx, cx, cy + ry * 0.7, rx + 1, ry * 0.68);
+  ctx.fill();
+  if (look.band) {
+    ctx.fillStyle = look.band;
+    ctx.fillRect(cx - rx, cy - 1.4, rx * 2, 2.8);
+  }
+  ctx.fillStyle = look.hi ?? P['stone-hi'];
+  ell(ctx, cx - 3 + Math.cos(ph) * 5, cy - ry * 0.52, 5.5, 2);
+  ctx.fill();
+  ctx.restore();
+  if (look.clover) {
+    ctx.fillStyle = '#ffffff';
+    for (const [dx, dy] of [[0, -1.6], [1.6, 0], [0, 1.6], [-1.6, 0]]) { ell(ctx, cx - 6 + dx, cy + 1 + dy, 1.5, 1.5); ctx.fill(); }
+  }
+  // face looks the way it flies
+  const ex = [cx + 3, cx + 8.6], ey = cy + 0.2;
+  for (const x of ex) {
+    if (squint) {
+      ctx.strokeStyle = OUTLINE;
+      ctx.lineWidth = 1.9;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 2.2, ey + 0.8); ctx.lineTo(x, ey - 1.4); ctx.lineTo(x + 2.2, ey + 0.8); ctx.stroke();
+    } else {
+      ell(ctx, x, ey, 2.4, Math.min(2.8, ry * 0.42));
+      ink(ctx, '#ffffff', 1.2);
+      ctx.fillStyle = OUTLINE;
+      ell(ctx, x + 0.7, ey + 0.3, 1.35, Math.min(1.7, ry * 0.26));
+      ctx.fill();
+    }
+  }
+  if (squint) {
+    ctx.fillStyle = 'rgba(255,110,150,.55)';
+    ell(ctx, cx + 1.5, cy + 3, 1.8, 1);
+    ctx.fill();
+    ell(ctx, cx + 10.5, cy + 3, 1.8, 1);
+    ctx.fill();
+  }
+}
+
 // ---------- all textures
 
 export function paintAll(scene: Phaser.Scene) {
@@ -253,46 +304,22 @@ export function paintAll(scene: Phaser.Scene) {
   strip(scene, 'trees', trees);
 
   // stone: 8 frames of the highlight sliding round as it spins, then the same 8 squinting happily
-  sheet(scene, 'stone', 36, 24, STONE_FRAMES * 2, (ctx, f) => {
-    const ph = ((f % STONE_FRAMES) / STONE_FRAMES) * Math.PI * 2;
-    const squint = f >= STONE_FRAMES;
-    const cx = 18, cy = 12;
-    ell(ctx, cx, cy, 13, 7.4);
-    ink(ctx, P.stone);
-    ctx.save();
-    ell(ctx, cx, cy, 13, 7.4);
-    ctx.clip();
-    ctx.fillStyle = 'rgba(22,35,59,.16)';
-    ell(ctx, cx, cy + 5, 14, 5);
-    ctx.fill();
-    ctx.fillStyle = P['stone-hi'];
-    ell(ctx, cx - 3 + Math.cos(ph) * 5, cy - 3.8, 5.5, 2);
-    ctx.fill();
-    ctx.restore();
-    // face looks the way it flies
-    const ex = [cx + 3, cx + 8.6], ey = cy + 0.2;
-    for (const x of ex) {
-      if (squint) {
-        ctx.strokeStyle = OUTLINE;
-        ctx.lineWidth = 1.9;
-        ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(x - 2.2, ey + 0.8); ctx.lineTo(x, ey - 1.4); ctx.lineTo(x + 2.2, ey + 0.8); ctx.stroke();
-      } else {
-        ell(ctx, x, ey, 2.4, 2.8);
-        ink(ctx, '#ffffff', 1.2);
-        ctx.fillStyle = OUTLINE;
-        ell(ctx, x + 0.7, ey + 0.3, 1.35, 1.7);
-        ctx.fill();
-      }
-    }
-    if (squint) {
-      ctx.fillStyle = 'rgba(255,110,150,.55)';
-      ell(ctx, cx + 1.5, cy + 3, 1.8, 1);
-      ctx.fill();
-      ell(ctx, cx + 10.5, cy + 3, 1.8, 1);
-      ctx.fill();
-    }
+  for (const [id, look] of Object.entries(STONE_LOOKS)) {
+    sheet(scene, 'stone-' + id, 36, 24, STONE_FRAMES * 2, (ctx, f) => drawStone(ctx, look, f));
+  }
+
+  // best-distance flag: pole planted in the water, pennant flying forward
+  single(scene, 'flag', 40, 74, ctx => {
+    rrect(ctx, 6, 6, 4.5, 64, 2);
+    ink(ctx, '#f4f7fb', 2);
+    ctx.beginPath(); ctx.moveTo(10, 8); ctx.quadraticCurveTo(24, 10, 36, 17); ctx.quadraticCurveTo(24, 24, 10, 28); ctx.closePath();
+    ink(ctx, '#ff5a7a', 2.4);
+    ctx.fillStyle = 'rgba(255,255,255,.45)';
+    ctx.beginPath(); ctx.moveTo(12, 11); ctx.quadraticCurveTo(22, 12, 30, 16); ctx.lineTo(12, 15); ctx.closePath(); ctx.fill();
+    ell(ctx, 8.2, 5, 4, 4);
+    ink(ctx, '#ffd23f', 2);
   });
+
   single(scene, 'shadow', 28, 10, ctx => {
     ctx.fillStyle = 'rgb(22,35,59)';
     ell(ctx, 14, 5, 13, 4);

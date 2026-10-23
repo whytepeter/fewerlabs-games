@@ -4,7 +4,9 @@ import { TEX_SCALE } from '../../../core/tex';
 import { sfx } from '../../../core/sfx';
 import { buzz } from '../../../core/haptics';
 import { store } from '../../../core/settings';
-import { Sim, aimVelocity, previewThrow, RING_T, REST_Y, GOOD, FEVER, type Obj, type SimEvent, type Grade } from '../game/sim';
+import { Sim, STONES, aimVelocity, previewThrow, RING_T, REST_Y, FEVER, PX_PER_M, type Obj, type SimEvent, type Grade } from '../game/sim';
+import { coins, daily, missions, shop, soClose, streak } from '../../../core/meta';
+import { GAME_ID, MISSION_POOL, STONE_ITEMS, coinsForRun, type RunStats } from '../game/progress';
 import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE, OUTLINE_N, type StripKey } from '../game/art';
 import { P, N, A, onTheme } from '../game/palette';
 import { audio } from '../game/audio';
@@ -80,6 +82,14 @@ export class Game extends Phaser.Scene {
   private nextMilestone = 100;
   private inFever = false;
   private timeScale = 1;
+  private stones = shop(GAME_ID, 'stone', STONE_ITEMS);
+  private quests = missions(GAME_ID, MISSION_POOL);
+  private playMode: 'classic' | 'daily' = store.get('mode', 'classic');
+  private selectedStone = this.stones.equipped;
+  private flag!: Phaser.GameObjects.Image;
+  private flagLabel!: Phaser.GameObjects.Text;
+  private flagM = 0;
+  private flagPassed = false;
 
   private views = new Map<number, View>();
   private ripples: Ripple[] = [];
@@ -116,7 +126,11 @@ export class Game extends Phaser.Scene {
     this.shadow = this.add.image(0, 0, 'shadow').setScale(TEX_SCALE).setDepth(D.shadow).setVisible(false);
     this.front = this.add.graphics().setDepth(D.front);
     this.aura = this.add.image(0, 0, 'glow').setDepth(D.aura).setVisible(false);
-    this.stone = this.add.sprite(0, 0, 'stone', 0).setScale(TEX_SCALE).setDepth(D.stone);
+    this.stone = this.add.sprite(0, 0, 'stone-pebble', 0).setScale(TEX_SCALE).setDepth(D.stone);
+    this.flag = this.add.image(0, 0, 'flag').setOrigin(8 / 40, 70 / 74).setScale(TEX_SCALE).setDepth(D.objs).setVisible(false);
+    this.flagLabel = this.add.text(0, 0, '', {
+      fontFamily: FONT, fontStyle: '700', fontSize: '13px', color: '#ffffff', stroke: OUTLINE, strokeThickness: 4,
+    }).setOrigin(0, 1).setDepth(D.objs).setResolution(3).setVisible(false);
 
     const base = { emitting: false, alpha: { start: 1, end: 0 } };
     this.fx = {
@@ -143,6 +157,9 @@ export class Game extends Phaser.Scene {
       restart: () => { this.resume(); this.newThrow(); },
       menu: () => { this.resume(); this.toTitle(); },
       again: () => this.newThrow(),
+      mode: m => { this.playMode = m; store.set('mode', m); this.toTitle(); },
+      stone: id => this.pickStone(id),
+      buy: id => this.buyStone(id),
     });
     this.toTitle();
     music.play(SKIP_SONG, MUSIC.calm);
@@ -240,15 +257,64 @@ export class Game extends Phaser.Scene {
 
   // ---------------------------------------------------------------- flow
 
+  /** Daily mode: the same lake for everyone today. Classic: a fresh random lake. */
+  private seed() { return this.playMode === 'daily' ? daily.info(GAME_ID).seed : (Math.random() * 2 ** 32) >>> 0; }
+
+  /** Equip the chosen stone on the sim (before a reset, which reads its Lucky charges). */
+  private applyStone() {
+    const id = this.stones.equipped;
+    this.sim.stone = STONES[id] ?? STONES.pebble;
+    this.stone.setTexture('stone-' + id, 0);
+    ui.setHudStone(id);
+  }
+
+  private refreshTitle() {
+    ui.setTitleMeta(this.playMode, daily.info(GAME_ID), this.quests.active, !this.thrownOnce);
+    ui.renderPicker({ equipped: this.stones.equipped, selected: this.selectedStone, owned: id => this.stones.owns(id), balance: coins.balance });
+    ui.setBest(this.shownBest);
+  }
+
+  private get shownBest() { return this.playMode === 'daily' ? daily.info(GAME_ID).best : this.best; }
+
+  private pickStone(id: string) {
+    this.selectedStone = id;
+    if (this.stones.owns(id)) {
+      this.stones.equip(id);
+      this.applyStone();
+      this.squish(1.4, 0.65);
+    }
+    this.refreshTitle();
+  }
+
+  private buyStone(id: string) {
+    const r = this.stones.buy(id);
+    if (r === 'poor') { ui.shakePicker(id); audio.early(); return; }
+    audio.milestone(false);
+    buzz([10, 40, 10]);
+    this.applyStone();
+    this.squish(1.5, 0.6);
+    this.fx.sparkle.explode(16, this.sim.x, this.waterY + REST_Y);
+    this.refreshTitle();
+  }
+
+  private setFlag() {
+    this.flagM = this.shownBest;
+    this.flagPassed = false;
+    this.flagLabel.setText(`${this.playMode === 'daily' ? 'DAILY ' : ''}BEST ${this.flagM} m`);
+  }
+
   private toTitle() {
     this.scene.resume();
-    this.sim.reset();
+    this.applyStone();
+    this.sim.reset(this.seed());
     this.handle(this.sim.drain());
     this.clearFx();
     this.resetRun();
     this.mode = 'title';
     this.snapCamera();
-    ui.setBest(this.best);
+    this.selectedStone = this.stones.equipped;
+    this.refreshTitle();
+    this.setFlag();
     ui.hud(false);
     ui.hint(null);
     ui.screen('title');
@@ -259,7 +325,8 @@ export class Game extends Phaser.Scene {
     this.aim = null;
     ui.screen(null);
     ui.hud(true);
-    ui.setBest(this.best);
+    ui.setBest(this.shownBest, this.playMode === 'daily');
+    ui.lucky(this.sim.stone.lucky ? 'ready' : 'hidden');
     ui.setDist(0);
     ui.setStreak(0);
     ui.hint(this.thrownOnce ? 'Pull back anywhere, then let go' : 'Pull back anywhere, then let go to throw');
@@ -267,7 +334,9 @@ export class Game extends Phaser.Scene {
 
   private newThrow() {
     this.scene.resume();
-    this.sim.reset();
+    this.applyStone();
+    this.sim.reset(this.seed());
+    this.setFlag();
     this.handle(this.sim.drain());
     this.clearFx();
     this.resetRun();
@@ -350,14 +419,37 @@ export class Game extends Phaser.Scene {
   private gameOver() {
     this.mode = 'over';
     this.setFever(false);
-    const m = this.sim.metres;
+    const sim = this.sim;
+    const m = sim.metres;
+    const isDaily = this.playMode === 'daily';
+    const prevBest = this.shownBest;
     const isBest = m > this.best;
     if (isBest) { this.best = m; store.set('best', m); }
-    if (this.sim.bestStreak > this.bestStreak) { this.bestStreak = this.sim.bestStreak; store.set('bestStreak', this.bestStreak); }
-    ui.setBest(this.best);
+    if (sim.bestStreak > this.bestStreak) { this.bestStreak = sim.bestStreak; store.set('bestStreak', this.bestStreak); }
+
+    // arcade meta: streak, coins, missions, daily
+    streak.touch();
+    const pay = coinsForRun(m, sim.perfects, sim.hoops);
+    coins.add(pay.total);
+    const stats: RunStats = {
+      distance: m, skips: sim.skips, perfects: sim.perfects, bestStreak: sim.bestStreak, glass: sim.glass,
+      hoops: sim.hoops, fever: sim.fevers, pads: sim.pads, ducks: sim.ducks, throws: 1,
+    };
+    const results = this.quests.report(stats as unknown as Record<string, number>);
+    const missionCoins = results.filter(r => r.done).reduce((a, r) => a + r.mission.reward, 0);
+    const dailyRes = isDaily ? daily.record(GAME_ID, m) : null;
+    const best = isDaily ? dailyRes!.best : this.best;
+    const record = isDaily ? dailyRes!.isBest && m > 0 : isBest;
+    if (missionCoins > 0) audio.milestone(true);
+
+    ui.setBest(best, isDaily);
     ui.hud(false);
     ui.hint(null);
-    ui.showOver({ metres: m, skips: this.sim.skips, bestStreak: this.sim.bestStreak, glass: this.sim.glass, hoops: this.sim.hoops, best: this.best, isBest, plunked: this.sim.plunked });
+    ui.showOver({
+      metres: m, skips: sim.skips, bestStreak: sim.bestStreak, glass: sim.glass, hoops: sim.hoops, best, isBest: record, plunked: sim.plunked,
+      daily: isDaily, close: soClose(m, prevBest, ' m'), missions: results,
+      earned: [{ label: 'Throw', n: pay.total }, { label: 'Missions', n: missionCoins }, { label: 'Daily', n: dailyRes?.bonus ?? 0 }],
+    });
   }
 
   // ---------------------------------------------------------------- input
@@ -469,6 +561,12 @@ export class Game extends Phaser.Scene {
           if (v) this.tweens.add({ targets: v.img, scaleX: TEX_SCALE * 1.8, scaleY: TEX_SCALE * 1.8, alpha: 0, duration: 450, ease: 'Quad.Out' });
           break;
         }
+        case 'lucky':
+          ui.lucky('used');
+          audio.hoop();
+          buzz([8, 30, 8]);
+          this.popup(e.x, this.topY, 'LUCKY! STREAK SAVED', '#5ccf7d', 17, true);
+          break;
         case 'glass':
           audio.glass();
           this.fx.sparkle.explode(7, e.obj.x, wy - e.obj.h);
@@ -629,7 +727,7 @@ export class Game extends Phaser.Scene {
       const ttw = sim.timeToWater();
       if (ttw < 0.4 && !sim.surfaceAt(sim.x + sim.vx * ttw) && !sim.fumbled) {
         slowTarget = TUTORIAL_SLOW;
-        ui.hint(ttw <= GOOD ? 'TAP NOW!' : 'Get ready… tap as it touches');
+        ui.hint(ttw <= sim.stone.good ? 'TAP NOW!' : 'Get ready… tap as it touches');
       } else ui.hint('Tap as the stone touches the water');
     }
     this.timeScale += (slowTarget - this.timeScale) * Math.min(1, dt * 14);
@@ -708,6 +806,17 @@ export class Game extends Phaser.Scene {
     }
 
     this.pier.setVisible(cx < 120);
+    // best-distance flag, planted where you got to last time
+    const fx = this.flagM * PX_PER_M;
+    const flagOn = this.flagM >= 20 && fx > cx - 60 && fx < cx + W + 60;
+    this.flag.setVisible(flagOn).setPosition(fx, waterY + 4).setRotation(Math.sin(t * 2) * 0.03);
+    this.flagLabel.setVisible(flagOn).setPosition(fx + 2, waterY - 70 * TEX_SCALE * 3 + 2);
+    if (this.mode === 'flying' && !this.flagPassed && this.flagM >= 20 && sim.x > fx) {
+      this.flagPassed = true;
+      ui.banner(this.playMode === 'daily' ? "Past today's best" : 'Past your best', 'NEW BEST!', 'milestone');
+      audio.milestone(true);
+      this.fx.sparkle.explode(20, fx, waterY - 40);
+    }
     this.mistSky.setAlpha(this.tint.mist);
     this.mistWater.setAlpha(this.tint.mist * 0.45);
     this.nightSky.setAlpha(this.tint.night);
@@ -817,7 +926,7 @@ export class Game extends Phaser.Scene {
       f.fillEllipse(lx, y, 30, 9);
     }
     // "close enough" band once inside the window
-    if (ttw <= GOOD && !sim.fumbled) this.ring(f, lx, y, 44, 14, color, 2.5, 0.7);
+    if (ttw <= sim.stone.good && !sim.fumbled) this.ring(f, lx, y, 44, 14, color, 2.5, 0.7);
     this.ring(f, lx, y, 30, 9, color, 3.5, 0.9 * fade);
     this.ring(f, lx, y, rx * 2, rx * 0.6, color, 5, (0.5 + 0.5 * (1 - k)) * fade);
   }

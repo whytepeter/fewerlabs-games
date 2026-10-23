@@ -1,6 +1,10 @@
 import { onSettings, setSetting, settings, type Settings } from '../../core/settings';
-import { STAR_SVG } from '../../core/icons';
+import { STAR_SVG, icon } from '../../core/icons';
+import { coins, daily, onMeta, type MissionResult } from '../../core/meta';
+import { renderEarned, renderMissions } from '../../core/metaui';
 import { sounds } from './game/audio';
+import { GAME, boatShop, mode, rippleMissions, type Mode } from './game/meta';
+import { SKINS, skinPreview } from './game/skins';
 
 // DOM overlay built from the shared cartoon kit: HUD pills, pop-up text, toast, hint,
 // and the title / pause / game-over screens.
@@ -15,9 +19,14 @@ export interface UIHandlers {
   restart(): void;
   menu(): void;
   pause(): void;
+  /** The equipped boat style changed (bought or picked). */
+  skin(id: string): void;
 }
 
-export interface OverInfo { score: number; best: number; isNew: boolean; stars: number; wave: number; bestCombo: number }
+export interface OverInfo {
+  score: number; best: number; isNew: boolean; stars: number; wave: number; bestCombo: number;
+  daily: boolean; earned: { label: string; n: number }[]; missions: MissionResult[]; close: string;
+}
 
 const screens = { title: $('title'), pause: $('pause'), over: $('over') };
 const hud = $('hud');
@@ -80,6 +89,59 @@ export const ui = {
         else if (current === 'pause') h.resume();
       }
     });
+  },
+
+  /** Title extras: info tabs, Classic/Daily switch, boat style row, missions. */
+  initMeta(h: UIHandlers) {
+    const tabs = [...document.querySelectorAll<HTMLButtonElement>('.info-tabs [data-tab]')];
+    const showTab = (t: string) => {
+      tabs.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === t)));
+      $('titleMissions').hidden = t !== 'missions';
+      $('howto').hidden = t !== 'howto';
+    };
+    tabs.forEach(b => b.addEventListener('click', () => { sounds.click(); showTab(b.dataset.tab!); }));
+    this.showTab = showTab;
+
+    document.querySelectorAll<HTMLButtonElement>('#modeSwitch [data-mode]').forEach(b => b.addEventListener('click', () => {
+      sounds.click(); mode.set(b.dataset.mode as Mode); this.refreshTitle();
+    }));
+
+    $('skins').addEventListener('click', e => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-skin]');
+      if (!btn) return;
+      const id = btn.dataset.skin!;
+      const res = boatShop.buy(id);
+      if (res === 'poor') {
+        sounds.nope();
+        restartAnim(btn, 'shake');
+        const item = SKINS.find(s => s.id === id)!;
+        this.toast('Need more coins', `${(item.price - coins.balance).toLocaleString()} to go`);
+        return;
+      }
+      if (res === 'bought') { sounds.unlock(); this.toast('New boat!', SKINS.find(s => s.id === id)!.name, '#ffd23f'); }
+      else sounds.click();
+      h.skin(id);
+      this.refreshTitle();
+    });
+    onMeta(() => { if (current === 'title') this.refreshTitle(); });
+  },
+
+  showTab: (_t: string) => {},
+
+  /** Re-render the parts of the title that depend on meta state. */
+  refreshTitle() {
+    const m = mode.current, d = daily.info(GAME);
+    document.querySelectorAll<HTMLButtonElement>('#modeSwitch [data-mode]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    $('dailyDone').textContent = d.playedToday ? `✓ ${d.best}` : '';
+    renderMissions($('titleMissions'), rippleMissions.active);
+    const eq = boatShop.equipped, bal = coins.balance;
+    $('skins').innerHTML = SKINS.map(s => {
+      const owned = boatShop.owns(s.id), on = s.id === eq;
+      const cls = `skin${on ? ' on' : ''}${owned ? '' : ' locked'}${!owned && bal >= s.price ? ' afford' : ''}`;
+      const label = owned ? s.name : `${s.name}, ${s.price} coins`;
+      return `<button class="${cls}" data-skin="${s.id}" role="radio" aria-checked="${on}" aria-label="${label}" title="${label}">
+        <img src="${skinPreview(s.id)}" alt="">${owned ? '' : `<small>${icon('lock')}${s.price}</small>`}</button>`;
+    }).join('');
   },
 
   get screen() { return current; },
@@ -159,8 +221,13 @@ export const ui = {
 
   showOver(o: OverInfo) {
     popsEl.replaceChildren();
-    $('overRibbon').textContent = o.isNew ? 'New Record!' : 'Game Over';
+    $('overRibbon').textContent = o.isNew ? (o.daily ? 'New Daily Best!' : 'New Record!') : (o.daily ? 'Daily Challenge' : 'Game Over');
     $('overRibbon').classList.toggle('record', o.isNew);
+    $('statBestLabel').textContent = o.daily ? 'Daily best' : 'Best';
+    const close = $('soClose');
+    close.textContent = o.close; close.hidden = !o.close || o.isNew;
+    renderEarned($('earned'), o.earned);
+    renderMissions($('overMissions'), [], o.missions);
     $('overScore').textContent = String(o.score);
     $('overLine').textContent = o.score === 1 ? 'boat home' : 'boats home';
     $('overNew').hidden = !o.isNew;

@@ -2,6 +2,11 @@ import Phaser from 'phaser';
 import { TEX_RES, canvasTexture, glowTexture } from '../../../core/tex';
 import { OUTLINE, P, laneKey } from './palette';
 import type { Rect } from './sim';
+import { boatSilhouette, drawBoat } from './skins';
+
+/** The equipped boat style (shop); set before building themed textures. */
+let boatSkin = 'classic';
+export function setBoatSkin(id: string) { boatSkin = id; }
 
 // Cartoon art, drawn once into textures with the canvas API and rendered as Phaser images.
 // Every sprite gets the kit's bold navy outline. "Neutral" textures are white (tinted per use);
@@ -51,12 +56,6 @@ function softShadow(ctx: CanvasRenderingContext2D, path: () => void, blur: numbe
 function outline(ctx: CanvasRenderingContext2D, w = OW) {
   ctx.lineWidth = w; ctx.strokeStyle = OUTLINE; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   ctx.stroke();
-}
-
-function hullPath(ctx: CanvasRenderingContext2D, x = 0, y = 0) {
-  ctx.beginPath();
-  ctx.moveTo(x + 18, y); ctx.lineTo(x + 7, y + 9.5); ctx.lineTo(x - 12, y + 9.5); ctx.lineTo(x - 16.5, y);
-  ctx.lineTo(x - 12, y - 9.5); ctx.lineTo(x + 7, y - 9.5); ctx.closePath();
 }
 
 /** White textures, independent of theme. Built once in Boot. */
@@ -122,42 +121,30 @@ export function buildNeutralTextures(scene: Phaser.Scene) {
   }, '#ffd1dc');
 
   // contact shadows (white, tinted dark at runtime so both themes can share them)
-  canvasTexture(scene, 'boatsh', 50, 36, ctx => softShadow(ctx, () => hullPath(ctx, 25, 18), 2.5, '#fff'));
+  // a drifting leaf for the Wind twist
+  canvasTexture(scene, 'windleaf', 16, 10, ctx => {
+    ctx.beginPath(); ctx.moveTo(1.5, 5); ctx.quadraticCurveTo(8, -1, 14.5, 5); ctx.quadraticCurveTo(8, 11, 1.5, 5); ctx.closePath();
+    ctx.fillStyle = '#7fd36a'; ctx.fill(); outline(ctx, 1.3);
+    ctx.strokeStyle = '#3f9a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(3, 5); ctx.lineTo(13, 5); ctx.stroke();
+  });
   canvasTexture(scene, 'docksh', DOCK_TEX, DOCK_TEX, ctx => {
     const c = DOCK_TEX / 2;
     softShadow(ctx, () => { ctx.beginPath(); ctx.arc(c, c, DOCK_TEX_R, 0, Math.PI * 2); ctx.arc(c, c, DISC_R, 0, Math.PI * 2, true); }, 3, '#fff');
   });
 }
 
-const THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
+const THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'boatsh', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
   ...Array.from({ length: ROCK_VARIANTS }, (_, i) => 'rock' + i)];
 
 /** Palette-dependent textures. Callers must destroy images using them before rebuilding. */
 export function buildThemedTextures(scene: Phaser.Scene) {
   for (const k of THEMED) if (scene.textures.exists(k)) scene.textures.remove(k);
 
-  // paper boats, top-down, bow pointing +x: hull, folds, lantern, and two big eyes.
-  // 'boatG' is the golden boat (gold hull with a glossy stripe and a pale lantern).
-  const boat = (key: string, hull: string, fold: string, lamp: string, gold: boolean) => canvasTexture(scene, key, 46, 30, ctx => {
-    ctx.translate(23, 15);
-    hullPath(ctx); ctx.fillStyle = hull; ctx.fill();
-    ctx.save(); hullPath(ctx); ctx.clip();
-    ctx.fillStyle = 'rgba(22,35,59,.10)'; ctx.fillRect(-20, 1, 40, 12); // shaded starboard half
-    if (gold) { ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(-20, -12, 40, 5); }
-    ctx.restore();
-    ctx.strokeStyle = fold; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(16, 0); ctx.moveTo(-6, -9); ctx.lineTo(-1.5, 0); ctx.lineTo(-6, 9); ctx.stroke();
-    hullPath(ctx); outline(ctx);
-    for (const ey of [-3.9, 3.9]) {
-      circle(ctx, 10.6, ey, 2.9); ctx.fillStyle = '#fff'; ctx.fill(); outline(ctx, 1.3);
-      ctx.fillStyle = OUTLINE; circle(ctx, 11.6, ey, 1.55); ctx.fill();
-      ctx.fillStyle = '#fff'; circle(ctx, 12.1, ey - 0.7, 0.55); ctx.fill();
-    }
-    circle(ctx, 1, 0, 5.3); ctx.fillStyle = lamp; ctx.fill(); outline(ctx, 2);
-    ctx.fillStyle = 'rgba(255,255,255,.75)'; circle(ctx, -0.4, -1.6, 1.8); ctx.fill();
-  });
-  for (let ci = 0; ci < 3; ci++) boat('boat' + ci, P.boat, P['boat-fold'], P[laneKey(ci)], false);
-  boat('boatG', '#ffd23f', '#e0a500', '#fff8d6', true);
+  // boats in the equipped style (see skins.ts), one per lantern colour plus the golden bonus boat
+  for (let ci = 0; ci < 3; ci++) canvasTexture(scene, 'boat' + ci, 46, 30, ctx => { ctx.translate(23, 15); drawBoat(ctx, boatSkin, { lamp: P[laneKey(ci)] }); });
+  canvasTexture(scene, 'boatG', 46, 30, ctx => { ctx.translate(23, 15); drawBoat(ctx, boatSkin, { lamp: P.c1, gold: true }); });
+  // soft contact shadow in the style's silhouette (white, tinted dark at runtime)
+  canvasTexture(scene, 'boatsh', 50, 36, ctx => softShadow(ctx, () => { ctx.save(); ctx.translate(25, 18); boatSilhouette(ctx, boatSkin); ctx.restore(); }, 2.5, '#fff'));
 
   // life-ring docks: lane colour with four white bands; the inner edge is the capture radius
   for (let ci = 0; ci < 3; ci++) {

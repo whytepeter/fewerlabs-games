@@ -8,6 +8,7 @@ import { autoScaleUI, createGame } from '../../core/view';
 import { sfx } from '../../core/sfx';
 import { music } from '../../core/music';
 import { hydrateIcons, wobbleLetters } from '../../core/icons';
+import { mountCoins, mountStreak } from '../../core/metaui';
 import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
@@ -15,6 +16,8 @@ import { initPWA } from '../../core/pwa';
 
 autoScaleUI();
 hydrateIcons();
+mountCoins();
+mountStreak();
 wobbleLetters(document.getElementById('logo')!);
 
 // Mobile browsers: no page scroll, pinch, double-tap zoom or long-press menus. Cards may still

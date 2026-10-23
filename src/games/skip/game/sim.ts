@@ -28,6 +28,40 @@ const LOG_TOP = -14;
 const STEP = 0.004;
 
 export type Grade = 'perfect' | 'good' | 'miss';
+
+/** How a stone handles. Pebble is the baseline; every other stone trades something away. */
+export interface StoneDef {
+  id: string;
+  /** Throw speed multiplier. */
+  power: number;
+  perfect: number;
+  good: number;
+  /** Upward speed of a Perfect hop (a Good gets 80% of it). */
+  hop: number;
+  maxVx: number;
+  drag: number;
+  /** Added to the fraction of speed kept on a missed skip (0.95 for a Pebble). */
+  missKeep: number;
+  /** Fraction of speed kept after a log / a duck. */
+  logKeep: number;
+  duckKeep: number;
+  /** Misses forgiven per throw (turned into a Good). */
+  lucky: number;
+  /** Multiplier on the hoop catch area. */
+  hoopReach: number;
+}
+
+export const STONES: Record<string, StoneDef> = {
+  pebble: { id: 'pebble', power: 1, perfect: PERFECT, good: GOOD, hop: HOP_V, maxVx: MAX_VX, drag: AIR_DRAG, missKeep: 0, logKeep: 0.62, duckKeep: 0.75, lucky: 0, hoopReach: 1 },
+  // fast and far for precise players; a tighter window punishes sloppy ones
+  flat: { id: 'flat', power: 1.15, perfect: 0.05, good: 0.1, hop: 600, maxVx: 1550, drag: 0.012, missKeep: -0.015, logKeep: 0.7, duckKeep: 0.72, lucky: 0, hoopReach: 1 },
+  // forgiving and steady, but slow with a low ceiling
+  heavy: { id: 'heavy', power: 0.85, perfect: 0.085, good: 0.15, hop: 600, maxVx: 1000, drag: 0.03, missKeep: 0.02, logKeep: 0.7, duckKeep: 0.82, lucky: 0, hoopReach: 1 },
+  // big hops with a wide hoop reach (hoops pay coins), but a tight window
+  bouncy: { id: 'bouncy', power: 1, perfect: 0.05, good: 0.1, hop: 720, maxVx: MAX_VX, drag: 0.02, missKeep: -0.01, logKeep: 0.62, duckKeep: 0.75, lucky: 0, hoopReach: 2.2 },
+  // forgives one broken streak per throw, a touch slower
+  lucky: { id: 'lucky', power: 0.95, perfect: PERFECT, good: GOOD, hop: HOP_V, maxVx: 1250, drag: 0.022, missKeep: 0, logKeep: 0.62, duckKeep: 0.75, lucky: 1, hoopReach: 1 },
+};
 export type SimState = 'ready' | 'flying' | 'sinking' | 'over';
 
 export interface Obj {
@@ -55,6 +89,7 @@ export type SimEvent =
   | { type: 'duck'; obj: Obj }
   | { type: 'glass'; obj: Obj }
   | { type: 'hoop'; obj: Obj }
+  | { type: 'lucky'; x: number }
   | { type: 'early'; x: number; y: number }
   | { type: 'queued' }
   | { type: 'plunk'; x: number }
@@ -122,6 +157,12 @@ export class Sim {
   /** A tap came too early: the next contact is a miss whatever happens. */
   fumbled = false;
   late: LateWindow | null = null;
+  stone: StoneDef = STONES.pebble;
+  luckyLeft = 0;
+  luckySaves = 0;
+  pads = 0;
+  ducks = 0;
+  fevers = 0;
   objs: Obj[] = [];
   viewW = 430;
   private nextX = 560;
@@ -138,6 +179,7 @@ export class Sim {
     this.state = 'ready';
     this.t = 0; this.x = 0; this.y = REST_Y; this.vx = 0; this.vy = 0; this.rot = 0; this.sinkT = 0;
     this.skips = 0; this.streak = 0; this.bestStreak = 0; this.glass = 0; this.perfects = 0; this.hoops = 0;
+    this.luckyLeft = this.stone.lucky; this.luckySaves = 0; this.pads = 0; this.ducks = 0; this.fevers = 0;
     this.plunked = false; this.flightTime = 0;
     this.pendingTap = null; this.fumbled = false; this.late = null;
     for (const o of this.objs) this.emit({ type: 'despawn', obj: o });
@@ -161,7 +203,7 @@ export class Sim {
 
   throwStone(v: Velocity) {
     if (this.state !== 'ready' || v.power < 0.08) return false;
-    this.vx = v.vx; this.vy = v.vy; this.state = 'flying';
+    this.vx = v.vx * this.stone.power; this.vy = v.vy * this.stone.power; this.state = 'flying';
     this.emit({ type: 'throw', power: v.power });
     return true;
   }
@@ -178,6 +220,7 @@ export class Sim {
     if (this.state !== 'flying') return;
     if (this.pendingTap !== null || this.fumbled) return; // one tap per splash
     const ttw = this.timeToWater();
+    const GOOD = this.stone.good;
     const lateErr = this.late && this.t - this.late.t <= GOOD ? this.t - this.late.t : Infinity;
     if (lateErr !== Infinity && (lateErr <= ttw || ttw > GOOD)) {
       this.upgradeLate(lateErr);
@@ -202,9 +245,17 @@ export class Sim {
         this.vy += GRAV * h;
         this.x += this.vx * h;
         this.y += this.vy * h;
-        this.vx *= 1 - AIR_DRAG * h;
+        this.vx *= 1 - this.stone.drag * h;
         this.rot += this.vx * h * 0.06;
-        if (this.late && this.t - this.late.t > GOOD) this.late = null;
+        if (this.late && this.t - this.late.t > this.stone.good) {
+          // no late tap came: a Lucky stone saves the streak instead
+          if (this.luckyLeft > 0 && this.late.streakBefore >= 1) {
+            this.luckyLeft--;
+            this.luckySaves++;
+            this.emit({ type: 'lucky', x: this.x });
+            this.upgradeLate(this.stone.good, true);
+          } else this.late = null;
+        }
         this.collide();
         const s = this.surfaceAt(this.x);
         const top = s && s.type === 'log' ? LOG_TOP : WATER_TOP;
@@ -293,9 +344,10 @@ export class Sim {
       const dx = this.x - o.x;
       if (dx < -60 || dx > 220) continue;
       if (o.type === 'hoop') {
-        if (!o.got && Math.abs(dx) < 12 && Math.abs(this.y + o.h) < 22) {
+        const hr = this.stone.hoopReach;
+        if (!o.got && Math.abs(dx) < 12 * hr && Math.abs(this.y + o.h) < 22 * hr) {
           o.got = true;
-          this.vx = Math.min(MAX_VX, this.vx + HOOP_BOOST);
+          this.vx = Math.min(this.stone.maxVx, this.vx + HOOP_BOOST);
           this.hoops++;
           this.emit({ type: 'hoop', obj: o });
         }
@@ -303,13 +355,14 @@ export class Sim {
         const reach = this.fever ? 1.6 : 1;
         if (!o.got && Math.abs(dx) < 22 * reach && Math.abs(this.y + o.h) < 24 * reach) {
           o.got = true;
-          this.vx = Math.min(MAX_VX, this.vx + 8);
+          this.vx = Math.min(this.stone.maxVx, this.vx + 8);
           this.glass++;
           this.emit({ type: 'glass', obj: o });
         }
       } else if (o.type === 'duck' && !o.fly && Math.abs(dx) < 18 && this.y > -30) {
         o.fly = true; o.vy = -90;
-        this.vx *= 0.75;
+        this.vx *= this.stone.duckKeep;
+        this.ducks++;
         this.emit({ type: 'duck', obj: o });
       }
     }
@@ -321,13 +374,13 @@ export class Sim {
   private bounce(vxIn: number, vyIn: number, a: number, grade: Grade) {
     let vx: number, up: number;
     if (grade === 'perfect') {
-      vx = Math.min(MAX_VX, vxIn);
-      up = Math.max(HOP_V, vyIn * 0.55 + vx * 0.13);
+      vx = Math.min(this.stone.maxVx, vxIn);
+      up = Math.max(this.stone.hop, vyIn * 0.55 + vx * 0.13);
     } else if (grade === 'good') {
-      vx = Math.min(MAX_VX, vxIn * 0.97);
-      up = Math.max(HOP_V * 0.8, vyIn * 0.55 + vx * 0.13);
+      vx = Math.min(this.stone.maxVx, vxIn * 0.97);
+      up = Math.max(this.stone.hop * 0.8, vyIn * 0.55 + vx * 0.13);
     } else {
-      vx = vxIn * (0.95 - Math.max(0, a - 12) * 0.006);
+      vx = vxIn * (0.95 + this.stone.missKeep - Math.max(0, a - 12) * 0.006);
       up = Math.max(110, vyIn * 0.55 + vx * 0.13);
     }
     return { vx, up };
@@ -335,14 +388,15 @@ export class Sim {
 
   private contact(s: Obj | null) {
     if (s && s.type === 'log') {
-      this.vx *= 0.62; this.vy = -260; this.y = LOG_TOP;
+      this.vx *= this.stone.logKeep; this.vy = -260; this.y = LOG_TOP;
       this.clearTiming();
       this.emit({ type: 'log', obj: s, x: this.x, y: this.y });
       if (this.vx < SINK_V) this.startSink(false);
       return;
     }
     if (s && s.type === 'pad') {
-      this.vx = Math.min(MAX_VX, this.vx + 70); this.vy = -HOP_V * 1.1; this.y = -4; s.sq = 1;
+      this.vx = Math.min(this.stone.maxVx, this.vx + 70); this.vy = -this.stone.hop * 1.1; this.y = -4; s.sq = 1;
+      this.pads++;
       this.clearTiming();
       this.skips++;
       this.emit({ type: 'pad', obj: s, x: this.x, skips: this.skips });
@@ -360,10 +414,17 @@ export class Sim {
     let grade: Grade = 'miss';
     if (!this.fumbled && this.pendingTap !== null) {
       const err = this.t - this.pendingTap;
-      grade = err <= PERFECT ? 'perfect' : err <= GOOD ? 'good' : 'miss';
+      grade = err <= this.stone.perfect ? 'perfect' : err <= this.stone.good ? 'good' : 'miss';
     }
     const fumbled = this.fumbled;
     const tapped = fumbled || this.pendingTap !== null;
+    // Lucky stone: a mistimed tap that would break a streak counts as a Good, once per throw
+    if (grade === 'miss' && tapped && this.luckyLeft > 0 && this.streak >= 1) {
+      grade = 'good';
+      this.luckyLeft--;
+      this.luckySaves++;
+      this.emit({ type: 'lucky', x: this.x });
+    }
     const vxIn = this.vx, vyIn = this.vy, streakBefore = this.streak;
     const res = this.bounce(vxIn, vyIn, a, grade);
     this.vx = res.vx;
@@ -381,17 +442,21 @@ export class Sim {
   }
 
   private setStreak(grade: Grade, before: number) {
-    if (grade === 'perfect') { this.streak = before + 1; this.perfects++; }
+    if (grade === 'perfect') {
+      this.streak = before + 1;
+      this.perfects++;
+      if (this.streak === FEVER) this.fevers++;
+    }
     else if (grade === 'good') this.streak = before;
     else this.streak = 0;
     this.bestStreak = Math.max(this.bestStreak, this.streak);
   }
 
   /** A tap just after a plain skip upgrades that same skip. */
-  private upgradeLate(err: number) {
+  private upgradeLate(err: number, lucky = false) {
     const L = this.late!;
     this.late = null;
-    const grade: Grade = err <= PERFECT ? 'perfect' : 'good';
+    const grade: Grade = !lucky && err <= this.stone.perfect ? 'perfect' : 'good';
     const res = this.bounce(L.vxIn, L.vyIn, L.a, grade);
     this.vx = res.vx;
     this.vy = Math.min(this.vy, -res.up + GRAV * err * 0.5);
