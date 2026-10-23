@@ -17,54 +17,26 @@ function playLink(g: Game, cls: string, label = 'Play') {
 
 const DWELL = 8000;
 
-/** A small square-ish tile in a sideways row: the art links to details, the round button plays. */
-function tile(g: Game) {
+function bestMeta(g: Game) {
   const s = profile.stats(g.id);
-  return `<article class="tile">
-    <a class="tile-link" href="/game/${g.id}" data-link aria-label="${g.title}">
-      <img class="tile-art" src="${shot(g, 'hero-wide')}" alt="" loading="lazy" width="1600" height="900" />
-      <span class="tile-info">
-        <img class="app-icon" src="${iconUrl(g)}" alt="" width="40" height="40" />
-        <span><b>${g.title}</b><small>${s.best > 0 ? `${icon('trophy')}${fmt(s.best, g.unit)}` : g.tags.slice(0, 2).join(' · ')}</small></span>
-      </span>
+  return s.best > 0 ? `<span class="best">${icon('trophy')}${fmt(s.best, g.unit)}</span>` : '';
+}
+
+function card(g: Game) {
+  return `<article class="card">
+    <a class="card-shot" href="/game/${g.id}" data-link aria-label="${g.title}">
+      <img src="${shot(g, 'hero-wide')}" alt="${g.title}" loading="lazy" width="1600" height="900" />
     </a>
-    ${g.external
-      ? `<a class="tile-play" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}" aria-label="Play ${g.title} on ${host(g)}">${icon('play')}</a>`
-      : `<a class="tile-play" href="/play/${g.id}" data-link aria-label="Play ${g.title}">${icon('play')}</a>`}
-  </article>`;
-}
-
-/** A sideways-scrolling row of tiles with arrow buttons on wide screens. Rows with no games are skipped. */
-export function rail(title: string, games: Game[], id = '') {
-  if (!games.length) return '';
-  return `<section class="rail"${id ? ` id="${id}"` : ''}>
-    <h2 class="rail-title">${title}</h2>
-    <div class="rail-wrap">
-      <button class="rail-arrow prev" type="button" aria-label="Scroll left" hidden>${icon('back')}</button>
-      <div class="rail-track">${games.map(tile).join('')}</div>
-      <button class="rail-arrow next" type="button" aria-label="Scroll right" hidden>${icon('next')}</button>
+    <div class="card-info">
+      <img class="app-icon" src="${iconUrl(g)}" alt="" width="48" height="48" />
+      <a class="card-text" href="/game/${g.id}" data-link>
+        <h3>${g.title}</h3>
+        <p>${g.tagline}</p>
+      </a>
+      ${playLink(g, 'btn btn-sm')}
     </div>
-  </section>`;
-}
-
-/** Wire the arrows on every row: they only show when the row overflows. */
-export function mountRails(root: HTMLElement) {
-  const offs: (() => void)[] = [];
-  root.querySelectorAll<HTMLElement>('.rail-wrap').forEach(wrap => {
-    const track = wrap.querySelector<HTMLElement>('.rail-track')!;
-    const prev = wrap.querySelector<HTMLElement>('.prev')!, next = wrap.querySelector<HTMLElement>('.next')!;
-    const sync = () => {
-      prev.hidden = track.scrollLeft < 8;
-      next.hidden = track.scrollLeft + track.clientWidth > track.scrollWidth - 8;
-    };
-    prev.onclick = () => track.scrollBy({ left: -track.clientWidth * .85, behavior: 'smooth' });
-    next.onclick = () => track.scrollBy({ left: track.clientWidth * .85, behavior: 'smooth' });
-    track.addEventListener('scroll', sync, { passive: true });
-    addEventListener('resize', sync);
-    offs.push(() => removeEventListener('resize', sync));
-    sync();
-  });
-  return () => offs.forEach(f => f());
+    <div class="meta"><span>${g.tags.join(' · ')}</span>${g.external ? `<span>${host(g)}</span>` : ''}${bestMeta(g)}</div>
+  </article>`;
 }
 
 /** One billboard slide: full-bleed gameplay art, or a framed poster over a blurred copy of itself. */
@@ -92,9 +64,9 @@ function slide(g: Game, i: number) {
       <p>${g.description.split('. ')[0]}.</p>
       <div class="slide-actions">
         ${g.external
-          ? `<a class="btn btn-light btn-lg" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}">${icon('play')}Play</a>`
-          : `<a class="btn btn-light btn-lg" href="/play/${g.id}" data-link>${icon('play')}Play</a>`}
-        <a class="btn btn-grey btn-lg" href="/game/${g.id}" data-link>${icon('info')}More info</a>
+          ? `<a class="btn btn-light btn-lg" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}">${icon('play')}Play now${icon('external')}</a>`
+          : `<a class="btn btn-light btn-lg" href="/play/${g.id}" data-link>${icon('play')}Play now</a>`}
+        <a class="btn btn-glass btn-lg" href="/game/${g.id}" data-link>Details</a>
       </div>
     </div>
   </div>`;
@@ -103,8 +75,6 @@ function slide(g: Game, i: number) {
 export function homePage(): Page {
   const slides = [featuredGame, ...GAMES.filter(g => g !== featuredGame)];
   const recent = profile.recent().map(gameById).filter((g): g is Game => !!g);
-  const solo = GAMES.filter(g => !g.external);
-  const together = GAMES.filter(g => g.tags.includes('Multiplayer'));
   return {
     title: 'Fewer Labs Games',
     nav: 'home',
@@ -117,19 +87,34 @@ export function homePage(): Page {
           ${slides.map((g, i) => `<button class="bb-dot${i === 0 ? ' on' : ''}" role="tab" aria-selected="${i === 0}" aria-label="Show ${g.title}"><i></i></button>`).join('')}
         </div>
       </section>
-      <div class="rails">
-        ${rail('Continue playing', recent)}
-        ${rail('All games', [featuredGame, ...GAMES.filter(g => g !== featuredGame)], 'all')}
-        ${rail('Quick solo games', solo)}
-        ${together.length > 0 && together.length < GAMES.length ? rail('Play with your friends', together) : ''}
-        <div class="wrap">
-          <div class="features">
-            <div class="feature">${icon('bolt')}<div><b>Play instantly</b><span>Runs right in your browser. Nothing to download, no account.</span></div></div>
-            <div class="feature">${icon('devices')}<div><b>Phone or desktop</b><span>Touch, mouse or keyboard, portrait or landscape.</span></div></div>
-            <div class="feature">${icon('offline')}<div><b>Works offline</b><span>Solo games keep working without a connection after your first visit.</span></div></div>
-          </div>
+      <div class="wrap">
+      ${recent.length ? `
+      <section class="section">
+        <div class="section-head"><h2>Continue playing</h2></div>
+        <div class="recent">${recent.map(g => {
+          const s = profile.stats(g.id);
+          const inner = `<img class="app-icon" src="${iconUrl(g)}" alt="" width="52" height="52" />
+            <span class="recent-copy"><b>${g.title}</b><small>${s.best > 0 ? `${g.scoreLabel} ${fmt(s.best, g.unit)}` : g.tagline}</small></span>
+            <span class="btn btn-sm btn-primary">Play</span>`;
+          return g.external
+            ? `<a class="recent-item" href="${g.url}" target="_blank" rel="noopener" data-opens="${g.id}">${inner}</a>`
+            : `<a class="recent-item" href="/play/${g.id}" data-link>${inner}</a>`;
+        }).join('')}</div>
+      </section>` : ''}
+
+      <section class="section" id="all">
+        <div class="section-head"><h2>All games</h2><p>${GAMES.length} games · all free</p></div>
+        <div class="grid">${GAMES.map(card).join('')}</div>
+      </section>
+
+      <section class="section">
+        <div class="features">
+          <div class="feature">${icon('bolt')}<div><b>Play instantly</b><span>Runs right in your browser. Nothing to download, no account.</span></div></div>
+          <div class="feature">${icon('devices')}<div><b>Phone or desktop</b><span>Touch, mouse or keyboard, portrait or landscape.</span></div></div>
+          <div class="feature">${icon('offline')}<div><b>Works offline</b><span>Solo games keep working without a connection after your first visit.</span></div></div>
         </div>
-      </div>`,
+      </section>
+    </div>`,
     mount(root) {
       // Rotate through the games. Arrows, dots and swipes jump; hovering or focusing holds it.
       const bb = root.querySelector<HTMLElement>('.billboard')!;
@@ -171,8 +156,7 @@ export function homePage(): Page {
         if (Math.abs(dx) > 50) go(i + (dx < 0 ? 1 : -1));
       });
       play();
-      const offRails = mountRails(root);
-      return () => { clearInterval(timer); offRails(); };
+      return () => clearInterval(timer);
     },
   };
 }
@@ -233,8 +217,10 @@ export function gamePage(g: Game): Page {
         </aside>
       </div>
 
-    </div>
-    <div class="rails rails--page">${rail('More games', others)}</div>`,
-    mount: mountRails,
+      <section class="section">
+        <div class="section-head"><h2>More games</h2></div>
+        <div class="grid">${others.map(card).join('')}</div>
+      </section>
+    </div>`,
   };
 }
