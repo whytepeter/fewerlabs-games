@@ -11,10 +11,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Skip" />
   <meta name="format-detection" content="telephone=no" />
-  <link rel="manifest" href="/skip/manifest.webmanifest" />
-  <link rel="icon" href="/skip/favicon.ico" sizes="48x48" />
-  <link rel="icon" href="/skip/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/skip/apple-touch-icon-180x180.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
   <title>Skip</title>
 </head>
 <body>
@@ -46,13 +46,7 @@
         <p class="title-tag k-outline">Skip a stone across the lake!</p>
         <div class="title-meta">
           <div class="k-coins" data-coins></div>
-          <span class="k-streak" data-streak hidden></span>
-          <div class="k-mode" role="group" aria-label="Mode">
-            <button id="modeClassic" aria-pressed="true">Classic</button>
-            <button id="modeDaily" aria-pressed="false">Daily<span class="k-done" id="dailyDone"></span></button>
-          </div>
         </div>
-        <div class="daily-line k-outline" id="dailyLine" hidden></div>
       </div>
 
       <div class="title-missions title-info k-scale" id="titleMissionsBox" hidden>
@@ -73,7 +67,6 @@
           <button class="k-icon-btn k-icon-btn--sm" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
-          <a class="k-icon-btn k-icon-btn--sm k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
         </div>
       </div>
     </section>
@@ -121,6 +114,6 @@
     </section>
   </div>
 
-  <script type="module" src="/src/games/skip/main.ts"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

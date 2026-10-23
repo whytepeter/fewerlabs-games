@@ -12,10 +12,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Ripple" />
   <meta name="format-detection" content="telephone=no" />
-  <link rel="manifest" href="/ripple/manifest.webmanifest" />
-  <link rel="icon" href="/ripple/favicon.ico" sizes="48x48" />
-  <link rel="icon" href="/ripple/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/ripple/apple-touch-icon-180x180.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
   <title>Ripple</title>
 </head>
 <body>
@@ -49,7 +49,6 @@
       <div class="title-grid">
         <div class="title-top">
           <div class="k-coins" data-coins aria-label="Coins"></div>
-          <span class="k-streak" data-streak hidden></span>
         </div>
         <div class="title-head">
           <h1 class="k-logo" id="logo">Ripple</h1>
@@ -81,10 +80,6 @@
           </ul>
         </div>
         <div class="title-actions">
-          <div class="k-mode" id="modeSwitch" role="radiogroup" aria-label="Mode">
-            <button data-mode="classic" aria-pressed="true">Classic</button>
-            <button data-mode="daily" aria-pressed="false">Daily<span class="k-done" id="dailyDone"></span></button>
-          </div>
           <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>PLAY</button>
           <div class="skins" id="skins" role="radiogroup" aria-label="Boat style"></div>
           <div class="title-row">
@@ -92,7 +87,6 @@
             <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><span class="ico-on"><i data-icon="sound"></i></span><span class="ico-off"><i data-icon="mute"></i></span></button>
             <button class="k-icon-btn k-icon-btn--sm k-btn--pink" data-setting="music" aria-label="Music"><span class="ico-on"><i data-icon="music"></i></span><span class="ico-off"><i data-icon="music-off"></i></span></button>
             <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
-            <a class="k-icon-btn k-icon-btn--sm k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
           </div>
         </div>
       </div>
@@ -141,6 +135,6 @@
     </section>
   </div>
 
-  <script type="module" src="/src/games/ripple/main.ts"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

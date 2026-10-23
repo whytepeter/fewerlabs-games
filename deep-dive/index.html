@@ -10,10 +10,10 @@
   <meta name="apple-mobile-web-app-title" content="Deep Dive" />
   <meta name="format-detection" content="telephone=no" />
   <meta name="theme-color" content="#0b3d6b" />
-  <link rel="manifest" href="/deep-dive/manifest.webmanifest" />
-  <link rel="icon" href="/deep-dive/favicon.ico" sizes="48x48" />
-  <link rel="icon" href="/deep-dive/icon.svg" type="image/svg+xml" />
-  <link rel="apple-touch-icon" href="/deep-dive/apple-touch-icon-180x180.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
   <title>Deep Dive</title>
 </head>
 <body>
@@ -49,7 +49,7 @@
     <section id="title" class="k-screen title-screen">
       <div class="title-layout">
         <div class="title-top">
-          <div class="title-meta"><div class="k-coins" data-coins></div><span class="k-streak" data-streak hidden></span></div>
+          <div class="title-meta"><div class="k-coins" data-coins></div></div>
           <h1 class="k-logo" id="logo">Deep Dive</h1>
           <p class="title-tag k-outline">How deep can you go?</p>
           <div class="k-panel title-missions" id="titleMissions">
@@ -63,17 +63,12 @@
           </div>
         </div>
         <div class="title-bottom">
-          <div class="k-mode" role="group" aria-label="Mode">
-            <button type="button" id="modeClassic" aria-pressed="true">Classic</button>
-            <button type="button" id="modeDaily" aria-pressed="false">Daily <span class="k-done" id="dailyDone"></span></button>
-          </div>
-          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i><span id="playLabel">Dive</span></button>
+          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i>Dive</button>
           <div class="pill-row">
             <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
           </div>
           <div class="suits" id="suits" role="radiogroup" aria-label="Diver suit"></div>
           <div class="icon-row">
-            <a class="k-icon-btn k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
             <button class="k-icon-btn k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
             <button class="k-icon-btn k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
             <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
@@ -109,7 +104,6 @@
             <div class="over-reason" id="overReason"></div>
             <div class="over-close" id="overClose" hidden></div>
             <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
-            <div class="over-daily" id="overDaily" hidden></div>
             <div class="k-earned" id="overEarned" hidden></div>
           </div>
           <div class="over-side">
@@ -124,6 +118,6 @@
     </section>
   </div>
 
-  <script type="module" src="/src/games/deep-dive/main.ts"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

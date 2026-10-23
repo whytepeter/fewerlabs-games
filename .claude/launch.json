@@ -2,19 +2,49 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "fewerlabs-games",
+      "name": "deep-dive",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
         "dev",
         "--prefix",
-        "/Users/apple/Documents/code/fewerlabs/fewerlabs-games",
+        "/Users/apple/Documents/code/fewerlabs/fewerlabs-games/deep-dive",
         "--",
         "--port",
-        "5180",
+        "5181",
         "--strictPort"
       ],
-      "port": 5180
+      "port": 5181
+    },
+    {
+      "name": "ripple",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/apple/Documents/code/fewerlabs/fewerlabs-games/ripple",
+        "--",
+        "--port",
+        "5182",
+        "--strictPort"
+      ],
+      "port": 5182
+    },
+    {
+      "name": "skip",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "/Users/apple/Documents/code/fewerlabs/fewerlabs-games/skip",
+        "--",
+        "--port",
+        "5183",
+        "--strictPort"
+      ],
+      "port": 5183
     }
   ]
 }
