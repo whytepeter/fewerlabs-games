@@ -330,3 +330,8 @@
 }
 .k-earned-total .k-coin { width: 26px; height: 26px; }
 .k-earned-parts { font-size: 12px; color: var(--k-ink-soft); }
+
+/* Inside the Fewer Labs Games store: the store handles updates, so hide the banner here. */
+.is-embedded .k-update { display: none !important; }
+.embed-exit { margin-top: 8px; white-space: nowrap; }
+.k-row > .embed-exit { margin-top: 0; }

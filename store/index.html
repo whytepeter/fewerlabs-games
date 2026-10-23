@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Fewer Labs Games: small, endless games you can play right in your browser, on phone or desktop." />
+  <meta name="theme-color" content="#0b0e14" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Fewer Labs" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+  <title>Fewer Labs Games</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-in">
+      <a class="brand" href="/" data-link aria-label="Fewer Labs Games home">
+        <img src="/icon.svg" alt="" width="32" height="32" />
+        <span>Fewer Labs <em>Games</em></span>
+      </a>
+      <nav class="topnav" aria-label="Main">
+        <a href="/" data-link data-nav="home">Discover</a>
+        <a href="/#all" data-link data-nav="all">All games</a>
+      </nav>
+      <button class="btn btn-ghost btn-sm" id="installBtn" hidden></button>
+    </div>
+  </header>
+  <main id="app" tabindex="-1"></main>
+  <footer class="footer">
+    <div class="footer-in">
+      <span>© Fewer Labs</span>
+      <span>Free to play · No account needed · Works offline after your first visit</span>
+    </div>
+  </footer>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
 import { initPWA } from './core/pwa';
+import { initEmbed } from './core/embed';
 
 autoScaleUI();
 hydrateIcons();
@@ -93,3 +94,4 @@ if (import.meta.env.DEV) {
 }
 
 initPWA();
+initEmbed('ripple');

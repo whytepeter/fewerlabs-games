@@ -12,6 +12,7 @@ import { DEEP_SONG } from '../game/song';
 import { SKINS, skinIndex, suits } from '../game/skins';
 import { deepMissions } from '../game/missions';
 import { coins, soClose } from '../core/meta';
+import { embed } from '../core/embed';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
 
@@ -694,6 +695,7 @@ export class GameScene extends Phaser.Scene {
     const prevBest = this.best;
     const isBest = depth > this.best;
     if (isBest) { this.best = depth; store.set('best', depth); }
+    embed.score(depth, this.best);
     if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
 
     // Rewards: coins for the dive plus any missions completed.

@@ -16,6 +16,7 @@ import {
 } from '../game/art';
 import { sounds } from '../game/audio';
 import { computePond, hudHeight, readInsets, uiScale, worldScale } from '../game/layout';
+import { embed } from '../core/embed';
 import { ui } from '../ui';
 
 type Mode = 'title' | 'play' | 'paused' | 'over';
@@ -202,6 +203,7 @@ export class Game extends Phaser.Scene {
     const prevBest = this.best;
     const isNew = score > this.best && score > 0;
     if (isNew) { this.best = score; store.set('best', score); }
+    embed.score(score, this.best);
 
     // meta progression: run coins and missions
     const stats = {

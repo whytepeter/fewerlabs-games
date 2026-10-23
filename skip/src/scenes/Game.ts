@@ -12,6 +12,7 @@ import { P, N, A, onTheme } from '../game/palette';
 import { audio } from '../game/audio';
 import { music } from '../core/music';
 import { SKIP_SONG, MUSIC } from '../game/song';
+import { embed } from '../core/embed';
 import { ui } from '../ui';
 
 type Mode = 'title' | 'ready' | 'aiming' | 'flying' | 'sinking' | 'over';
@@ -421,6 +422,7 @@ export class Game extends Phaser.Scene {
     const prevBest = this.best;
     const isBest = m > this.best;
     if (isBest) { this.best = m; store.set('best', m); }
+    embed.score(m, this.best);
     if (sim.bestStreak > this.bestStreak) { this.bestStreak = sim.bestStreak; store.set('bestStreak', this.bestStreak); }
 
     // progression: coins and missions
