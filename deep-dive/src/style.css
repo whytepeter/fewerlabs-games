@@ -621,3 +621,34 @@ body {
   padding: 8px 6px 8px; margin-inline: -6px;
 }
 .settings-panel .account { padding-top: 14px; }
+
+/* Phones held sideways: the screen is short but wide, so the menus spread out sideways
+   instead of squeezing their lists into a sliver. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .shop-panel, .missions-panel, .divers-panel, .settings-panel { width: min(760px, 100%); padding: 28px 18px 14px; }
+  .board-panel { width: min(560px, 100%); padding: 28px 18px 14px; }
+  .back-btn, #boardBack { margin-top: 8px; }
+
+  /* Shop and missions: two columns of rows; the coins sit in the card's corner. */
+  .shop-list, #missionList { grid-template-columns: 1fr 1fr; align-content: start; }
+  .shop-wallet { position: absolute; top: 8px; right: 14px; margin: 0; }
+  .shop-panel .tabs { margin-right: 120px; }
+
+  /* Divers: the big preview and its button on the left, the diver grid on the right. */
+  .divers-panel {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; column-gap: 16px;
+  }
+  .divers-panel > :not(#diverGrid, .back-btn, .k-ribbon) { grid-column: 1; }
+  .diver-stage img { width: min(190px, 100%); }
+  .diver-bio { margin-bottom: 8px; }
+  #diverGrid {
+    grid-column: 2; grid-row: 1 / 6; margin-top: 0; align-content: start;
+    contain: size; /* take the height the left column sets, then scroll */
+  }
+  .divers-panel > .back-btn { grid-column: 1 / -1; }
+
+  /* Settings: the sign-in buttons side by side. */
+  #accountGuest { grid-template-columns: 1fr 1fr; }
+  #accountGuest > .email-form { grid-column: 1 / -1; }
+}

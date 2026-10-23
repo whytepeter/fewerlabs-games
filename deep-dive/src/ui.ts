@@ -171,8 +171,8 @@ export const ui = {
 
   screen(name: Screen) {
     for (const id of SCREENS) $(id).hidden = id !== name;
-    // No update banner mid-dive (playing or paused); it shows once the dive is over.
-    holdUpdates(name === null || name === 'pause');
+    // The update banner only shows on the title hub: never mid-dive, and never over a menu card.
+    holdUpdates(name !== 'title');
     if (name) { $('banner').classList.remove('show'); $('toast').classList.remove('show'); }
   },
 
