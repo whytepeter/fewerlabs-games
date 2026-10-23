@@ -17,7 +17,7 @@ export interface UIHandlers {
   pause(): void;
 }
 
-export interface OverInfo { score: number; best: number; isNew: boolean; stars: number; colours: number; bestCombo: number }
+export interface OverInfo { score: number; best: number; isNew: boolean; stars: number; wave: number; bestCombo: number }
 
 const screens = { title: $('title'), pause: $('pause'), over: $('over') };
 const hud = $('hud');
@@ -32,6 +32,9 @@ const flashEl = $('flash');
 let current: ScreenName = 'title';
 let hintShown = false;
 let hintTop = false;
+let hintDismissed = false;
+let hintSince = 0;
+const HINT_MS = 5000;
 let lastScore = 0;
 let lastLives = 3;
 
@@ -108,8 +111,20 @@ export const ui = {
     lastLives = n;
   },
 
-  /** Onboarding pill; `top` moves it above the pond so it never covers the boat it describes. */
+  /** New run: the onboarding pill may show again. */
+  resetHint() { hintDismissed = false; hintSince = 0; },
+
+  /**
+   * Onboarding pill; `top` moves it above the pond so it never covers the boat it describes.
+   * It hides itself after HINT_MS of showing in a run (the ghost finger keeps going until the first tap).
+   */
   hint(show: boolean, top = false) {
+    const now = performance.now();
+    if (show && !hintDismissed) {
+      if (!hintSince) hintSince = now;
+      else if (now - hintSince > HINT_MS) hintDismissed = true;
+    }
+    show = show && !hintDismissed;
     if (show !== hintShown) { hintShown = show; hintEl.hidden = !show; }
     if (show && top !== hintTop) { hintTop = top; hintEl.classList.toggle('top', top); }
   },
@@ -136,17 +151,21 @@ export const ui = {
     popsEl.appendChild(el);
   },
 
+  /** Icy edge glow while a freeze power-up holds the timers. */
+  frost(on: boolean) { $('frost').classList.toggle('on', on); },
+
   /** Red edge flash when a boat sinks. */
   flash() { restartAnim(flashEl, 'on'); },
 
   showOver(o: OverInfo) {
+    popsEl.replaceChildren();
     $('overRibbon').textContent = o.isNew ? 'New Record!' : 'Game Over';
     $('overRibbon').classList.toggle('record', o.isNew);
     $('overScore').textContent = String(o.score);
     $('overLine').textContent = o.score === 1 ? 'boat home' : 'boats home';
     $('overNew').hidden = !o.isNew;
     $('statBest').textContent = String(o.best);
-    $('statColours').textContent = `${o.colours} / 3`;
+    $('statWave').textContent = String(o.wave);
     $('statCombo').textContent = o.bestCombo > 0 ? `x${o.bestCombo}` : '–';
     const stars = $('stars');
     stars.innerHTML = STAR_SVG + STAR_SVG + STAR_SVG; // fresh nodes so the pop-in replays

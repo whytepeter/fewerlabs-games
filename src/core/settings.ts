@@ -25,11 +25,12 @@ export const store = {
   },
 };
 
-export interface Settings { sound: boolean; haptics: boolean }
+export interface Settings { sound: boolean; music: boolean; haptics: boolean }
 type Listener = (s: Settings) => void;
 
 export const settings: Settings = {
   sound: store.get('sound', true),
+  music: store.get('music', true),
   haptics: store.get('haptics', true),
 };
 const listeners: Listener[] = [];

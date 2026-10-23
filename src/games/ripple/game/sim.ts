@@ -10,6 +10,16 @@ export const LIVES = 3;
 export const END_DELAY = 0.9;
 /** Hard cap on live ripples so finger-mashing can't grow per-frame work without bound. */
 const MAX_RIPPLES = 16;
+/** Boats docked per wave. */
+export const WAVE_SIZE = 6;
+/** Points for a golden boat (it may use any dock). */
+export const GOLD_POINTS = 3;
+/** Seconds that a freeze power-up stops every boat's timer. */
+export const FREEZE_TIME = 5;
+export const PICKUP_R = 15;
+const PICKUP_LIFE = 9;
+/** Boat timer: BOAT_LIFE seconds, shrinking 0.35 s per boat docked down to BOAT_LIFE_MIN. */
+const BOAT_LIFE = 30, BOAT_LIFE_MIN = 20;
 
 export interface Rect { x: number; y: number; w: number; h: number; r: number }
 export type BoatState = 'in' | 'dock' | 'sink';
@@ -19,7 +29,12 @@ export interface Boat {
   dock: Dock | null;
   /** Magnitude of this frame's ripple push (visual feedback only). */
   push: number;
+  /** Golden boats are worth GOLD_POINTS, dock anywhere, and have shorter timers. */
+  gold: boolean;
 }
+export type PickupKind = 'freeze' | 'life';
+/** A floating power-up bubble; tap it to collect. */
+export interface Pickup { id: number; x: number; y: number; kind: PickupKind; age: number; life: number; ph: number }
 export interface Dock {
   id: number; x: number; y: number; r: number; ci: number; got: number;
   moving: boolean; fade: number; moved: boolean; isNew: boolean;
@@ -39,6 +54,9 @@ export type SimEvent =
   | { type: 'dockMove'; dock: Dock }
   | { type: 'wake'; x: number; y: number }
   | { type: 'over'; score: number }
+  | { type: 'wave'; wave: number }
+  | { type: 'pickup'; pickup: Pickup }
+  | { type: 'pickupSpawn'; pickup: Pickup }
   | { type: 'hud' };
 
 /** idle = title backdrop, play = running, ending = last life lost (no scoring), over = finished. */
@@ -51,6 +69,14 @@ export class Sim {
   pond: Rect = { x: 0, y: 0, w: 400, h: 600, r: 40 };
   phase: Phase = 'idle';
   score = 0;
+  /** Boats docked this run. Difficulty and unlocks follow this, so golden bonuses don't speed up the ramp. */
+  docked = 0;
+  wave = 1;
+  /** Seconds left on a freeze power-up. */
+  freezeT = 0;
+  pickups: Pickup[] = [];
+  private pickupT = 20;
+  private nextRockAt = 12;
   lives = LIVES;
   t = 0;
   nextSpawn = 0.8;
@@ -102,7 +128,7 @@ export class Sim {
       o.x = p.x + (o.x - old.x) / old.w * p.w;
       o.y = p.y + (o.y - old.y) / old.h * p.h;
     };
-    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples] as { x: number; y: number }[][]) list.forEach(fit);
+    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples, this.pickups] as { x: number; y: number }[][]) list.forEach(fit);
     this.relax();
     for (const b of this.boats) {
       b.x = clamp(b.x, p.x + BOAT_R, p.x + p.w - BOAT_R);
@@ -189,6 +215,7 @@ export class Sim {
 
   private resetCounters() {
     this.score = 0; this.lives = LIVES; this.t = 0; this.nextSpawn = 0.8; this.colors = 1;
+    this.docked = 0; this.wave = 1; this.freezeT = 0; this.pickups = []; this.pickupT = 20; this.nextRockAt = 12;
     this.combo = 0; this.lastDock = -9; this.endT = 0; this.tapped = false; this.bestCombo = 0;
     this.events.length = 0;
   }
@@ -206,6 +233,7 @@ export class Sim {
   start(keepLayout = false) {
     if (!keepLayout || !this.laidOut) this.layout();
     else { this.boats = []; this.ripples = []; }
+    this.pickups = [];
     this.resetCounters();
     this.demo = false;
     this.phase = 'play';
@@ -214,7 +242,7 @@ export class Sim {
 
   /* ---------- play */
 
-  get maxBoats() { return Math.min(6, 2 + Math.floor(this.score / 4)); }
+  get maxBoats() { return Math.min(6, 2 + Math.floor(this.docked / 4)); }
 
   private spawnBoat(ci = Math.floor(this.rng() * this.colors)) {
     const p = this.pond, m = 6;
@@ -227,8 +255,10 @@ export class Sim {
       else if (side === 2) { x = this.rand(p.x + 60, p.x + p.w - 60); y = p.y + p.h - m - BOAT_R; vx = this.rand(-8, 8); vy = -sp; }
       else { x = p.x + m + BOAT_R; y = this.rand(p.y + 60, p.y + p.h - 60); vx = sp; vy = this.rand(-8, 8); }
       if (!this.farFrom(x, y, this.docks, 50) && attempt < 11) continue;
-      const life = Math.max(22, 34 - this.score * 0.35);
-      this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0 });
+      // one boat in 7 is golden once the player has the hang of it (never two at once, not in the title demo)
+      const gold = this.phase === 'play' && this.docked >= 4 && !this.boats.some(o => o.gold && o.state === 'in') && this.rng() < 1 / 7;
+      const life = Math.max(BOAT_LIFE_MIN, BOAT_LIFE - this.docked * 0.35) * (gold ? 0.8 : 1);
+      this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0, gold });
       return;
     }
   }
@@ -238,6 +268,9 @@ export class Sim {
     const p = this.pond;
     if (this.phase !== 'play') return false;
     if (x < p.x || x > p.x + p.w || y < p.y || y > p.y + p.h) return false;
+    // tapping a power-up collects it instead of making a ripple (generous touch radius)
+    const pk = this.pickups.find(o => Math.hypot(o.x - x, o.y - y) < PICKUP_R + 16);
+    if (pk) { this.collect(pk); this.tapped = true; return true; }
     if (this.ripples.length >= MAX_RIPPLES) this.ripples.shift();
     this.ripples.push({ x, y, age: 0 });
     this.tapped = true;
@@ -258,15 +291,24 @@ export class Sim {
     this.combo = this.t - this.lastDock < 4 ? this.combo + 1 : 0;
     this.lastDock = this.t;
     this.bestCombo = Math.max(this.bestCombo, this.combo + 1);
-    this.score++; d.got++;
-    this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.score / 10)) });
+    this.score += b.gold ? GOLD_POINTS : 1; this.docked++; d.got++;
+    this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.docked / 10)) + (b.gold ? 2 : 0) });
     this.events.push({ type: 'hud' });
-    // progression: more colours, more rocks, docks that move
-    if (this.score === 8 && this.colors < 2) { this.colors = 2; this.addDock(1); this.events.push({ type: 'unlock', ci: 1 }); }
-    else if (this.score === 20 && this.colors < 3) { this.colors = 3; this.addDock(2); this.events.push({ type: 'unlock', ci: 2 }); }
-    if (this.score % 12 === 0 && this.rocks.length < 7) {
-      const pt = this.placeInPond(50, [...this.rocks, ...this.docks, ...this.boats.map(o => ({ x: o.x, y: o.y, r: 30 }))], 80);
-      this.rocks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: this.rand(14, 22), variant: Math.floor(this.rng() * 4), isNew: true });
+    // progression: more colours, more rocks, docks that move, waves
+    if (this.docked >= 8 && this.colors < 2) { this.colors = 2; this.addDock(1); this.events.push({ type: 'unlock', ci: 1 }); }
+    else if (this.docked >= 20 && this.colors < 3) { this.colors = 3; this.addDock(2); this.events.push({ type: 'unlock', ci: 2 }); }
+    const wave = 1 + Math.floor(this.docked / WAVE_SIZE);
+    if (wave > this.wave) {
+      this.wave = wave;
+      this.nextSpawn = Math.max(this.nextSpawn, 2.5); // a short breather between waves
+      this.events.push({ type: 'wave', wave });
+    }
+    if (this.docked >= this.nextRockAt) {
+      this.nextRockAt += 12;
+      if (this.rocks.length < 7) {
+        const pt = this.placeInPond(50, [...this.rocks, ...this.docks, ...this.boats.map(o => ({ x: o.x, y: o.y, r: 30 }))], 80);
+        this.rocks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: this.rand(14, 22), variant: Math.floor(this.rng() * 4), isNew: true });
+      }
     }
     if (d.got >= 4 && !d.moving) { d.moving = true; this.events.push({ type: 'dockMove', dock: d }); }
   }
@@ -286,12 +328,35 @@ export class Sim {
     let best: { boat: Boat; dock: Dock } | null = null, bestLeft = Infinity;
     for (const b of this.boats) {
       if (b.state !== 'in') continue;
-      const d = this.docks.find(o => o.ci === b.ci);
+      const d = this.dockFor(b);
       if (!d) continue;
       const left = b.life - b.age;
       if (left < bestLeft) { bestLeft = left; best = { boat: b, dock: d }; }
     }
     return best;
+  }
+
+  /** The dock a boat should head for: its colour's, or the nearest one for a golden boat. */
+  dockFor(b: Boat): Dock | undefined {
+    if (!b.gold) return this.docks.find(o => o.ci === b.ci);
+    let best: Dock | undefined, bd = Infinity;
+    for (const d of this.docks) { const dd = Math.hypot(d.x - b.x, d.y - b.y); if (dd < bd) { bd = dd; best = d; } }
+    return best;
+  }
+
+  private collect(pk: Pickup) {
+    this.pickups = this.pickups.filter(o => o !== pk);
+    if (pk.kind === 'freeze') this.freezeT = FREEZE_TIME;
+    else { this.lives = Math.min(LIVES, this.lives + 1); this.events.push({ type: 'hud' }); }
+    this.events.push({ type: 'pickup', pickup: pk });
+  }
+
+  private spawnPickup() {
+    const kind: PickupKind = this.lives < LIVES && this.rng() < 0.45 ? 'life' : 'freeze';
+    const pt = this.placeInPond(40, [...this.docks, ...this.rocks, ...this.boats.map(o => ({ x: o.x, y: o.y, r: 20 }))], 30);
+    const pk: Pickup = { id: this.nextId++, x: pt.x, y: pt.y, kind, age: 0, life: PICKUP_LIFE, ph: this.rng() * 6 };
+    this.pickups.push(pk);
+    this.events.push({ type: 'pickupSpawn', pickup: pk });
   }
 
   /** Decorative motion that runs in every phase, including pause. */
@@ -312,9 +377,20 @@ export class Sim {
       this.nextSpawn -= dt;
       if (this.nextSpawn <= 0 && active < this.maxBoats) {
         this.spawnBoat();
-        this.nextSpawn = Math.max(2.6, 6.5 - this.score * 0.13);
+        this.nextSpawn = Math.max(2.6, 6.5 - this.docked * 0.13);
       }
       if (active === 0 && this.nextSpawn > 1.2) this.nextSpawn = 1.2;
+      // power-ups: one every 20-28 s once a couple of boats are home
+      if (this.freezeT > 0) this.freezeT = Math.max(0, this.freezeT - dt);
+      if (this.docked >= 2 && this.pickups.length === 0 && (this.pickupT -= dt) <= 0) {
+        this.pickupT = this.rand(20, 28);
+        this.spawnPickup();
+      }
+      for (const pk of this.pickups) {
+        pk.age += dt; pk.ph += dt;
+        pk.x += Math.cos(pk.ph * 0.7) * 6 * dt; pk.y += Math.sin(pk.ph * 0.9) * 6 * dt;
+      }
+      if (this.pickups.some(o => o.age >= o.life)) this.pickups = this.pickups.filter(o => o.age < o.life);
     } else if (this.phase === 'idle' && this.demo) {
       this.demoT -= dt;
       if (this.demoT <= 0) { this.demoT = 2.2; if (this.boats.length < 3) this.spawnBoat(Math.floor(this.rng() * 3)); }
@@ -374,16 +450,16 @@ export class Sim {
           if (d.moving && d.fade > 0.5) continue;
           const dd = Math.hypot(b.x - d.x, b.y - d.y);
           if (dd < d.r - 6) {
-            if (d.ci === b.ci) { if (playing) { this.dockBoat(b, d); break; } }
+            if (d.ci === b.ci || b.gold) { if (playing) { this.dockBoat(b, d); break; } }
             else if (this.t - b.noped > 0.6) { b.noped = this.t; if (playing) this.events.push({ type: 'nope', x: b.x, y: b.y }); }
           }
-          if (d.ci !== b.ci && dd < d.r + BOAT_R && dd > 0) {
+          if (d.ci !== b.ci && !b.gold && dd < d.r + BOAT_R && dd > 0) {
             const nx = (b.x - d.x) / dd, ny = (b.y - d.y) / dd; b.vx += nx * 160 * dt * 6; b.vy += ny * 160 * dt * 6;
           }
         }
         if (b.state === 'in') {
           if (sp > 4) b.ang += ((Math.atan2(b.vy, b.vx) - b.ang + Math.PI * 3) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 4);
-          if (playing) b.age += dt;
+          if (playing && this.freezeT <= 0) b.age += dt;
           b.wake += dt * sp;
           if (b.wake > 26) { b.wake = 0; this.events.push({ type: 'wake', x: b.x - Math.cos(b.ang) * 12, y: b.y - Math.sin(b.ang) * 12 }); }
           if (playing && b.age >= b.life) this.loseBoat(b);

@@ -4,13 +4,15 @@ import '@fontsource/fredoka/700.css';
 import '../../core/kit.css';
 import './style.css';
 import Phaser from 'phaser';
-import { createGame } from '../../core/view';
+import { autoScaleUI, createGame } from '../../core/view';
 import { sfx } from '../../core/sfx';
+import { music } from '../../core/music';
 import { hydrateIcons, wobbleLetters } from '../../core/icons';
 import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
 
+autoScaleUI();
 hydrateIcons();
 wobbleLetters(document.getElementById('logo')!);
 
@@ -41,6 +43,8 @@ if (import.meta.env.DEV) {
   const scene = () => game.scene.getScene('game') as Game;
   (window as unknown as { __ripple: unknown }).__ripple = {
     game,
+    music,
+    sfx,
     get scene() { return scene(); },
     get sim() { return scene().sim; },
     /** Run n full frames (logic, tweens, rendering) at a fixed step, independent of rAF. */
@@ -65,7 +69,7 @@ if (import.meta.env.DEV) {
           const p = sim.pond;
           for (const b of sim.boats) {
             if (b.state !== 'in') continue;
-            const d = sim.docks.find(o => o.ci === b.ci);
+            const d = sim.dockFor(b);
             if (!d || b.life - b.age >= bl) continue;
             const dx = d.x - b.x, dy = d.y - b.y, dl = Math.hypot(dx, dy) || 1;
             bl = b.life - b.age;

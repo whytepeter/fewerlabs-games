@@ -20,6 +20,7 @@
  *   .k-tag               small rounded label (e.g. "NEW RECORD!")
  *   .k-outline           outlined white text for anything drawn over the game
  *   .k-toggle            pill on/off switch button (aria-pressed="true|false")
+ *   .k-scale             zoom an element (e.g. the HUD) with the screen, see autoScaleUI() in core/view.ts
  * Icons: <i data-icon="play"></i> — filled in by hydrateIcons() from core/icons.ts.
  */
 
@@ -44,6 +45,11 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
 }
+
+/* ---------- Screen scaling: autoScaleUI() (core/view.ts) sets --ui; 1 on a typical phone.
+   Content of a .k-screen and anything with .k-scale is zoomed by it. Percentage sizes inside a
+   zoomed element are not scaled, so full-size layouts just use 100% and still fill the screen. */
+.k-screen > *, .k-scale { zoom: var(--ui, 1); }
 
 /* ---------- Screens & panels */
 .k-screen {
@@ -134,7 +140,7 @@
 .k-btn--lg { min-height: 68px; font-size: 30px; padding: 0 44px 5px; border-radius: 24px; }
 .k-btn--sm { min-height: 46px; font-size: 18px; padding: 0 18px 3px; border-radius: 16px; }
 .k-btn--block { width: 100%; }
-.k-btn svg { width: 1.05em; height: 1.05em; filter: drop-shadow(0 2px 0 var(--k-outline)); }
+.k-btn svg { width: 1.05em; height: 1.05em; fill: currentColor; filter: drop-shadow(0 2px 0 var(--k-outline)); }
 .k-btn--yellow, .k-icon-btn.k-btn--yellow { --c: #ffc43d; --hi: #ffe58f; --lo: #d18a00; }
 .k-btn--blue, .k-icon-btn.k-btn--blue { --c: #3aa8ff; --hi: #94d3ff; --lo: #1a6fc2; }
 .k-btn--pink, .k-icon-btn.k-btn--pink { --c: #ff5a7a; --hi: #ffa3b4; --lo: #c22a4b; }

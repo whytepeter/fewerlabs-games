@@ -29,5 +29,12 @@ export const sounds = {
   lost() { sfx.tone(330, 0.6, { vol: 0.16, slideTo: 160 }); sfx.noise(0.4, 0.06, 500); },
   unlock() { [0, 0.1, 0.2].forEach((d, i) => sfx.tone(NOTES[3 + i * 2], 0.35, { vol: 0.12, delay: d })); },
   over() { [0, 0.16, 0.32].forEach((d, i) => sfx.tone(NOTES[4 - i * 2], 0.5, { vol: 0.08, delay: d })); },
+  /** Golden boat home: a bright major chord on top of the dock chime. */
+  gold() { [0, 4, 7, 12].forEach((k, i) => sfx.tone(NOTES[5] * Math.pow(2, k / 12), 0.5, { vol: 0.09, delay: 0.05 + i * 0.05 })); },
+  /** Wave banner fanfare. */
+  wave() { [0, 0.12, 0.24, 0.42].forEach((d, i) => sfx.tone(NOTES[[2, 4, 5, 7][i]], i === 3 ? 0.6 : 0.22, { type: 'triangle', vol: 0.12, delay: d })); },
+  pickupSpawn() { sfx.tone(NOTES[7], 0.25, { vol: 0.06, slideTo: NOTES[9] }); },
+  freeze() { [0, 0.07, 0.14, 0.21].forEach((d, i) => sfx.tone(NOTES[9] * (1 + i * 0.12), 0.4, { vol: 0.07, delay: d })); sfx.noise(0.5, 0.04, 6000, 2); },
+  life() { [0, 0.09, 0.18].forEach((d, i) => sfx.tone(NOTES[4 + i * 2], 0.35, { type: 'triangle', vol: 0.12, delay: d })); },
   click() { sfx.tone(660, 0.07, { vol: 0.05, slideTo: 520 }); },
 };

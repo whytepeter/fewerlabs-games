@@ -4,10 +4,12 @@ import { TEX_SCALE } from '../../../core/tex';
 import { sfx } from '../../../core/sfx';
 import { buzz } from '../../../core/haptics';
 import { store } from '../../../core/settings';
-import { Sim, aimVelocity, previewThrow, RING_T, REST_Y, GOOD, type Obj, type SimEvent, type Grade } from '../game/sim';
+import { Sim, aimVelocity, previewThrow, RING_T, REST_Y, GOOD, FEVER, type Obj, type SimEvent, type Grade } from '../game/sim';
 import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE, OUTLINE_N, type StripKey } from '../game/art';
 import { P, N, A, onTheme } from '../game/palette';
 import { audio } from '../game/audio';
+import { music } from '../../../core/music';
+import { SKIP_SONG, MUSIC } from '../game/song';
 import { ui } from '../ui';
 
 type Mode = 'title' | 'ready' | 'aiming' | 'flying' | 'sinking' | 'over';
@@ -21,6 +23,17 @@ const FONT = 'Fredoka, ui-rounded, system-ui, sans-serif';
 const TAU = Math.PI * 2;
 /** The stone is drawn a little larger than its physics size so its face reads on a phone. */
 const STONE_DRAW = TEX_SCALE * 1.3;
+
+/** The lake changes as you go further: each new stretch is announced and re-tints the scene. */
+const ZONES = [
+  { m: 0, name: 'Sunset Bay', mist: 0, night: 0 },
+  { m: 250, name: 'Misty Reach', mist: 0.34, night: 0 },
+  { m: 500, name: 'Moonlit Deep', mist: 0.08, night: 0.4 },
+  { m: 800, name: 'Starfall Lake', mist: 0, night: 0.58 },
+];
+const MIST_N = 0xf3eeff, NIGHT_N = 0x0e1745;
+/** Until the player lands a first Good/Perfect, the last moment before each contact runs in slow motion. */
+const TUTORIAL_SLOW = 0.3;
 
 // Draw order
 const D = { sky: 0, glow: 1, sun: 2, water: 7, refl: 8, glitter: 9, pier: 10, ripples: 11, objs: 12, shadow: 13, trail: 14, aura: 14.5, stone: 15, fx: 16, front: 17, text: 18 };
@@ -57,6 +70,16 @@ export class Game extends Phaser.Scene {
   private squintT = 0;
   /** Dev only: ignore visibility auto-pause while a test drives frames by hand. */
   private holdAutoPause = false;
+  private mistSky!: Phaser.GameObjects.Rectangle;
+  private nightSky!: Phaser.GameObjects.Rectangle;
+  private mistWater!: Phaser.GameObjects.Rectangle;
+  private nightWater!: Phaser.GameObjects.Rectangle;
+  private stars!: Phaser.GameObjects.Graphics;
+  private tint = { mist: 0, night: 0 };
+  private zone = 0;
+  private nextMilestone = 100;
+  private inFever = false;
+  private timeScale = 1;
 
   private views = new Map<number, View>();
   private ripples: Ripple[] = [];
@@ -83,6 +106,11 @@ export class Game extends Phaser.Scene {
     this.water = this.add.image(0, 0, 'water').setOrigin(0, 0).setScrollFactor(0).setDepth(D.water);
     for (const k of Object.keys(STRIPS) as StripKey[]) { this.strips[k] = []; this.refl[k] = []; }
     this.glitter = this.add.graphics().setScrollFactor(0).setDepth(D.glitter);
+    this.mistSky = this.add.rectangle(0, 0, 10, 10, MIST_N).setOrigin(0, 0).setScrollFactor(0).setDepth(6.6).setAlpha(0);
+    this.nightSky = this.add.rectangle(0, 0, 10, 10, NIGHT_N).setOrigin(0, 0).setScrollFactor(0).setDepth(6.7).setAlpha(0);
+    this.stars = this.add.graphics().setScrollFactor(0).setDepth(6.8).setAlpha(0);
+    this.mistWater = this.add.rectangle(0, 0, 10, 10, MIST_N).setOrigin(0, 0).setScrollFactor(0).setDepth(9.5).setAlpha(0);
+    this.nightWater = this.add.rectangle(0, 0, 10, 10, NIGHT_N).setOrigin(0, 0).setScrollFactor(0).setDepth(9.6).setAlpha(0);
     this.pier = this.add.image(PIER.x, 0, 'pier').setOrigin(0, 0).setScale(TEX_SCALE).setDepth(D.pier);
     this.back = this.add.graphics().setDepth(D.ripples);
     this.shadow = this.add.image(0, 0, 'shadow').setScale(TEX_SCALE).setDepth(D.shadow).setVisible(false);
@@ -117,6 +145,7 @@ export class Game extends Phaser.Scene {
       again: () => this.newThrow(),
     });
     this.toTitle();
+    music.play(SKIP_SONG, MUSIC.calm);
 
     const onResize = () => {
       fitCamera(this.cameras.main);
@@ -163,8 +192,10 @@ export class Game extends Phaser.Scene {
   // ---------------------------------------------------------------- layout
 
   private layout() {
-    // 500 rather than the prototype's 560: on short landscape phones the lake reads ~12% larger
-    this.worldScale = Math.min(view.h / 500, view.w / 430);
+    // The prototype used min(h/560, w/430). Phones now see a closer lake (~13% larger in both
+    // orientations, ≈0.9–1.0). Big screens are capped at 1.35 (≈1.4× a phone) so a desktop window
+    // stays comfortably sized and simply shows more lake ahead.
+    this.worldScale = Math.min(view.h / 440, view.w / 380, Math.max(view.w, view.h) / 720, 1.35);
     this.cameras.main.setZoom(view.dpr * this.worldScale);
     this.W = view.w / this.worldScale;
     this.H = view.h / this.worldScale;
@@ -178,6 +209,16 @@ export class Game extends Phaser.Scene {
     this.sunGlow.setPosition(sunX, sunY);
     this.sun.setPosition(sunX, sunY);
     this.pier.setY(waterY + PIER.y);
+    this.mistSky.setPosition(-30, -30).setSize(W + 60, waterY + 31);
+    this.nightSky.setPosition(-30, -30).setSize(W + 60, waterY + 31);
+    this.mistWater.setPosition(-30, waterY).setSize(W + 60, H - waterY + 30);
+    this.nightWater.setPosition(-30, waterY).setSize(W + 60, H - waterY + 30);
+    this.stars.clear();
+    for (let i = 0; i < 60; i++) {
+      const x = hash(i * 3.1) * W, y = 8 + hash(i * 7.7 + 1) * Math.max(10, waterY - 200), r = 0.8 + hash(i + 40) * 1.6;
+      this.stars.fillStyle(0xffffff, 0.6 + hash(i + 9) * 0.4);
+      this.stars.fillCircle(x, y, r);
+    }
 
     for (const k of Object.keys(STRIPS) as StripKey[]) {
       const need = Math.ceil((W + 60) / STRIPS[k].w) + 1;
@@ -189,6 +230,10 @@ export class Game extends Phaser.Scene {
   }
 
   /** Where the stone sits on screen: a bit further left on narrow portrait screens to see ahead. */
+  /** Feedback labels live in a band high in the sky, below the HUD and well above the stone's
+   *  highest hop, so they never cover the stone, the ring or the landing spot. */
+  private get topY() { return Math.max(112, this.waterY * 0.42); }
+
   private get anchor() { return Phaser.Math.Clamp(this.W * 0.22, 70, 160); }
   private snapCamera() { this.camX = this.sim.x - this.anchor; }
 
@@ -199,6 +244,7 @@ export class Game extends Phaser.Scene {
     this.sim.reset();
     this.handle(this.sim.drain());
     this.clearFx();
+    this.resetRun();
     this.mode = 'title';
     this.snapCamera();
     ui.setBest(this.best);
@@ -223,8 +269,57 @@ export class Game extends Phaser.Scene {
     this.sim.reset();
     this.handle(this.sim.drain());
     this.clearFx();
+    this.resetRun();
     this.snapCamera();
     this.toReady();
+  }
+
+  /** Back to Sunset Bay: zone tints fade out, milestones and Fever reset. */
+  private resetRun() {
+    this.zone = 0;
+    this.nextMilestone = 100;
+    this.setFever(false);
+    this.timeScale = 1;
+    ui.hideBanner();
+    this.tweenTint(0, 0, 700);
+  }
+
+  private tweenTint(mist: number, night: number, duration: number) {
+    this.tweens.killTweensOf(this.tint);
+    this.tweens.add({ targets: this.tint, mist, night, duration, ease: 'Sine.InOut' });
+  }
+
+  private setFever(on: boolean) {
+    if (on === this.inFever) return;
+    this.inFever = on;
+    ui.fever(on);
+    if (on) {
+      ui.banner(`×${FEVER} streak`, 'FEVER!', 'fever');
+      audio.fever();
+      buzz([10, 40, 10, 40, 10]);
+      this.cameras.main.flash(160, 255, 200, 90);
+    }
+  }
+
+  /** Distance milestones and lake zones, checked every frame of a throw. */
+  private checkProgress() {
+    const m = this.sim.metres;
+    const nz = ZONES[this.zone + 1];
+    if (nz && m >= nz.m) {
+      this.zone++;
+      ui.banner(`${nz.m} m · new lake`, nz.name, 'zone');
+      audio.milestone(true);
+      buzz([12, 60, 12]);
+      this.tweenTint(nz.mist, nz.night, 1400);
+      this.fx.sparkle.explode(18, this.sim.x, this.waterY + this.sim.y);
+      if (this.nextMilestone <= nz.m) this.nextMilestone = nz.m + 100;
+    } else if (m >= this.nextMilestone) {
+      ui.banner('Milestone', `${this.nextMilestone} m!`, 'milestone');
+      audio.milestone(false);
+      buzz(10);
+      this.fx.sparkle.explode(12, this.sim.x, this.waterY + this.sim.y);
+      this.nextMilestone += 100;
+    }
   }
 
   private clearFx() {
@@ -240,17 +335,20 @@ export class Game extends Phaser.Scene {
     if (this.mode === 'title' || this.mode === 'over' || this.scene.isPaused()) return;
     if (this.mode === 'aiming') { this.aim = null; this.mode = 'ready'; }
     this.scene.pause();
+    sfx.suspend(); // silences music and effects together
     ui.screen('pause');
   }
 
   private resume() {
     if (!this.scene.isPaused()) return;
     ui.screen(null);
+    sfx.resume();
     this.scene.resume();
   }
 
   private gameOver() {
     this.mode = 'over';
+    this.setFever(false);
     const m = this.sim.metres;
     const isBest = m > this.best;
     if (isBest) { this.best = m; store.set('best', m); }
@@ -258,7 +356,7 @@ export class Game extends Phaser.Scene {
     ui.setBest(this.best);
     ui.hud(false);
     ui.hint(null);
-    ui.showOver({ metres: m, skips: this.sim.skips, bestStreak: this.sim.bestStreak, glass: this.sim.glass, best: this.best, isBest, plunked: this.sim.plunked });
+    ui.showOver({ metres: m, skips: this.sim.skips, bestStreak: this.sim.bestStreak, glass: this.sim.glass, hoops: this.sim.hoops, best: this.best, isBest, plunked: this.sim.plunked });
   }
 
   // ---------------------------------------------------------------- input
@@ -275,6 +373,7 @@ export class Game extends Phaser.Scene {
         const q = this.logical(p);
         this.aim = { id: p.id, sx: q.x, sy: q.y, cx: q.x, cy: q.y };
         this.mode = 'aiming';
+        ui.hint(null); // the thumb is down there now
       } else if (this.mode === 'flying') {
         this.sim.tap();
       }
@@ -330,7 +429,7 @@ export class Game extends Phaser.Scene {
           break;
         }
         case 'pad': {
-          this.popup(e.x, wy - 34, 'BOING!', P.good, 26, true);
+          this.popup(e.x, this.topY + 26, 'BOING!', P.good, 18, true);
           audio.boing();
           buzz([8, 50, 8]);
           this.addRipple(e.x, 1.2);
@@ -348,15 +447,25 @@ export class Game extends Phaser.Scene {
           this.shake = 8;
           this.squish(1.5, 0.6);
           this.fx.chips.explode(8, e.x, wy + e.y);
-          this.popup(e.x, wy - 40, 'BONK!', P['log-hi'], 24, true);
+          this.popup(e.x, this.topY + 26, 'BONK!', P['log-hi'], 18, true);
           break;
         case 'duck': {
           audio.quack();
           buzz(12);
           this.fx.feathers.explode(8, e.obj.x, wy - 12);
-          this.popup(e.obj.x, wy - 46, 'QUACK!', P.beak, 22, true);
+          this.popup(e.obj.x, this.topY + 26, 'QUACK!', P.beak, 17, true);
           const v = this.views.get(e.obj.id);
           if (v) (v.img as Phaser.GameObjects.Sprite).setFlipX(true);
+          break;
+        }
+        case 'hoop': {
+          audio.hoop();
+          buzz(10);
+          this.fx.sparkle.explode(16, e.obj.x, wy - e.obj.h);
+          this.popup(e.obj.x, this.topY + 26, 'HOOP! +SPEED', P.glass, 18, true);
+          this.squish(0.7, 1.4);
+          const v = this.views.get(e.obj.id);
+          if (v) this.tweens.add({ targets: v.img, scaleX: TEX_SCALE * 1.8, scaleY: TEX_SCALE * 1.8, alpha: 0, duration: 450, ease: 'Quad.Out' });
           break;
         }
         case 'glass':
@@ -365,7 +474,7 @@ export class Game extends Phaser.Scene {
           break;
         case 'early':
           audio.early();
-          this.popup(e.x, wy + e.y - 30, 'EARLY!', P.bad, 22, true);
+          this.popup(e.x, this.topY, 'EARLY!', P.bad, 18, true);
           break;
         case 'plunk':
           audio.plunk();
@@ -373,7 +482,7 @@ export class Game extends Phaser.Scene {
           this.shake = 6;
           this.fx.splash.explode(18, e.x, wy - 2);
           this.addRipple(e.x, 0.8); this.addRipple(e.x, 0.4);
-          this.popup(e.x, wy - 40, 'PLUNK!', P.bad, 28, true);
+          this.popup(e.x, this.topY, 'PLUNK!', P.bad, 22, true);
           this.toSinking();
           break;
         case 'sink':
@@ -404,7 +513,7 @@ export class Game extends Phaser.Scene {
   }
 
   private skipFeedback(grade: Grade, x: number, skips: number, streak: number, upgraded: boolean): Phaser.GameObjects.Text[] {
-    const y = this.waterY - 44;
+    const y = this.topY;
     if (grade === 'perfect') {
       audio.perfect(streak - 1);
       buzz(8);
@@ -412,19 +521,19 @@ export class Game extends Phaser.Scene {
       this.markTimed();
       this.squintT = 0.5;
       // the label grows with the streak
-      const size = 26 + Math.min(streak, 15) * 1.6;
+      const size = 20 + Math.min(streak, 15) * 0.8;
       const out = [this.popup(x, y, 'PERFECT!', P.perfect, size, true)];
-      if (streak >= 2) out.push(this.popup(x, y + size * 0.85, `×${streak} STREAK`, '#ffffff', 16 + Math.min(streak, 15) * 0.6, true));
+      if (streak >= 2) out.push(this.popup(x, y + size * 0.85, `×${streak} STREAK`, '#ffffff', 13 + Math.min(streak, 15) * 0.3, true));
       return out;
     }
     if (grade === 'good') {
       audio.good(Math.max(0, streak - 1));
       this.addRipple(x, 1.3);
       this.markTimed();
-      return [this.popup(x, y, 'GOOD!', P.good, 26, true)];
+      return [this.popup(x, y, 'GOOD!', P.good, 20, true)];
     }
     if (!upgraded) audio.plipMiss();
-    return [this.popup(x, y + 6, String(skips), '#ffffff', skips % 10 === 0 ? 30 : 22)];
+    return [this.popup(x, y, String(skips), '#ffffff', skips % 10 === 0 ? 22 : 17)];
   }
 
   private markTimed() {
@@ -448,6 +557,8 @@ export class Game extends Phaser.Scene {
       v = { img: this.add.image(o.x, 0, o.flower ? 'padFlower' : 'pad').setScale(s).setDepth(D.objs), base: s };
     } else if (o.type === 'duck') {
       v = { img: this.add.sprite(o.x, 0, 'duck', 0).setOrigin(DUCK.ax / DUCK.w, DUCK.ay / DUCK.h).setScale(TEX_SCALE).setDepth(D.objs), base: TEX_SCALE };
+    } else if (o.type === 'hoop') {
+      v = { img: this.add.image(o.x, 0, 'hoop').setScale(TEX_SCALE).setDepth(D.objs), base: TEX_SCALE };
     } else {
       const glow = this.add.image(o.x, 0, 'glow').setScale(TEX_SCALE * 0.55).setTint(N.glass).setAlpha(0.5).setDepth(D.objs);
       v = { img: this.add.image(o.x, 0, 'glass').setScale(TEX_SCALE).setDepth(D.objs), glow, base: TEX_SCALE };
@@ -469,7 +580,7 @@ export class Game extends Phaser.Scene {
     let t = this.texts.find(q => !q.active);
     if (!t) {
       t = this.add.text(0, 0, '', {
-        fontFamily: FONT, fontStyle: '700', stroke: OUTLINE, strokeThickness: 6, align: 'center',
+        fontFamily: FONT, fontStyle: '700', stroke: OUTLINE, strokeThickness: 5, align: 'center',
         shadow: { offsetX: 0, offsetY: 3, color: OUTLINE, blur: 0, stroke: true, fill: true },
       }).setOrigin(0.5).setPadding(4, 4, 4, 8).setDepth(D.text).setScrollFactor(0);
       this.texts.push(t);
@@ -477,9 +588,10 @@ export class Game extends Phaser.Scene {
     this.tweens.killTweensOf(t);
     t.setResolution(Math.min(4, Math.max(1, Math.ceil(view.dpr * this.worldScale))));
     const half = Math.min(this.W / 2 - 8, s.length * size * 0.33 + 10);
-    const sx = Phaser.Math.Clamp(x - this.camX, half, this.W - half);
+    // a little ahead of where it happened, so it never sits over the stone's own column
+    const sx = Phaser.Math.Clamp(x - this.camX + 110, half, this.W - half);
     t.setFontSize(size).setColor(color).setText(s).setPosition(sx, y).setAlpha(1).setScale(1).setAngle(0).setActive(true).setVisible(true);
-    this.tweens.add({ targets: t, y: y - 30, alpha: 0, duration: 520, delay: 380, ease: 'Sine.In', onComplete: () => t!.setActive(false).setVisible(false) });
+    this.tweens.add({ targets: t, y: y - 16, alpha: 0, duration: 360, delay: 260, ease: 'Sine.In', onComplete: () => t!.setActive(false).setVisible(false) });
     if (pop) this.tweens.add({ targets: t, scale: { from: 0.4, to: 1 }, angle: { from: Phaser.Math.Between(-8, 8), to: 0 }, duration: 300, ease: 'Back.Out' });
     return t;
   }
@@ -510,9 +622,27 @@ export class Game extends Phaser.Scene {
       const id = this.aim.id;
       if (!this.input.manager.pointers.some(p => p.id === id && p.isDown)) { this.aim = null; this.mode = 'ready'; }
     }
-    sim.step(dt);
+    // first-run tutorial: ease into slow motion just before each contact the player can time
+    let slowTarget = 1;
+    if (this.mode === 'flying' && !this.timedOnce && sim.vy > 0) {
+      const ttw = sim.timeToWater();
+      if (ttw < 0.4 && !sim.surfaceAt(sim.x + sim.vx * ttw) && !sim.fumbled) {
+        slowTarget = TUTORIAL_SLOW;
+        ui.hint(ttw <= GOOD ? 'TAP NOW!' : 'Get ready… tap as it touches');
+      } else ui.hint('Tap as the stone touches the water');
+    }
+    this.timeScale += (slowTarget - this.timeScale) * Math.min(1, dt * 14);
+    sim.step(dt * this.timeScale);
     this.handle(sim.drain());
-    if (this.mode === 'flying') ui.setStreak(sim.streak);
+    if (this.mode === 'flying') {
+      ui.setStreak(sim.streak);
+      this.checkProgress();
+      this.setFever(sim.fever);
+      music.setIntensity(MUSIC.flight(sim.streak));
+    } else {
+      this.setFever(false);
+      music.setIntensity(this.mode === 'sinking' || this.mode === 'over' ? MUSIC.splash : MUSIC.calm);
+    }
     if (this.mode === 'sinking' && Math.random() < 0.3) this.fx.bubbles.explode(1, sim.x + Phaser.Math.Between(-4, 4), this.waterY + sim.y);
     // a streak catches fire
     if (this.mode === 'flying' && sim.streak >= 5 && Math.random() < 0.4 + sim.streak * 0.04) {
@@ -552,7 +682,7 @@ export class Game extends Phaser.Scene {
       const off = cx * PARALLAX[k] + (k === 'clouds' ? t * 8 : 0);
       let start = -(((off % period) + period) % period);
       if (start > -30) start -= period;
-      const y = k === 'clouds' ? waterY - Phaser.Math.Clamp(waterY * 0.45, 120, 300) : waterY + 0.5;
+      const y = k === 'clouds' ? waterY - Phaser.Math.Clamp(waterY * 0.38, 115, 250) : waterY + 0.5;
       this.strips[k].forEach((img, i) => img.setPosition(start + i * period, y));
       this.refl[k].forEach((img, i) => img.setPosition(start + i * period, waterY));
     }
@@ -577,6 +707,11 @@ export class Game extends Phaser.Scene {
     }
 
     this.pier.setVisible(cx < 120);
+    this.mistSky.setAlpha(this.tint.mist);
+    this.mistWater.setAlpha(this.tint.mist * 0.45);
+    this.nightSky.setAlpha(this.tint.night);
+    this.nightWater.setAlpha(this.tint.night * 0.55);
+    this.stars.setAlpha(Phaser.Math.Clamp((this.tint.night - 0.15) / 0.3, 0, 1) * (0.85 + 0.15 * Math.sin(t * 3)));
 
     // ripples
     const b = this.back;
@@ -596,6 +731,10 @@ export class Game extends Phaser.Scene {
       v.glow?.setVisible(visible);
       if (!visible) continue;
       if (o.type === 'log') v.img.setY(waterY - 14 - LOG_M + Math.sin(t * 1.5 + o.ph) * 1.2);
+      else if (o.type === 'hoop') {
+        v.img.setY(waterY - o.h + Math.sin(t * 1.8 + o.ph) * 2);
+        if (!o.got) v.img.setRotation(Math.sin(t * 1.2 + o.ph) * 0.06);
+      }
       else if (o.type === 'pad') v.img.setY(waterY);
       else if (o.type === 'duck') {
         const s = v.img as Phaser.GameObjects.Sprite;

@@ -421,6 +421,28 @@ export function paintAll(scene: Phaser.Scene) {
     ctx.fill();
   });
 
+  // glass hoop: an upright outlined ring the stone can fly through
+  single(scene, 'hoop', 40, 66, ctx => {
+    ctx.lineCap = 'round';
+    ell(ctx, 20, 33, 14, 28);
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 8.5;
+    ctx.stroke();
+    ctx.strokeStyle = P.glass;
+    ctx.lineWidth = 4.6;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(20, 33, 14, 28, 0, Math.PI * 1.05, Math.PI * 1.45);
+    ctx.stroke();
+    for (const [x, y] of [[20, 4], [33, 40], [8, 52]]) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.moveTo(x, y - 3.5); ctx.lineTo(x + 1.2, y - 1.2); ctx.lineTo(x + 3.5, y); ctx.lineTo(x + 1.2, y + 1.2);
+      ctx.lineTo(x, y + 3.5); ctx.lineTo(x - 1.2, y + 1.2); ctx.lineTo(x - 3.5, y); ctx.lineTo(x - 1.2, y - 1.2); ctx.closePath(); ctx.fill();
+    }
+  });
+
   // pier: deck from x -430 to 20, posts every 70 down into the water
   single(scene, 'pier', 460, 68, ctx => {
     ctx.translate(4, 4);

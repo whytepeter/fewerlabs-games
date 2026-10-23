@@ -40,5 +40,21 @@ export const audio = {
   throw() { sfx.noise(0.25, 0.1, 900, 0.6); },
   sink() { sfx.tone(300, 0.4, { vol: 0.2, slideTo: 120 }); sfx.noise(0.45, 0.12, 400, 0.7); },
   plunk() { sfx.tone(160, 0.35, { vol: 0.35, slideTo: 70 }); sfx.noise(0.4, 0.2, 500, 0.7); },
+  /** Flying through a glass hoop: a bright upward sweep. */
+  hoop() {
+    [1046.5, 1318.51, 1567.98, 2093].forEach((f, i) => sfx.tone(f, 0.12, { type: 'triangle', vol: 0.08, delay: i * 0.045 }));
+    sfx.noise(0.18, 0.04, 5000, 0.8);
+  },
+  /** Distance milestone: a little C major fanfare. */
+  milestone(big: boolean) {
+    const notes = big ? [523.25, 659.25, 783.99, 1046.5, 1318.51] : [783.99, 1046.5, 1318.51];
+    notes.forEach((f, i) => sfx.tone(f, 0.16, { type: 'triangle', vol: 0.12, delay: i * 0.08 }));
+  },
+  fever() {
+    [523.25, 783.99, 1046.5, 1567.98].forEach((f, i) => sfx.tone(f, 0.22, { type: 'square', vol: 0.05, delay: i * 0.06, slideTo: f * 1.02 }));
+    sfx.noise(0.35, 0.06, 3000, 0.6);
+  },
+  /** Tutorial cue while the game is in slow motion. */
+  tick() { sfx.tone(1318.51, 0.05, { type: 'triangle', vol: 0.05 }); },
   click() { sfx.tone(620, 0.05, { type: 'triangle', vol: 0.05 }); },
 };

@@ -16,6 +16,11 @@ export const PERFECT = 0.06;
 export const GOOD = 0.12;
 /** The timing ring appears this long before the stone reaches the water. */
 export const RING_T = 0.55;
+/** Perfect streak that starts Fever: lake glass is pulled in from further away. */
+export const FEVER = 8;
+/** Speed boost for flying through a glass hoop. */
+export const HOOP_BOOST = 60;
+export const HOOP_H = 118; // hoop centre height above the water
 
 export const REST_Y = -64; // stone resting height on the pier
 const WATER_TOP = -3;
@@ -27,7 +32,7 @@ export type SimState = 'ready' | 'flying' | 'sinking' | 'over';
 
 export interface Obj {
   id: number;
-  type: 'log' | 'pad' | 'duck' | 'glass';
+  type: 'log' | 'pad' | 'duck' | 'glass' | 'hoop';
   x: number;
   w: number;
   h: number; // glass: height above the water
@@ -49,6 +54,7 @@ export type SimEvent =
   | { type: 'log'; obj: Obj; x: number; y: number }
   | { type: 'duck'; obj: Obj }
   | { type: 'glass'; obj: Obj }
+  | { type: 'hoop'; obj: Obj }
   | { type: 'early'; x: number; y: number }
   | { type: 'queued' }
   | { type: 'plunk'; x: number }
@@ -108,6 +114,7 @@ export class Sim {
   bestStreak = 0;
   glass = 0;
   perfects = 0;
+  hoops = 0;
   plunked = false;
   flightTime = 0;
   /** Sim time of an early tap waiting for the next contact. */
@@ -130,7 +137,7 @@ export class Sim {
     this.rand = mulberry32(seed);
     this.state = 'ready';
     this.t = 0; this.x = 0; this.y = REST_Y; this.vx = 0; this.vy = 0; this.rot = 0; this.sinkT = 0;
-    this.skips = 0; this.streak = 0; this.bestStreak = 0; this.glass = 0; this.perfects = 0;
+    this.skips = 0; this.streak = 0; this.bestStreak = 0; this.glass = 0; this.perfects = 0; this.hoops = 0;
     this.plunked = false; this.flightTime = 0;
     this.pendingTap = null; this.fumbled = false; this.late = null;
     for (const o of this.objs) this.emit({ type: 'despawn', obj: o });
@@ -147,6 +154,8 @@ export class Sim {
   }
   private emit(e: SimEvent) { this.events.push(e); }
   private r(a: number, b: number) { return a + this.rand() * (b - a); }
+
+  get fever() { return this.state === 'flying' && this.streak >= FEVER; }
 
   get metres() { return Math.floor(Math.max(0, this.x / PX_PER_M)); }
 
@@ -251,6 +260,8 @@ export class Sim {
       else if (r < 0.66) this.add({ type: 'pad', x: nx, w: this.r(62, 78), flower: this.rand() < 0.45 });
       else this.spawnGlass(nx, this.rand() < 0.55);
       if (nx > 900 && this.rand() < 0.3) this.spawnGlass(nx + gap * 0.5, this.rand() < 0.5);
+      // glass hoops hang at Perfect-hop height: only a well-timed stone flies through
+      else if (nx > 1600 && this.rand() < 0.14) this.add({ type: 'hoop', x: nx + gap * 0.5, h: HOOP_H, ph: this.rand() * 6 });
       this.nextX += gap;
     }
   }
@@ -281,8 +292,16 @@ export class Sim {
     for (const o of this.objs) {
       const dx = this.x - o.x;
       if (dx < -60 || dx > 220) continue;
-      if (o.type === 'glass') {
-        if (!o.got && Math.abs(dx) < 22 && Math.abs(this.y + o.h) < 24) {
+      if (o.type === 'hoop') {
+        if (!o.got && Math.abs(dx) < 12 && Math.abs(this.y + o.h) < 22) {
+          o.got = true;
+          this.vx = Math.min(MAX_VX, this.vx + HOOP_BOOST);
+          this.hoops++;
+          this.emit({ type: 'hoop', obj: o });
+        }
+      } else if (o.type === 'glass') {
+        const reach = this.fever ? 1.6 : 1;
+        if (!o.got && Math.abs(dx) < 22 * reach && Math.abs(this.y + o.h) < 24 * reach) {
           o.got = true;
           this.vx = Math.min(MAX_VX, this.vx + 8);
           this.glass++;

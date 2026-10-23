@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { canvasTexture, glowTexture, sheetTexture } from '../../../core/tex';
+import { SKINS, type Skin } from '../game/skins';
 
 const TAU = Math.PI * 2;
 const OUT = '#16233b'; // cartoon outline, matches --k-outline
@@ -16,7 +17,8 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     glowTexture(this);
-    this.makeDiver();
+    for (const skin of SKINS) this.makeDiver(skin);
+    this.makePickups();
     this.makeJelly();
     this.makeMine();
     this.makeAngler();
@@ -24,7 +26,7 @@ export class BootScene extends Phaser.Scene {
     this.makeLight();
     this.makeParticles();
 
-    this.anims.create({ key: 'kick', frames: this.frames('diver', 6), frameRate: 10, repeat: -1 });
+    for (const skin of SKINS) this.anims.create({ key: `kick-${skin.id}`, frames: this.frames(`diver-${skin.id}`, 6), frameRate: 10, repeat: -1 });
     this.anims.create({ key: 'jelly', frames: this.frames('jelly', 6), frameRate: 7, repeat: -1 });
     this.anims.create({ key: 'angler', frames: this.frames('angler', 2), frameRate: 6, repeat: -1 });
 
@@ -35,9 +37,9 @@ export class BootScene extends Phaser.Scene {
     return Array.from({ length: n }, (_, i) => ({ key, frame: i }));
   }
 
-  private makeDiver() {
-    // Body centred at (42, 23), facing right.
-    sheetTexture(this, 'diver', 82, 46, 6, (ctx, i) => {
+  private makeDiver(skin: Skin) {
+    // Body centred at (42, 23), facing right. One sheet per suit.
+    sheetTexture(this, `diver-${skin.id}`, 82, 46, 6, (ctx, i) => {
       const k = Math.sin((i / 6) * TAU) * 0.45;
       setup(ctx);
       ctx.translate(42, 23);
@@ -46,14 +48,14 @@ export class BootScene extends Phaser.Scene {
         ctx.translate(-17, s * 4);
         ctx.rotate(k * s);
         ctx.beginPath(); ctx.ellipse(-10, 0, 10.5, 4.4, 0, 0, TAU);
-        fillOut(ctx, '#ff7a2f');
+        fillOut(ctx, skin.fins);
         ctx.restore();
       }
       roundRect(ctx, -15, -16, 20, 8.5, 4.2); fillOut(ctx, '#d3dde6');
       ctx.fillStyle = '#ff5a7a'; ctx.fillRect(-12, -13.5, 3, 3.5);
-      ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); fillOut(ctx, '#ffd23f');
-      ctx.fillStyle = '#f2a91e'; ctx.beginPath(); ctx.ellipse(0, 4.5, 13, 4, 0, 0, Math.PI); ctx.fill();
-      ctx.fillStyle = '#ff7a2f'; ctx.fillRect(-4, -9.2, 3.2, 18.4);
+      ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); fillOut(ctx, skin.body);
+      ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(0, 4.5, 13, 4, 0, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = skin.fins; ctx.fillRect(-4, -9.2, 3.2, 18.4);
       ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); ctx.lineWidth = LINE; ctx.strokeStyle = OUT; ctx.stroke();
       // helmet with a face behind the glass
       ctx.beginPath(); ctx.arc(16, -1.5, 10.5, 0, TAU); fillOut(ctx, '#eef4f9');
@@ -61,6 +63,41 @@ export class BootScene extends Phaser.Scene {
       eye(ctx, 15.4, -3, 1.9); eye(ctx, 20.2, -3, 1.9);
       ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(17.8, 0.4, 2.6, 0.25, Math.PI - 0.25); ctx.stroke();
       ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(13.6, -6, 2.2, 1.2, -0.6, 0, TAU); ctx.fill();
+    });
+  }
+
+  private makePickups() {
+    const bubble = (ctx: Ctx) => {
+      ctx.beginPath(); ctx.arc(0, 0, 13, 0, TAU); fillOut(ctx, 'rgba(210,248,255,.6)', 2.4);
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(-6, -7, 3.4, 2, -0.6, 0, TAU); ctx.fill();
+    };
+    canvasTexture(this, 'pearl', 22, 22, ctx => {
+      setup(ctx); ctx.translate(11, 11);
+      const g = ctx.createRadialGradient(-3, -3, 1, 0, 0, 8);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.6, '#fbeaff'); g.addColorStop(1, '#d6b8f2');
+      ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); fillOut(ctx, g, 2.4);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-2.6, -2.8, 2.4, 1.5, -0.6, 0, TAU); ctx.fill();
+    });
+    canvasTexture(this, 'pk-shield', 32, 32, ctx => {
+      setup(ctx); ctx.translate(16, 16); bubble(ctx);
+      ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(7, -5); ctx.quadraticCurveTo(7, 4, 0, 8.5); ctx.quadraticCurveTo(-7, 4, -7, -5); ctx.closePath();
+      fillOut(ctx, '#3aa8ff', 2.2);
+      ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(4.6, -4); ctx.quadraticCurveTo(4.6, 2, 0, 5.6); ctx.closePath(); ctx.fill();
+    });
+    canvasTexture(this, 'pk-magnet', 32, 32, ctx => {
+      setup(ctx); ctx.translate(16, 16); bubble(ctx);
+      ctx.beginPath(); ctx.arc(0, -1, 6.5, Math.PI, 0, true); ctx.lineWidth = 9; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.lineWidth = 5; ctx.strokeStyle = '#ff4d6d'; ctx.stroke();
+      ctx.fillStyle = '#dfe6ee'; ctx.strokeStyle = OUT; ctx.lineWidth = 2;
+      for (const x of [-6.5, 6.5]) { ctx.beginPath(); ctx.rect(x - 2.6, -6, 5.2, 4.5); ctx.fill(); ctx.stroke(); }
+    });
+    canvasTexture(this, 'shield-ring', 70, 70, ctx => {
+      setup(ctx); ctx.translate(35, 35);
+      ctx.beginPath(); ctx.arc(0, 0, 30, 0, TAU);
+      ctx.fillStyle = 'rgba(95,190,255,.18)'; ctx.fill();
+      ctx.lineWidth = 4.5; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#8fd6ff'; ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(-14, -18, 7, 3.5, -0.7, 0, TAU); ctx.fill();
     });
   }
 

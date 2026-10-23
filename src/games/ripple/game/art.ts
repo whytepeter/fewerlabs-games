@@ -96,6 +96,31 @@ export function buildNeutralTextures(scene: Phaser.Scene) {
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(1, 2); ctx.lineTo(SHIMMER_LEN + 1, 2); ctx.stroke();
   });
+  // power-up bubbles: snowflake = freeze timers, heart = extra life
+  const bubble = (key: string, icon: (ctx: CanvasRenderingContext2D) => void, tint: string) => canvasTexture(scene, key, 40, 40, ctx => {
+    circle(ctx, 20, 20, 16); ctx.fillStyle = tint; ctx.fill(); outline(ctx, 2.6);
+    ctx.save(); circle(ctx, 20, 20, 16); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; circle(ctx, 14, 13, 8); ctx.fill();
+    ctx.restore();
+    ctx.save(); ctx.translate(20, 20.5); icon(ctx); ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(20, 20, 12, 3.6, 4.4); ctx.stroke();
+  });
+  bubble('pu_freeze', ctx => {
+    for (const pass of [0, 1]) {
+      ctx.strokeStyle = pass ? '#ffffff' : OUTLINE; ctx.lineWidth = pass ? 2 : 4.4; ctx.lineCap = 'round';
+      for (let k = 0; k < 3; k++) {
+        const a = k * Math.PI / 3;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * -8, Math.sin(a) * -8); ctx.lineTo(Math.cos(a) * 8, Math.sin(a) * 8); ctx.stroke();
+      }
+    }
+  }, '#5cc8ff');
+  bubble('pu_life', ctx => {
+    ctx.beginPath();
+    ctx.moveTo(0, 7); ctx.bezierCurveTo(-10, 0, -7, -9, 0, -4); ctx.bezierCurveTo(7, -9, 10, 0, 0, 7); ctx.closePath();
+    ctx.fillStyle = '#ff4f7b'; ctx.fill(); outline(ctx, 2);
+  }, '#ffd1dc');
+
   // contact shadows (white, tinted dark at runtime so both themes can share them)
   canvasTexture(scene, 'boatsh', 50, 36, ctx => softShadow(ctx, () => hullPath(ctx, 25, 18), 2.5, '#fff'));
   canvasTexture(scene, 'docksh', DOCK_TEX, DOCK_TEX, ctx => {
@@ -104,35 +129,35 @@ export function buildNeutralTextures(scene: Phaser.Scene) {
   });
 }
 
-const THEMED = ['boat0', 'boat1', 'boat2', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
+const THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
   ...Array.from({ length: ROCK_VARIANTS }, (_, i) => 'rock' + i)];
 
 /** Palette-dependent textures. Callers must destroy images using them before rebuilding. */
 export function buildThemedTextures(scene: Phaser.Scene) {
   for (const k of THEMED) if (scene.textures.exists(k)) scene.textures.remove(k);
 
-  // paper boats, top-down, bow pointing +x: hull, folds, lantern, and two little eyes
-  for (let ci = 0; ci < 3; ci++) {
-    canvasTexture(scene, 'boat' + ci, 46, 30, ctx => {
-      ctx.translate(23, 15);
-      hullPath(ctx); ctx.fillStyle = P.boat; ctx.fill();
-      ctx.save(); hullPath(ctx); ctx.clip();
-      ctx.fillStyle = 'rgba(22,35,59,.10)'; ctx.fillRect(-20, 1, 40, 12); // shaded starboard half
-      ctx.restore();
-      ctx.strokeStyle = P['boat-fold']; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(16, 0); ctx.moveTo(-6, -9); ctx.lineTo(-1.5, 0); ctx.lineTo(-6, 9); ctx.stroke();
-      hullPath(ctx); outline(ctx);
-      // big cartoon eyes near the bow, looking ahead
-      for (const ey of [-3.9, 3.9]) {
-        circle(ctx, 10.6, ey, 2.9); ctx.fillStyle = '#fff'; ctx.fill(); outline(ctx, 1.3);
-        ctx.fillStyle = OUTLINE; circle(ctx, 11.6, ey, 1.55); ctx.fill();
-        ctx.fillStyle = '#fff'; circle(ctx, 12.1, ey - 0.7, 0.55); ctx.fill();
-      }
-      // lantern
-      circle(ctx, 1, 0, 5.3); ctx.fillStyle = P[laneKey(ci)]; ctx.fill(); outline(ctx, 2);
-      ctx.fillStyle = 'rgba(255,255,255,.75)'; circle(ctx, -0.4, -1.6, 1.8); ctx.fill();
-    });
-  }
+  // paper boats, top-down, bow pointing +x: hull, folds, lantern, and two big eyes.
+  // 'boatG' is the golden boat (gold hull with a glossy stripe and a pale lantern).
+  const boat = (key: string, hull: string, fold: string, lamp: string, gold: boolean) => canvasTexture(scene, key, 46, 30, ctx => {
+    ctx.translate(23, 15);
+    hullPath(ctx); ctx.fillStyle = hull; ctx.fill();
+    ctx.save(); hullPath(ctx); ctx.clip();
+    ctx.fillStyle = 'rgba(22,35,59,.10)'; ctx.fillRect(-20, 1, 40, 12); // shaded starboard half
+    if (gold) { ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.fillRect(-20, -12, 40, 5); }
+    ctx.restore();
+    ctx.strokeStyle = fold; ctx.lineWidth = 1.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(16, 0); ctx.moveTo(-6, -9); ctx.lineTo(-1.5, 0); ctx.lineTo(-6, 9); ctx.stroke();
+    hullPath(ctx); outline(ctx);
+    for (const ey of [-3.9, 3.9]) {
+      circle(ctx, 10.6, ey, 2.9); ctx.fillStyle = '#fff'; ctx.fill(); outline(ctx, 1.3);
+      ctx.fillStyle = OUTLINE; circle(ctx, 11.6, ey, 1.55); ctx.fill();
+      ctx.fillStyle = '#fff'; circle(ctx, 12.1, ey - 0.7, 0.55); ctx.fill();
+    }
+    circle(ctx, 1, 0, 5.3); ctx.fillStyle = lamp; ctx.fill(); outline(ctx, 2);
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; circle(ctx, -0.4, -1.6, 1.8); ctx.fill();
+  });
+  for (let ci = 0; ci < 3; ci++) boat('boat' + ci, P.boat, P['boat-fold'], P[laneKey(ci)], false);
+  boat('boatG', '#ffd23f', '#e0a500', '#fff8d6', true);
 
   // life-ring docks: lane colour with four white bands; the inner edge is the capture radius
   for (let ci = 0; ci < 3; ci++) {

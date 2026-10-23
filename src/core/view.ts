@@ -60,3 +60,18 @@ export function fitCamera(cam: Phaser.Cameras.Scene2D.Camera) {
 
 export const isTouch = () => matchMedia('(pointer: coarse)').matches;
 export const isPortrait = () => view.h > view.w;
+
+/**
+ * Scale DOM menus and HUDs with the screen: sets --ui on <html> (1 = a ~390x844 phone, either
+ * orientation, at most 1.25 on big screens). kit.css applies it with CSS zoom to .k-screen contents and .k-scale elements.
+ */
+export function autoScaleUI(min = 0.85, max = 1.25) {
+  const apply = () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    const s = Math.min(Math.min(w, h) / 390, Math.max(w, h) / 844);
+    document.documentElement.style.setProperty('--ui', Math.max(min, Math.min(max, s)).toFixed(3));
+  };
+  apply();
+  addEventListener('resize', apply);
+  window.visualViewport?.addEventListener('resize', apply);
+}

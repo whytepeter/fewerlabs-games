@@ -4,9 +4,11 @@ import '@fontsource/fredoka/700.css';
 import '../../core/kit.css';
 import './style.css';
 import Phaser from 'phaser';
-import { createGame } from '../../core/view';
+import { autoScaleUI, createGame } from '../../core/view';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
+
+autoScaleUI();
 
 const game = createGame({
   type: Phaser.AUTO,

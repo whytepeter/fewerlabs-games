@@ -20,11 +20,20 @@
   <div id="game" aria-label="Deep Dive game area"></div>
 
   <div id="ui">
-    <header id="hud" class="hud" hidden>
-      <div class="k-pill" id="depthPill"><span class="k-pill-icon"><i data-icon="depth"></i></span><b id="depth">0</b><small>m</small></div>
-      <div class="hud-o2">
-        <div class="o2-icon"><i data-icon="bubble"></i></div>
-        <div class="k-bar" id="o2bar"><div class="k-bar-fill" id="o2"></div></div>
+    <header id="hud" class="hud k-scale" hidden>
+      <div class="hud-left">
+        <div class="k-pill" id="depthPill"><span class="k-pill-icon"><i data-icon="depth"></i></span><b id="depth">0</b><small>m</small></div>
+        <div class="pearl-pill" id="pearlPill"><i data-icon="pearl"></i><b id="runPearls">0</b></div>
+      </div>
+      <div class="hud-mid">
+        <div class="hud-o2">
+          <div class="o2-icon"><i data-icon="bubble"></i></div>
+          <div class="k-bar" id="o2bar"><div class="k-bar-fill" id="o2"></div></div>
+        </div>
+        <div class="hud-sub">
+          <div class="hearts" id="hearts" aria-label="3 lives"><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg></div>
+          <div class="perk" id="perk" hidden><span id="perkIcon"></span><div class="perk-bar"><div id="perkFill"></div></div></div>
+        </div>
       </div>
       <div class="hud-right">
         <div class="hud-best"><i data-icon="trophy"></i><span id="hudBest">0</span></div>
@@ -33,6 +42,7 @@
     </header>
 
     <div id="banner" class="banner" aria-live="polite"><small>Entering</small><span id="bannerText"></span></div>
+    <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText">Hold anywhere to swim up</span></div>
     <div id="lowO2" class="low-o2"></div>
 
@@ -44,14 +54,19 @@
         </div>
         <div class="title-bottom">
           <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i>Dive</button>
-          <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+          <div class="pill-row">
+            <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+            <div class="k-pill best-pill"><span class="k-pill-icon pearl-icon"><i data-icon="pearl"></i></span><b id="titlePearls">0</b></div>
+          </div>
+          <div class="suits" id="suits" role="radiogroup" aria-label="Diver suit"></div>
           <div class="howto">
             <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Hold</b><span id="howHoldText">to swim up</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
-            <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="close"></i></span><b>Avoid</b><span>walls &amp; critters</span></div>
+            <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b>3 lives</b><span>dodge critters</span></div>
           </div>
           <div class="icon-row">
             <a class="k-icon-btn k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
+            <button class="k-icon-btn k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
             <button class="k-icon-btn k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
             <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
             <button class="k-icon-btn k-btn--yellow" id="fsBtn" aria-label="Full screen" hidden><i data-icon="fullscreen"></i></button>
@@ -69,6 +84,7 @@
           <button class="k-btn k-btn--white" id="menuBtn"><i data-icon="home"></i>Menu</button>
         </div>
         <div class="k-row" style="margin-top:16px">
+          <button class="k-icon-btn k-icon-btn--sm k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
           <button class="k-icon-btn k-icon-btn--sm k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
           <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
         </div>
@@ -84,10 +100,12 @@
             <div class="k-big-num"><span id="overDepth">0</span><small>m</small></div>
             <div class="over-reason" id="overReason"></div>
             <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
+            <div class="k-tag unlock-tag" id="overUnlock" hidden></div>
           </div>
           <div class="over-side">
             <div class="k-stats">
               <div class="k-stat"><span>Zone</span><b id="overZone">Sunlit Reef</b></div>
+              <div class="k-stat"><span>Pearls</span><b id="overPearls">0</b></div>
               <div class="k-stat"><span>Best</span><b id="overBestVal">0 m</b></div>
               <div class="k-stat"><span>Next star</span><b id="overNext">150 m</b></div>
             </div>

@@ -4,7 +4,7 @@ import '@fontsource/fredoka/700.css';
 import '../../core/kit.css';
 import './style.css';
 import Phaser from 'phaser';
-import { createGame } from '../../core/view';
+import { createGame, autoScaleUI } from '../../core/view';
 import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
@@ -14,6 +14,8 @@ document.addEventListener('touchmove', e => e.preventDefault(), { passive: false
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 document.addEventListener('contextmenu', e => e.preventDefault());
+
+autoScaleUI();
 
 async function start() {
   // Canvas text needs the web font ready before the first popup is drawn.

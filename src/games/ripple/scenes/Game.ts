@@ -4,33 +4,41 @@ import { TEX_SCALE } from '../../../core/tex';
 import { sfx } from '../../../core/sfx';
 import { buzz } from '../../../core/haptics';
 import { store } from '../../../core/settings';
-import { Sim, RIP_LIFE, RIP_SPEED, type Boat, type Dock, type Rock, type Pad, type Mote, type Rect } from '../game/sim';
+import { music } from '../../../core/music';
+import { Sim, RIP_LIFE, RIP_SPEED, GOLD_POINTS, PICKUP_R, type Boat, type Dock, type Rock, type Pad, type Mote, type Pickup, type Rect } from '../game/sim';
+import { MUSIC, RIPPLE_SONG } from '../game/song';
 import { C, P, LANE_NAMES, OUTLINE_N, isDark, laneKey, onTheme } from '../game/palette';
 import {
   DOCK_TEX_R, DOT_R, DROP_R, GLOW_SIZE, PAD_R, REED_H, RING_R, ROCK_ORIGIN, ROCK_R, SHIMMER_LEN, SHOCK_R,
   buildBackground, buildThemedTextures, hash, inPond,
 } from '../game/art';
 import { sounds } from '../game/audio';
-import { computePond, readInsets } from '../game/layout';
+import { computePond, hudHeight, readInsets, uiScale, worldScale } from '../game/layout';
 import { ui } from '../ui';
 
 type Mode = 'title' | 'play' | 'paused' | 'over';
 type Img = Phaser.GameObjects.Image;
 type Squash = { x: number; y: number };
 
-interface BoatView { shadow: Img; glow: Img; body: Img; born: number; sq: Squash; pushed: boolean }
+interface BoatView { shadow: Img; glow: Img; body: Img; born: number; sq: Squash; pushed: boolean; sparkT: number }
+interface PickupView { img: Img; born: number }
 interface DockView { shadow: Img; fill: Img; glow: Img; ring: Img; born: number; pulse: number }
 interface RockView { img: Img; born: number }
 interface PadView { pad: Img; flower: Img | null }
 interface Shimmer { img: Img; x: number; y: number; i: number }
 interface Reed { img: Img; i: number; base: number }
 
-/** Boats home needed for 1, 2 and 3 stars (from bot playtests: simple bot ~7.5 avg, skilled ~15). */
-export const STAR_THRESHOLDS = [5, 12, 20];
+/**
+ * Points for 1, 2 and 3 stars. Bot playtests (30 runs each, portrait): a simple bot averages ~9
+ * (mostly 1 star), a skilled bot that grabs power-ups ~29 (2 stars, 3 about half the time).
+ */
+export const STAR_THRESHOLDS = [5, 15, 30];
+const GOLD = 0xffd23f;
+const ICE = 0x9be7ff;
 
 const D = {
   bg: 0, shimmer: 1, pad: 2, flower: 2.1, dockShadow: 2.5, dockFill: 2.6, dockGlow: 2.7, dockRing: 3,
-  ripples: 4, wake: 4.5, splash: 5, rock: 6, boatShadow: 6.5, boatGlow: 7, boat: 7.1, arcs: 7.5,
+  ripples: 4, wake: 4.5, splash: 5, rock: 6, pickup: 6.2, boatShadow: 6.5, boatGlow: 7, boat: 7.1, arcs: 7.5,
   burst: 8, shock: 8.1, mote: 9, hint: 10, reed: 11,
 };
 
@@ -63,13 +71,29 @@ export class Game extends Phaser.Scene {
   private rockViews = new Map<Rock, RockView>();
   private padViews = new Map<Pad, PadView>();
   private moteViews = new Map<Mote, Img>();
+  private pickupViews = new Map<Pickup, PickupView>();
+  /** World zoom (see layout.worldScale): world units x ws = CSS px. */
+  private ws = 1;
+  private frosty = false;
   private shimmers: Shimmer[] = [];
   private reeds: Reed[] = [];
 
   constructor() { super('game'); }
 
+  private fitWorldCamera() {
+    this.ws = worldScale(view.w, view.h);
+    const cam = this.cameras.main;
+    fitCamera(cam);
+    cam.setZoom(view.dpr * this.ws);
+  }
+
+  /** Outlined pop-up text at a world position (the DOM overlay works in CSS px). */
+  private popAt(x: number, y: number, text: string, color: string, big = false) {
+    ui.pop(x * this.ws, y * this.ws, text, color, big);
+  }
+
   create() {
-    fitCamera(this.cameras.main);
+    this.fitWorldCamera();
     this.cameras.main.setBackgroundColor(P.shore);
     this.best = store.get('best', 0) || 0;
     ui.setBest(this.best);
@@ -117,6 +141,9 @@ export class Game extends Phaser.Scene {
   private toTitle(keepWorld = false) {
     if (!keepWorld) { this.clearWorldViews(); this.sim.prepare(); }
     this.mode = 'title';
+    music.play(RIPPLE_SONG, MUSIC.title);
+    music.setIntensity(MUSIC.title);
+    this.setFrost(false);
     ui.setBest(this.best);
     ui.clearToast();
     ui.show('title');
@@ -128,8 +155,11 @@ export class Game extends Phaser.Scene {
     this.killParticles();
     this.sim.start(fresh);
     this.mode = 'play';
+    music.play(RIPPLE_SONG, MUSIC.forRun(0));
+    music.setIntensity(MUSIC.forRun(0));
     this.movedToastShown = false;
     ui.setScore(0);
+    ui.resetHint();
     ui.setLives(this.sim.lives);
     ui.setBest(this.best);
     ui.clearToast();
@@ -154,23 +184,27 @@ export class Game extends Phaser.Scene {
     if (isNew) { this.best = score; store.set('best', score); }
     ui.hint(false);
     ui.clearToast();
+    this.setFrost(false);
+    music.setIntensity(MUSIC.over);
     buzz([30, 60, 50]);
     sounds.over();
     ui.showOver({
       score, best: this.best, isNew,
       stars: STAR_THRESHOLDS.filter(t => score >= t).length,
-      colours: this.sim.colors, bestCombo: this.sim.bestCombo,
+      wave: this.sim.wave, bestCombo: this.sim.bestCombo,
     });
   }
 
   /* ---------- layout */
 
   private measurePond(): Rect {
-    return computePond(view.w, view.h, readInsets(view.w, view.h));
+    const k = this.ws, i = readInsets(view.w, view.h);
+    const ins = { t: i.t / k, r: i.r / k, b: i.b / k, l: i.l / k };
+    return computePond(view.w / k, view.h / k, ins, hudHeight(view.w, view.h) * uiScale() / k);
   }
 
   private onResize() {
-    fitCamera(this.cameras.main);
+    this.fitWorldCamera();
     this.pause();
     this.sim.setPond(this.measurePond());
     this.killParticles();
@@ -197,7 +231,7 @@ export class Game extends Phaser.Scene {
   private buildScenery() {
     this.destroyScenery();
     const pond = this.sim.pond;
-    const res = buildBackground(this, view.w, view.h, view.dpr, pond);
+    const res = buildBackground(this, view.w / this.ws, view.h / this.ws, view.dpr * this.ws, pond);
     this.bg = this.add.image(0, 0, 'bg').setOrigin(0, 0).setScale(1 / res).setDepth(D.bg);
     if (!this.pondMask) {
       this.pondMask = this.make.graphics({}, false);
@@ -252,6 +286,8 @@ export class Game extends Phaser.Scene {
     for (const v of this.rockViews.values()) { this.tweens.killTweensOf(v); v.img.destroy(); }
     for (const v of this.padViews.values()) { v.pad.destroy(); v.flower?.destroy(); }
     for (const v of this.moteViews.values()) v.destroy();
+    for (const v of this.pickupViews.values()) { this.tweens.killTweensOf(v); v.img.destroy(); }
+    this.pickupViews.clear();
     this.boatViews.clear(); this.dockViews.clear(); this.rockViews.clear(); this.padViews.clear(); this.moteViews.clear();
   }
 
@@ -293,6 +329,12 @@ export class Game extends Phaser.Scene {
     this.tweens.killTweensOf(v.sq);
     v.sq.x = x; v.sq.y = y;
     this.tweens.add({ targets: v.sq, x: 1, y: 1, duration: 520, ease: 'Elastic.Out', easeParams: [1.1, 0.45] });
+  }
+
+  private setFrost(on: boolean) {
+    if (on === this.frosty) return;
+    this.frosty = on;
+    ui.frost(on);
   }
 
   /* ---------- frame */
@@ -337,7 +379,8 @@ export class Game extends Phaser.Scene {
           break;
         case 'dock': {
           sounds.dock(ev.note);
-          buzz(8);
+          if (ev.boat.gold) sounds.gold();
+          buzz(ev.boat.gold ? [10, 30, 10] : 8);
           const c = C[laneKey(ev.dock.ci)].n;
           this.confettiColors = [c, c, 0xffffff, 0xffd23f];
           this.confetti.explode(18, ev.dock.x, ev.dock.y);
@@ -350,8 +393,11 @@ export class Game extends Phaser.Scene {
             v.born = Math.max(1, v.born); v.pulse = 1;
             this.tweens.add({ targets: v, pulse: 0, duration: 800, ease: 'Elastic.Out', easeParams: [1.2, 0.35] });
           }
-          ui.pop(ev.dock.x, ev.dock.y - 18, '+1', P[laneKey(ev.dock.ci)]);
-          if (sim.combo >= 2) ui.pop(ev.dock.x, ev.dock.y - 52, `Combo x${sim.combo + 1}!`, '#ffd23f', true);
+          if (ev.boat.gold) {
+            this.stars.explode(10, ev.dock.x, ev.dock.y);
+            this.popAt(ev.dock.x, ev.dock.y - 18, `+${GOLD_POINTS}`, '#ffd23f', true);
+          } else this.popAt(ev.dock.x, ev.dock.y - 18, '+1', P[laneKey(ev.dock.ci)]);
+          if (sim.combo >= 2) this.popAt(ev.dock.x, ev.dock.y - 52, `Combo x${sim.combo + 1}!`, '#ffd23f', true);
           break;
         }
         case 'nope': sounds.nope(); break;
@@ -363,7 +409,7 @@ export class Game extends Phaser.Scene {
           ui.flash();
           this.splash.explode(14, ev.boat.x, ev.boat.y);
           this.shockwave(ev.boat.x, ev.boat.y, 0xff5a7a, 1.6);
-          ui.pop(ev.boat.x, ev.boat.y - 20, 'Sunk!', '#ff5a7a');
+          this.popAt(ev.boat.x, ev.boat.y - 20, 'Sunk!', '#ff5a7a');
           break;
         case 'unlock':
           sounds.unlock();
@@ -374,10 +420,26 @@ export class Game extends Phaser.Scene {
           if (!this.movedToastShown) { this.movedToastShown = true; ui.toast('Watch out!', 'Busy docks drift'); }
           break;
         case 'wake': this.wake.explode(1, ev.x, ev.y); break;
+        case 'wave':
+          sounds.wave();
+          buzz([10, 40, 10]);
+          ui.toast('Get ready!', `Wave ${ev.wave}!`, '#ffd23f');
+          break;
+        case 'pickupSpawn': sounds.pickupSpawn(); break;
+        case 'pickup': {
+          const pk = ev.pickup, freeze = pk.kind === 'freeze';
+          if (freeze) sounds.freeze(); else sounds.life();
+          buzz(12);
+          this.stars.explode(8, pk.x, pk.y);
+          this.shockwave(pk.x, pk.y, freeze ? ICE : 0xff4f7b, 2);
+          this.popAt(pk.x, pk.y - 20, freeze ? 'Freeze!' : '+1 Life!', freeze ? '#9be7ff' : '#ff8fab', true);
+          break;
+        }
         case 'over': this.gameOver(ev.score); break;
         case 'hud':
           ui.setScore(sim.score);
           ui.setLives(sim.lives);
+          if (sim.phase === 'play') music.setIntensity(MUSIC.forRun(sim.docked));
           break;
       }
     }
@@ -475,13 +537,13 @@ export class Game extends Phaser.Scene {
     const showArcs = sim.phase !== 'idle';
     for (const b of sim.boats) {
       let v = this.boatViews.get(b);
-      const col = C[laneKey(b.ci)];
+      const col = b.gold ? { n: GOLD, a: 1 } : C[laneKey(b.ci)];
       if (!v) {
         v = {
           shadow: this.add.image(b.x, b.y, 'boatsh').setTint(OUTLINE_N).setDepth(D.boatShadow),
           glow: this.add.image(b.x, b.y, 'glow').setTint(col.n).setDepth(D.boatGlow).setBlendMode(glowBlend),
-          body: this.add.image(b.x, b.y, 'boat' + b.ci).setDepth(D.boat),
-          born: this.skipFadeIn ? 1 : 0, sq: { x: 1, y: 1 }, pushed: false,
+          body: this.add.image(b.x, b.y, b.gold ? 'boatG' : 'boat' + b.ci).setDepth(D.boat),
+          born: this.skipFadeIn ? 1 : 0, sq: { x: 1, y: 1 }, pushed: false, sparkT: 0,
         };
         if (!this.skipFadeIn) this.tweens.add({ targets: v, born: 1, duration: 500, ease: 'Back.Out' });
         this.boatViews.set(b, v);
@@ -500,18 +562,40 @@ export class Game extends Phaser.Scene {
       const rot = b.ang + Math.sin(t * 2.2 + b.x * 0.01) * 0.06 + (b.state === 'sink' ? b.k * 2.5 : 0);
       v.body.setPosition(b.x, b.y).setRotation(rot).setScale(TEX_SCALE * sc * v.sq.x, TEX_SCALE * sc * v.sq.y).setAlpha(alpha);
       v.shadow.setPosition(b.x + 2.5, b.y + 4).setRotation(rot).setScale(TEX_SCALE * sc * v.sq.x, TEX_SCALE * sc * v.sq.y).setAlpha(alpha * shadowA);
-      v.glow.setPosition(b.x, b.y).setScale(TEX_SCALE * 60 / GLOW_SIZE * sc).setAlpha(alpha * (dark ? 0.5 : 0.3));
+      v.glow.setPosition(b.x, b.y).setScale(TEX_SCALE * (b.gold ? 78 : 60) / GLOW_SIZE * sc).setAlpha(alpha * (b.gold ? 0.55 + 0.15 * Math.sin(t * 6) : dark ? 0.5 : 0.3));
+      if (b.gold && b.state === 'in' && this.mode === 'play' && (v.sparkT -= 1 / 60) <= 0) {
+        v.sparkT = 0.35;
+        this.stars.emitParticleAt(b.x + (Math.random() - 0.5) * 20, b.y + (Math.random() - 0.5) * 14, 1);
+      }
       if (b.state === 'in' && showArcs) {
         const left = Math.max(0, 1 - b.age / b.life);
-        const warn = left < 0.25;
+        const frozen = sim.freezeT > 0;
+        const warn = left < 0.25 && !frozen;
         const a0 = -Math.PI / 2, a1 = a0 + Math.PI * 2 * left;
         const blink = warn ? 0.55 + 0.45 * Math.sin(t * 12) : 1;
         ag.lineStyle(7, OUTLINE_N, 0.85 * alpha);
         ag.beginPath(); ag.arc(b.x, b.y, 23, a0, a1); ag.strokePath();
-        ag.lineStyle(3.6, warn ? 0xff5a7a : col.n, blink * alpha);
+        ag.lineStyle(3.6, frozen ? ICE : warn ? 0xff5a7a : col.n, blink * alpha);
         ag.beginPath(); ag.arc(b.x, b.y, 23, a0, a1); ag.strokePath();
       }
     }
+
+    // power-up bubbles: bob, pulse, and blink in their last two seconds
+    this.sweep(sim.pickups, this.pickupViews, v => { this.tweens.killTweensOf(v); v.img.destroy(); });
+    for (const pk of sim.pickups) {
+      let v = this.pickupViews.get(pk);
+      if (!v) {
+        v = { img: this.add.image(pk.x, pk.y, pk.kind === 'freeze' ? 'pu_freeze' : 'pu_life').setDepth(D.pickup), born: 0 };
+        this.tweens.add({ targets: v, born: 1, duration: 600, ease: 'Back.Out', easeParams: [2.5] });
+        this.pickupViews.set(pk, v);
+      }
+      const left = pk.life - pk.age;
+      const blink = left < 2 ? (Math.sin(t * 18) > 0 ? 1 : 0.35) : 1;
+      v.img.setPosition(pk.x, pk.y + Math.sin(t * 2.4 + pk.id) * 2)
+        .setScale(TEX_SCALE * (PICKUP_R + 1) / 16 * Math.max(0, v.born) * (1 + 0.07 * Math.sin(t * 5)))
+        .setRotation(Math.sin(t * 1.6 + pk.id) * 0.15).setAlpha(blink);
+    }
+    this.setFrost(this.mode === 'play' && sim.freezeT > 0);
 
     // fireflies by night, sparkles by day
     if (this.moteViews.size !== sim.motes.length) { for (const m of this.moteViews.values()) m.destroy(); this.moteViews.clear(); }
@@ -536,17 +620,17 @@ export class Game extends Phaser.Scene {
       const hx = Phaser.Math.Clamp(b.x - dx / dl * 48, p.x + 12, p.x + p.w - 12);
       const hy = Phaser.Math.Clamp(b.y - dy / dl * 48, p.y + 12, p.y + p.h - 12);
       const ph = (t % 1.4) / 1.4;
-      // dotted guide from the boat toward its dock
-      for (let s = 26; s < Math.min(dl - 30, 120); s += 15) {
-        const gx = b.x + dx / dl * s, gy = b.y + dy / dl * s;
-        hg.fillStyle(OUTLINE_N, 0.8).fillCircle(gx, gy, 3.6);
-        hg.fillStyle(0xffffff, 1).fillCircle(gx, gy, 2.1);
+      // small dotted guide from the boat toward its dock, then a ghost fingertip tapping behind it
+      for (let k = 26; k < Math.min(dl - 30, 90); k += 16) {
+        const gx = b.x + dx / dl * k, gy = b.y + dy / dl * k;
+        hg.fillStyle(OUTLINE_N, 0.6).fillCircle(gx, gy, 2.8);
+        hg.fillStyle(0xffffff, 0.9).fillCircle(gx, gy, 1.6);
       }
-      hg.lineStyle(6, OUTLINE_N, (1 - ph) * 0.5).strokeCircle(hx, hy, 10 + ph * 28);
-      hg.lineStyle(3, 0xffffff, (1 - ph) * 0.95).strokeCircle(hx, hy, 10 + ph * 28);
+      hg.lineStyle(4.5, OUTLINE_N, (1 - ph) * 0.4).strokeCircle(hx, hy, 7 + ph * 20);
+      hg.lineStyle(2.2, 0xffffff, (1 - ph) * 0.85).strokeCircle(hx, hy, 7 + ph * 20);
       const press = 1 - 0.18 * Math.sin(Math.min(1, ph * 3) * Math.PI);
-      hg.fillStyle(0xffffff, 0.95).fillCircle(hx, hy, 10 * press);
-      hg.lineStyle(2.6, OUTLINE_N, 1).strokeCircle(hx, hy, 10 * press);
+      hg.fillStyle(0xffffff, 0.85).fillCircle(hx, hy, 7 * press);
+      hg.lineStyle(2, OUTLINE_N, 0.9).strokeCircle(hx, hy, 7 * press);
     } else ui.hint(false);
     this.skipFadeIn = false;
   }

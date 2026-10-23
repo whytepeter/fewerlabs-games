@@ -77,84 +77,109 @@ body {
   top: calc(var(--safe-t) + 10px);
   gap: 2px; padding: 3px 10px;
 }
-.life { display: grid; place-items: center; transition: opacity .3s, filter .3s, transform .3s; }
-.life svg { width: 32px; height: 24px; overflow: visible; }
-.life-hull, .life-sail { fill: #fff; stroke: #16233b; stroke-width: 2.6; stroke-linejoin: round; }
-.life-lamp { fill: #ffb000; stroke: #16233b; stroke-width: 1.8; }
-.life.lost { opacity: .35; filter: grayscale(1); transform: scale(.82); }
-.life.hit { animation: life-hit .55s ease; }
+.life { position: relative; display: grid; place-items: center; transition: opacity .35s, transform .35s, filter .35s; }
+.life svg { width: 36px; height: 22px; overflow: visible; transform: rotate(-8deg); }
+.lb-hull { fill: #fff; stroke: #16233b; stroke-width: 2.5; stroke-linejoin: round; transition: fill .3s; }
+.lb-fold { fill: none; stroke: #c3d2e8; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.lb-eye { fill: #fff; stroke: #16233b; stroke-width: 1.3; }
+.lb-pupil { fill: #16233b; }
+.lb-shut { fill: none; stroke: #16233b; stroke-width: 1.6; stroke-linecap: round; display: none; }
+.lb-lamp { fill: #ffb000; stroke: #16233b; stroke-width: 2; transition: fill .3s; }
+.lb-shine { fill: rgba(255, 255, 255, .75); }
+.lb-splash {
+  position: absolute; left: 50%; top: 62%; width: 34px; height: 12px; margin: -6px 0 0 -17px;
+  border-radius: 50%; border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px #16233b, inset 0 0 0 1.5px #16233b;
+  opacity: 0; pointer-events: none;
+}
+/* a sunk boat: soggy grey, tilted and half under, eyes shut, lantern out */
+.life.lost { opacity: .6; transform: translateY(3px) rotate(18deg) scale(.86); }
+.life.lost .lb-hull { fill: #a9b2c3; }
+.life.lost .lb-fold { stroke: #8792a6; }
+.life.lost .lb-lamp { fill: #6b7590; }
+.life.lost .lb-shine, .life.lost .lb-pupil, .life.lost .lb-eye { display: none; }
+.life.lost .lb-shut { display: inline; }
+.life.hit { animation: life-sink .8s cubic-bezier(.3, 1.4, .5, 1); }
+.life.hit .lb-splash { animation: life-splash .7s ease-out .15s; }
 
 /* ---------- Pop-up text, flash, toast, hint */
 .pops { position: absolute; inset: 0; overflow: hidden; }
 .pop {
   position: absolute; white-space: nowrap;
-  font-size: 28px; line-height: 1;
+  font-size: calc(20px * var(--ui, 1)); line-height: 1;
   transform: translate(-50%, -50%);
-  animation: ripple-pop .95s cubic-bezier(.2, .9, .3, 1) forwards;
+  animation: ripple-pop .8s cubic-bezier(.2, .9, .3, 1) forwards;
 }
-.pop--big { font-size: 30px; animation-duration: 1.25s; }
+.pop--big { font-size: calc(22px * var(--ui, 1)); animation-duration: 1s; }
 .flash {
   position: absolute; inset: 0; opacity: 0;
   box-shadow: inset 0 0 0 7px #ff5a7a, inset 0 0 120px 34px rgba(255, 60, 95, .6);
 }
 .flash.on { animation: flash .6s ease-out; }
+.frost {
+  position: absolute; inset: 0; opacity: 0; transition: opacity .35s;
+  box-shadow: inset 0 0 0 5px rgba(155, 231, 255, .9), inset 0 0 110px 26px rgba(155, 231, 255, .45);
+}
+.frost.on { opacity: 1; animation: frost 1.2s ease-in-out infinite; }
 
 .toast {
-  position: absolute; left: 0; right: 0; top: calc(var(--safe-t) + 104px);
-  text-align: center; opacity: 0;
+  position: absolute; left: 0; right: 0; top: calc(var(--safe-t) + 62px);
+  text-align: center; opacity: 0; pointer-events: none;
 }
-.toast small { display: block; font-size: 17px; letter-spacing: .04em; }
-.toast span { display: inline-block; font-size: 36px; margin-top: 4px; }
-.toast.show { animation: toast 2.4s cubic-bezier(.2, 1.3, .4, 1) forwards; }
+.toast small { display: inline; font-size: 13px; letter-spacing: .04em; margin-right: 8px; }
+.toast span { display: inline; font-size: 22px; }
+.toast.show { animation: toast 2s cubic-bezier(.2, 1.3, .4, 1) forwards; }
 
 .hint {
-  position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(var(--safe-b) + 24px);
-  font-size: 18px; white-space: nowrap;
+  position: absolute; left: 0; right: 0; margin: 0 auto; width: max-content; bottom: calc(var(--safe-b) + 14px);
+  font-size: 14px; min-height: 34px; padding: 2px 12px 2px 3px; gap: 6px; white-space: nowrap; pointer-events: none; opacity: .92;
   animation: k-pop .45s cubic-bezier(.2, 1.4, .4, 1) both;
 }
 .hint .k-pill-icon { color: #16233b; }
-.hint .k-pill-icon svg { width: 22px; height: 22px; }
-.hint.top { bottom: auto; top: calc(var(--safe-t) + 84px); }
+.hint .k-pill-icon { width: 26px; height: 26px; border-width: 2px; }
+.hint .k-pill-icon svg { width: 16px; height: 16px; }
+.hint.top { bottom: auto; top: calc(var(--safe-t) + 60px); }
 
 /* ---------- Title */
 .title-screen { background: radial-gradient(ellipse at 50% 40%, rgba(10, 18, 40, .02), rgba(10, 18, 40, .38)); }
 .title-grid {
   width: min(420px, 100%);
-  display: grid; gap: 20px; justify-items: center;
+  display: grid; gap: 14px; justify-items: center;
   grid-template-areas: "head" "howto" "actions";
 }
 .title-head { grid-area: head; text-align: center; }
-.title-head .k-logo { font-size: clamp(66px, 21vw, 100px); }
-.title-tag { margin-top: 16px; font-size: 19px; }
-.howto-panel { grid-area: howto; width: 100%; padding: 32px 16px 14px; }
+.title-head .k-logo { font-size: clamp(58px, 17vw, 100px); }
+.title-tag { margin-top: 12px; font-size: 18px; }
+.howto-panel { grid-area: howto; width: 100%; padding: 30px 14px 12px; }
 .howto-panel .k-ribbon { font-size: 19px; padding: 6px 22px 8px; top: -21px; }
-.howto { list-style: none; display: grid; gap: 9px; text-align: left; }
-.howto li { display: flex; align-items: center; gap: 12px; font-size: 15.5px; line-height: 1.25; color: var(--k-ink-soft); font-weight: 500; }
+.howto { list-style: none; display: grid; gap: 7px; text-align: left; }
+.howto li { display: flex; align-items: center; gap: 11px; font-size: 15px; line-height: 1.25; color: var(--k-ink-soft); font-weight: 500; }
 .howto b { color: var(--k-ink); font-weight: 700; }
 .howto-ico {
-  flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%;
+  flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center;
   border: 3px solid #16233b; box-shadow: 0 3px 0 #16233b;
 }
-.howto-ico svg { width: 30px; height: 30px; }
+.howto-ico svg { width: 27px; height: 27px; }
 .ico-tap { background: #3aa8ff; }
 .ico-dock { background: #8ff0ff; }
 .ico-time { background: #ff5a7a; }
-.title-actions { grid-area: actions; display: grid; gap: 18px; justify-items: center; }
+.ico-bonus { background: #9b6bff; }
+.title-actions { grid-area: actions; display: grid; gap: 14px; justify-items: center; }
 .play-btn { min-width: 250px; }
 .title-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .best-pill { min-height: 46px; font-size: 22px; }
 .best-pill .k-pill-icon { width: 34px; height: 34px; }
-[data-setting="sound"][aria-pressed="false"] .ico-on,
-[data-setting="sound"][aria-pressed="true"] .ico-off,
-[data-setting="sound"]:not([aria-pressed]) .ico-off { display: none; }
+[data-setting][aria-pressed="false"] .ico-on,
+[data-setting][aria-pressed="true"] .ico-off,
+[data-setting]:not([aria-pressed]) .ico-off { display: none; }
 .ico-on, .ico-off { display: grid; place-items: center; }
 
 /* ---------- Pause */
-.pause-panel { width: min(340px, 100%); }
+.pause-panel { width: min(380px, 100%); }
 .pause-panel > * + * { margin-top: 14px; }
 .pause-panel .k-row { flex-wrap: nowrap; }
-.pause-toggles { margin-top: 18px !important; }
+.pause-panel .pause-toggles { margin-top: 18px; flex-wrap: wrap; gap: 8px; }
+.pause-toggles .k-toggle { padding-right: 12px; font-size: 14px; }
 
 /* ---------- Game over */
 .over-panel { width: min(360px, 100%); padding-top: 38px; }
@@ -165,22 +190,22 @@ body {
 .over-main .k-tag { margin-top: 10px; }
 .over-panel .k-stats { margin-top: 16px; }
 .over-actions { display: flex; gap: 10px; margin-top: 16px; }
-.over-actions .k-btn { flex: 1; }
+.over-actions .k-btn { flex: 1; white-space: nowrap; padding-left: 16px; padding-right: 16px; }
 .over-actions .k-icon-btn { flex: 0 0 56px; width: 56px; height: 56px; }
 
-/* ---------- Short landscape phones: compact two-column layouts */
-@media (max-height: 520px) {
+/* ---------- Short or landscape-ish screens: compact two-column layouts.
+   Keep in sync with isCompact() in game/layout.ts. */
+@media (max-height: 520px), (min-aspect-ratio: 5/4) {
   .hud { padding-top: calc(var(--safe-t) + 6px); }
   .hud .k-pill { min-height: 40px; font-size: 20px; }
   .hud .k-pill-icon { width: 30px; height: 30px; }
   .lives { top: calc(var(--safe-t) + 6px); }
-  .life svg { width: 28px; height: 21px; }
+  .life svg { width: 31px; height: 19px; }
   .hud .k-icon-btn--sm { width: 42px; height: 42px; }
-  .toast { top: calc(var(--safe-t) + 70px); }
-  .toast span { font-size: 30px; }
-  .hint { bottom: calc(var(--safe-b) + 14px); font-size: 16px; min-height: 40px; }
-  .hint .k-pill-icon { width: 30px; height: 30px; }
-  .hint.top { top: calc(var(--safe-t) + 62px); }
+  .toast { top: calc(var(--safe-t) + 50px); }
+  .toast span { font-size: 20px; }
+  .hint { bottom: calc(var(--safe-b) + 8px); }
+  .hint.top { top: calc(var(--safe-t) + 50px); }
 
   .k-screen { padding-top: calc(var(--safe-t) + 26px); padding-bottom: calc(var(--safe-b) + 10px); }
   .title-screen { padding-top: calc(var(--safe-t) + 10px); }
@@ -202,7 +227,7 @@ body {
 
   .pause-panel { padding: 30px 18px 18px; }
   .pause-panel > * + * { margin-top: 10px; }
-  .pause-toggles { margin-top: 12px !important; }
+  .pause-panel .pause-toggles { margin-top: 12px; }
 
   .over-panel {
     width: min(640px, 100%);
@@ -230,8 +255,16 @@ body {
   70% { opacity: 1; }
   100% { transform: translate(-50%, -210%) scale(.95); opacity: 0; }
 }
+@keyframes frost { 50% { opacity: .65; } }
 @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes life-hit { 0% { transform: scale(1.5) rotate(-12deg); } 40% { transform: scale(.7) rotate(10deg); } 100% { transform: scale(.82); } }
+@keyframes life-sink {
+  0% { transform: none; opacity: 1; }
+  15% { transform: translateX(-3px) rotate(-14deg) scale(1.15); }
+  30% { transform: translateX(3px) rotate(12deg) scale(1.15); }
+  55% { transform: translateY(7px) rotate(26deg) scale(.8); opacity: .5; }
+  100% { transform: translateY(3px) rotate(18deg) scale(.86); opacity: .6; }
+}
+@keyframes life-splash { 0% { opacity: 1; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.7); } }
 @keyframes toast {
   0% { opacity: 0; transform: scale(.5); }
   12% { opacity: 1; transform: scale(1.12); }

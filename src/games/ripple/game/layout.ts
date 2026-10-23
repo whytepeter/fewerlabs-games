@@ -14,15 +14,35 @@ export function readInsets(w: number, h: number): Insets {
   };
 }
 
-/** Space the HUD needs above the pond: score + lives row. Short (landscape phone) screens use a compact HUD. */
-export const hudHeight = (h: number) => (h < 500 ? 58 : 74);
+/** Compact (two-column, slim HUD) layouts: short screens and landscape-ish ones. Keep in sync with style.css. */
+export const isCompact = (w: number, h: number) => h <= 520 || w / h >= 1.25;
+/** Space the HUD needs above the pond (CSS px before UI zoom): score + lives row. */
+export const hudHeight = (w: number, h: number) => (isCompact(w, h) ? 58 : 74);
 
-const MARGIN = 14;
+/** The UI zoom set by core autoScaleUI() (--ui on <html>). */
+export function uiScale() {
+  const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui'));
+  return v > 0 ? v : 1;
+}
+
+/**
+ * World zoom (CSS px per world unit). The pond is viewed closer than 1:1 on phones
+ * (~1.17x portrait, ~1.22x landscape) so boats, docks and ripples read big under a thumb.
+ * Tablets and desktops grow a little more but stop at 1.5x (~1.3x the phone view), so a big
+ * window shows a comfortably sized pond rather than an oversized one.
+ */
+export const MAX_WORLD_SCALE = 1.5;
+export function worldScale(w: number, h: number) {
+  return Math.max(1, Math.min(MAX_WORLD_SCALE, Math.min(Math.min(w, h) / 320, Math.max(w, h) / 680)));
+}
+
+const MARGIN = 10;
 // On big desktop windows the pond stops growing so trips stay phone-sized; the shore fills the rest.
 const MAX_W = 880, MAX_H = 780;
 
-export function computePond(w: number, h: number, ins: Insets): Rect {
-  let x = ins.l + MARGIN, y = ins.t + hudHeight(h);
+/** Pond rect in world units for a world of w x h, given insets and HUD height already in world units. */
+export function computePond(w: number, h: number, ins: Insets, hud: number): Rect {
+  let x = ins.l + MARGIN, y = ins.t + hud;
   let pw = w - ins.l - ins.r - MARGIN * 2;
   let ph = h - y - ins.b - MARGIN;
   if (pw > MAX_W) { x += (pw - MAX_W) / 2; pw = MAX_W; }

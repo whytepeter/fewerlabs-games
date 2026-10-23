@@ -8,6 +8,7 @@ let ac: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 let enabled = true;
+const unlockListeners: ((ac: AudioContext) => void)[] = [];
 
 onSettings(s => {
   enabled = s.sound;
@@ -29,11 +30,17 @@ export const sfx = {
         noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
         const d = noiseBuf.getChannelData(0);
         for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const ctx = ac;
+        unlockListeners.forEach(fn => fn(ctx));
       }
       if (ac.state === 'suspended') void ac.resume();
     } catch {
       ac = null;
     }
+  },
+  /** Run once the AudioContext exists (immediately if it already does). */
+  onUnlock(fn: (ac: AudioContext) => void) {
+    if (ac) fn(ac); else unlockListeners.push(fn);
   },
   suspend() { if (ac && ac.state === 'running') void ac.suspend(); },
   resume() { if (ac && ac.state === 'suspended') void ac.resume(); },

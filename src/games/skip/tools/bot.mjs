@@ -63,7 +63,7 @@ function play(style, seed, pull) {
     }
     if (++frames > FPS * 600) break;
   }
-  return { m: sim.x / PX_PER_M, s: sim.flightTime, skips: sim.skips, streak: sim.bestStreak, glass: sim.glass, perfects: sim.perfects };
+  return { m: sim.x / PX_PER_M, s: sim.flightTime, skips: sim.skips, streak: sim.bestStreak, glass: sim.glass, perfects: sim.perfects, hoops: sim.hoops };
 }
 
 const pull = bestThrow();
@@ -86,7 +86,7 @@ for (const st of styles) {
   console.log(
     `${st.name.padEnd(32)} dist m: med ${pct(m, 0.5).toFixed(0).padStart(5)} p10 ${pct(m, 0.1).toFixed(0).padStart(5)} p90 ${pct(m, 0.9).toFixed(0).padStart(5)} | ` +
     `time s: med ${pct(s, 0.5).toFixed(1).padStart(5)} p10 ${pct(s, 0.1).toFixed(1).padStart(5)} p90 ${pct(s, 0.9).toFixed(1).padStart(5)} | ` +
-    `skips ${avg(rs.map(r => r.skips)).toFixed(0).padStart(3)} perf ${avg(rs.map(r => r.perfects)).toFixed(0).padStart(3)} bestStreak ${avg(rs.map(r => r.streak)).toFixed(0).padStart(3)} glass ${avg(rs.map(r => r.glass)).toFixed(1)}`,
+    `skips ${avg(rs.map(r => r.skips)).toFixed(0).padStart(3)} perf ${avg(rs.map(r => r.perfects)).toFixed(0).padStart(3)} bestStreak ${avg(rs.map(r => r.streak)).toFixed(0).padStart(3)} glass ${avg(rs.map(r => r.glass)).toFixed(1)} hoops ${avg(rs.map(r => r.hoops)).toFixed(1)}`,
   );
   if (process.env.V) console.log('   per throw: perfect/good/miss', [grades.perfect, grades.good, grades.miss].map(x => (x / RUNS).toFixed(1)).join('/'), ' log/duck/pad', [hits.log, hits.duck, hits.pad].map(x => (x / RUNS).toFixed(1)).join('/'),
   );

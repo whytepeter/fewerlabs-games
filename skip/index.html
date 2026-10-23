@@ -21,33 +21,37 @@
   <div id="game" aria-label="Stone skipping game. Pull back and release to throw, tap as the stone touches the water."></div>
 
   <div id="ui">
-    <header id="hud" class="hud" hidden>
+    <header id="hud" class="hud k-scale" hidden>
       <div class="hud-side"><div class="hud-best k-outline">BEST <b id="hudBest">0</b></div></div>
       <div class="hud-center">
-        <div class="k-pill dist-pill"><span class="k-pill-icon"><i data-icon="stone"></i></span><b id="dist">0</b><small>m</small></div>
-        <div class="k-pill streak-pill" id="streakPill" hidden><span class="k-pill-icon flame"><i data-icon="star"></i></span><b>×<span id="streak">0</span></b></div>
+        <div class="k-pill dist-pill"><span class="stone-ico" data-face="eyes"></span><b id="dist">0</b><small>m</small></div>
+        <div class="k-pill streak-pill" id="streakPill" hidden><span class="stone-ico" data-face="squint"></span><b>×<span id="streak">0</span></b></div>
       </div>
       <div class="hud-side hud-right">
         <button class="k-icon-btn k-icon-btn--sm k-btn--white" id="pauseBtn" aria-label="Pause"><i data-icon="pause"></i></button>
       </div>
     </header>
 
-    <div id="hint" class="hint k-outline" hidden aria-live="polite"><span class="hint-hand" aria-hidden="true"></span><span id="hintText"></span></div>
+    <div id="fever" class="fever" aria-hidden="true"></div>
+    <div id="banner" class="banner k-scale" hidden aria-live="polite"><div class="banner-small k-outline" id="bannerSmall"></div><div class="banner-big" id="bannerBig"></div></div>
+
+    <div id="hint" class="hint k-outline k-scale" hidden aria-live="polite"><span class="hint-hand" aria-hidden="true"></span><span id="hintText"></span></div>
 
     <section id="title" class="screen title-screen">
-      <div class="title-top">
+      <div class="title-top k-scale">
         <h1 class="k-logo" id="logo">Skip</h1>
         <p class="title-tag k-outline">Skip a stone across the lake!</p>
       </div>
-      <ul class="howto">
+      <ul class="howto k-scale">
         <li><span class="howto-n">1</span><span><b>Pull back</b> anywhere, let go</span></li>
         <li><span class="howto-n">2</span><span><b>Tap</b> as the ring closes</span></li>
-        <li><span class="howto-n">3</span><span>Chain <b>Perfects</b> to fly far</span></li>
+        <li><span class="howto-n">3</span><span>Chain <b>Perfects</b>, fly through <b>hoops</b></span></li>
       </ul>
-      <div class="title-bottom">
+      <div class="title-bottom k-scale">
         <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>Throw</button>
         <div class="title-row">
           <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+          <button class="k-icon-btn k-icon-btn--sm" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
           <a class="k-icon-btn k-icon-btn--sm k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
@@ -64,6 +68,7 @@
           <button class="k-btn k-btn--white k-btn--block" id="menuBtn"><i data-icon="home"></i>Home</button>
         </div>
         <div class="k-row pause-toggles">
+          <button class="k-toggle" data-setting="music">Music</button>
           <button class="k-toggle" data-setting="sound">Sound</button>
           <button class="k-toggle" data-setting="haptics">Vibration</button>
         </div>
@@ -83,6 +88,7 @@
             <div class="k-stat"><span>Skips</span><b id="overSkips">0</b></div>
             <div class="k-stat"><span>Best streak</span><b id="overStreak">0</b></div>
             <div class="k-stat"><span>Lake glass</span><b id="overGlass">0</b></div>
+            <div class="k-stat"><span>Hoops</span><b id="overHoops">0</b></div>
           </div>
           <div class="over-btns">
             <button class="k-btn k-btn--block" id="againBtn"><i data-icon="restart"></i>Throw again</button>
