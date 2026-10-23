@@ -31,6 +31,8 @@ A game without a URL still appears in the store; its player shows a "not connect
 
 `vercel.json` rewrites every page route (`/`, `/game/<id>`, `/play/<id>`) to `index.html`, so refreshing any page works.
 
+Each project builds only when its own folder changed since its last deploy (`ignoreCommand` in `vercel.json`, running [`../scripts/vercel-ignore.sh`](../scripts/vercel-ignore.sh)). To force a build anyway, redeploy from the Vercel dashboard and untick **Use project's Ignore Build Step**.
+
 ## Pages
 
 | Route | What it shows |
