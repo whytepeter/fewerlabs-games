@@ -55,7 +55,7 @@ const WALL_BONK_GAP = 0.35;    // plain walls only nudge you back (sound/shake a
 const WALL_BOUNCE = 70;        // how hard a plain wall pushes you back
 /** Sharp stretches of wall (coral spikes) appear below SPIKE_FROM metres and cost a life. */
 const SPIKE_SEG = 520, SPIKE_H = 19, SPIKE_FROM = 160;
-const STEER = 1300;            // portrait steering acceleration
+const STEER = 1300;            // steering acceleration
 const MAGNET_RANGE = 170;
 const CLOSE_CALL = 22;         // clearance (px) that still counts as a close call
 const COMBO_WINDOW = 4;        // seconds to chain the next close call
@@ -83,7 +83,7 @@ export class GameScene extends Phaser.Scene {
   private hearts = HEARTS;
   private invuln = 0;
   private wallT = 0;
-  private touches = new Map<number, number>(); // pointerId -> clientX, for portrait steering
+  private touches = new Map<number, { x: number; y: number }>(); // pointerId -> screen position, for steering
   private shieldT = 0;
   private magnetT = 0;
   /** Held until a hit (or empty tank) would end the dive, then saves you once. */
@@ -156,7 +156,7 @@ export class GameScene extends Phaser.Scene {
   private pops!: Emitter;
   private sparks!: Emitter;
   private ambient = new Ambient();
-  private keys!: Record<'space' | 'up' | 'w' | 'left' | 'right' | 'a' | 'd', Phaser.Input.Keyboard.Key>;
+  private keys!: Record<'space' | 'up' | 'down' | 'w' | 's' | 'left' | 'right' | 'a' | 'd', Phaser.Input.Keyboard.Key>;
 
   constructor() { super('game'); }
 
@@ -197,14 +197,14 @@ export class GameScene extends Phaser.Scene {
     }).setDepth(12);
 
     const kb = this.input.keyboard!;
-    this.keys = kb.addKeys({ space: 'SPACE', up: 'UP', w: 'W', left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D' }) as GameScene['keys'];
-    kb.addCapture('SPACE,UP,LEFT,RIGHT');
+    this.keys = kb.addKeys({ space: 'SPACE', up: 'UP', down: 'DOWN', w: 'W', s: 'S', left: 'LEFT', right: 'RIGHT', a: 'A', d: 'D' }) as GameScene['keys'];
+    kb.addCapture('SPACE,UP,DOWN,LEFT,RIGHT');
     // Track touches in screen space: the canvas is rotated in portrait, so Phaser's own pointer
     // coordinates don't say which half of the screen was touched.
     const track = (e: PointerEvent) => {
       if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
       if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
-      if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, e.clientX);
+      if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     };
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
     addEventListener('blur', () => this.touches.clear());
@@ -419,32 +419,28 @@ export class GameScene extends Phaser.Scene {
     this.draw();
   }
 
-  private holding() {
-    if (this.keys.space.isDown || this.keys.up.isDown || this.keys.w.isDown) return true;
-    return this.input.manager.pointers.some(p => p.isDown);
-  }
-
-  /** Portrait steering: -1 left, +1 right, 0 none (touch halves of the screen or arrow keys). */
+  /**
+   * Steering: +1 swims up, -1 down, 0 drifts. Touch the side of the screen you want to move toward:
+   * the top/bottom half in landscape, the right/left half in portrait (the world is turned 90° there,
+   * so screen right is the world's "up"). Keys: →, ↑, D, W, Space up; ←, ↓, A, S down.
+   */
   private steering() {
-    let dir = (this.keys.right.isDown || this.keys.d.isDown ? 1 : 0) - (this.keys.left.isDown || this.keys.a.isDown ? 1 : 0);
-    for (const x of this.touches.values()) dir += x > innerWidth / 2 ? 1 : -1;
+    const k = this.keys;
+    let dir = (k.right.isDown || k.d.isDown || k.up.isDown || k.w.isDown || k.space.isDown ? 1 : 0)
+      - (k.left.isDown || k.a.isDown || k.down.isDown || k.s.isDown ? 1 : 0);
+    const portrait = portraitView();
+    for (const t of this.touches.values()) {
+      dir += (portrait ? t.x > innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
+    }
     return Math.sign(dir);
   }
 
   private step(dt: number) {
     this.runT += dt;
-    let hold: boolean;
-    if (portraitView()) {
-      // Straight down the screen: steer left/right, no current. Screen right is the world's "up".
-      const steer = this.steering();
-      hold = steer !== 0;
-      this.vy = clamp(this.vy * Math.exp(-2.6 * dt) - steer * STEER * dt, -340, 340);
-    } else {
-      hold = this.holding();
-      // Sinking eases in so the first second isn't a surprise.
-      const sink = 680 * Math.min(1, 0.25 + this.runT / 2);
-      this.vy = clamp(this.vy + (hold ? -1150 : sink) * dt, -360, 400);
-    }
+    // No gravity: the diver drifts to a stop when you let go.
+    const steer = this.steering();
+    const hold = steer !== 0;
+    this.vy = clamp(this.vy * Math.exp(-2.6 * dt) - steer * STEER * dt, -340, 340);
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 

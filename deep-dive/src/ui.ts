@@ -155,10 +155,10 @@ export const ui = {
     on('installBtn', () => { void install(); });
 
     const syncOrientation = () => {
-      // Portrait dives straight down the screen and steers with the left/right halves.
-      $('howHold').textContent = portrait() ? 'Touch' : 'Hold';
-      $('howHoldText').textContent = portrait() ? 'left / right to steer' : 'to swim up';
-      $('hintText').textContent = portrait() ? 'Touch left or right to steer' : 'Hold anywhere to swim up';
+      // Touch the side you want to move toward: left/right in portrait (the dive runs down the screen), top/bottom in landscape.
+      $('howHold').textContent = 'Touch';
+      $('howHoldText').textContent = portrait() ? 'left / right to steer' : 'top / bottom to steer';
+      $('hintText').textContent = portrait() ? 'Touch left or right to steer' : 'Touch the top to swim up, the bottom to go down';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
