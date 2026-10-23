@@ -32,6 +32,7 @@
         </div>
         <div class="hud-sub">
           <div class="hearts" id="hearts" aria-label="3 lives"><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg></div>
+          <div class="lifeline" id="lifeline" hidden>Lifeline</div>
           <div class="perk" id="perk" hidden><span id="perkIcon"></span><div class="perk-bar"><div id="perkFill"></div></div></div>
         </div>
       </div>
@@ -41,40 +42,148 @@
       </div>
     </header>
 
-    <div id="banner" class="banner" aria-live="polite"><small>Entering</small><span id="bannerText"></span></div>
+    <div id="banner" class="banner" aria-live="polite"><small id="bannerLabel">Entering</small><span id="bannerText"></span></div>
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText">Hold anywhere to swim up</span></div>
     <div id="lowO2" class="low-o2"></div>
 
     <section id="title" class="k-screen title-screen">
+      <div class="title-fish" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="title-layout">
-        <div class="title-top">
-          <div class="title-meta"><div class="k-coins" data-coins></div></div>
+        <div class="title-bar">
+          <button class="rank-badge" id="rankBadge" type="button" aria-label="Missions and rank">
+            <span class="rank-num" id="rankNum">1</span>
+            <span class="rank-text"><small>Rank</small><span class="rank-pips" id="rankPips"></span></span>
+          </button>
+          <div class="title-bar-right">
+            <div class="k-coins" data-coins></div>
+            <button class="k-icon-btn k-icon-btn--sm k-btn--purple" id="settingsBtn" type="button" aria-label="Settings"><i data-icon="gear"></i></button>
+          </div>
+        </div>
+        <div class="title-hero">
           <h1 class="k-logo" id="logo">Deep Dive</h1>
           <p class="title-tag k-outline">How deep can you go?</p>
-          <div class="k-panel title-missions" id="titleMissions">
-            <div class="k-ribbon">Missions</div>
-            <ul class="k-missions" id="missionList"></ul>
-          </div>
+          <button class="showcase" id="showcase" type="button" aria-label="Change diver">
+            <span class="showcase-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <img id="showcaseImg" alt="">
+            <span class="showcase-pedestal" aria-hidden="true"></span>
+            <span class="showcase-name"><b id="showcaseName">Sunny</b><small>Change diver</small></span>
+          </button>
+        </div>
+        <div class="title-bottom">
           <div class="howto" id="howto">
             <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Hold</b><span id="howHoldText">to swim up</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
             <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b>3 lives</b><span>dodge critters</span></div>
           </div>
+          <button class="title-quests" id="titleQuests" type="button" aria-label="Missions">
+            <span class="tq-head"><b>Missions</b><small id="tqSet"></small></span>
+            <span class="tq-reward" id="tqReward"></span>
+            <span class="tq-list" id="tqList"></span>
+          </button>
+          <button class="k-btn k-btn--lg dive-btn" id="playBtn"><i data-icon="play"></i>Dive</button>
+          <div class="title-best k-outline"><i data-icon="trophy"></i>Best <b id="titleBest">0</b> m</div>
+          <nav class="tiles" aria-label="Menu">
+            <button class="tile" id="diversBtn" type="button"><span class="tile-ico tile-ico--yellow"><i data-icon="diver"></i></span><span>Divers</span><em class="tile-dot" id="diversDot" hidden>New</em></button>
+            <button class="tile" id="missionsBtn" type="button"><span class="tile-ico tile-ico--green"><i data-icon="star"></i></span><span>Missions</span><em class="tile-count" id="missionsCount">0/3</em></button>
+            <button class="tile" id="shopBtn" type="button"><span class="tile-ico tile-ico--pink"><i data-icon="bag"></i></span><span>Shop</span><em class="tile-dot" id="shopDot" hidden>!</em></button>
+            <button class="tile" id="boardBtn" type="button" hidden><span class="tile-ico tile-ico--blue"><i data-icon="trophy"></i></span><span>Top divers</span></button>
+          </nav>
         </div>
-        <div class="title-bottom">
-          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i>Dive</button>
-          <div class="pill-row">
-            <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
-          </div>
-          <div class="suits" id="suits" role="radiogroup" aria-label="Diver suit"></div>
-          <div class="icon-row">
-            <button class="k-icon-btn k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
-            <button class="k-icon-btn k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
-            <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
-            <button class="k-icon-btn k-btn--yellow" id="fsBtn" aria-label="Full screen" hidden><i data-icon="fullscreen"></i></button>
-          </div>
+      </div>
+    </section>
+
+    <section id="divers" class="k-screen" hidden>
+      <div class="k-panel divers-panel">
+        <div class="k-ribbon">Divers</div>
+        <div class="diver-stage">
+          <button class="k-icon-btn k-icon-btn--sm" id="diverPrev" type="button" aria-label="Previous diver"><i data-icon="prev"></i></button>
+          <img id="diverImg" alt="">
+          <button class="k-icon-btn k-icon-btn--sm" id="diverNext" type="button" aria-label="Next diver"><i data-icon="next"></i></button>
         </div>
+        <h2 id="diverName"></h2>
+        <p class="diver-bio" id="diverBio"></p>
+        <button class="k-btn k-btn--block" id="diverAction" type="button"></button>
+        <p class="need-more" id="diverNeed" hidden></p>
+        <div class="diver-grid" id="diverGrid" role="radiogroup" aria-label="Divers"></div>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
+    <section id="missions" class="k-screen" hidden>
+      <div class="k-panel missions-panel">
+        <div class="k-ribbon">Missions</div>
+        <div class="rank-head">
+          <span class="rank-num rank-num--big" id="rankBig">1</span>
+          <div class="rank-head-text"><b id="rankTitle">Rank 1</b><span id="rankBonus"></span></div>
+        </div>
+        <p class="rank-next" id="rankNext"></p>
+        <ul class="k-missions" id="missionList"></ul>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
+    <section id="shop" class="k-screen" hidden>
+      <div class="k-panel shop-panel">
+        <div class="k-ribbon">Shop</div>
+        <div class="shop-wallet"><div class="k-coins" data-coins></div></div>
+        <div class="tabs" role="tablist" aria-label="Shop">
+          <button class="tab" role="tab" type="button" data-tab="upgrades" aria-selected="true">Upgrades</button>
+          <button class="tab" role="tab" type="button" data-tab="gadgets" aria-selected="false">Gadgets</button>
+        </div>
+        <p class="gadget-info" id="gadgetInfo" hidden></p>
+        <ul class="shop-list" id="shopList"></ul>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
+    <div class="rotate-hint" id="rotateHint" hidden>
+      <div class="k-panel rotate-panel">
+        <div class="rotate-phone" aria-hidden="true"><i></i></div>
+        <h2>Turn your phone sideways</h2>
+        <p>Deep Dive plays best in landscape. You can still dive upright if you like.</p>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="rotateOk" type="button">Play upright</button>
+      </div>
+    </div>
+
+    <section id="settings" class="k-screen" hidden>
+      <div class="k-panel settings-panel">
+        <div class="k-ribbon">Settings</div>
+        <div class="icon-row">
+          <button class="k-icon-btn k-btn--pink" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
+          <button class="k-icon-btn k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
+          <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
+          <button class="k-icon-btn k-btn--yellow" id="fsBtn" aria-label="Full screen" hidden><i data-icon="fullscreen"></i></button>
+        </div>
+        <div class="account" id="account" hidden>
+          <h3>Your progress</h3>
+          <p class="account-status" id="accountStatus"></p>
+          <div id="accountGuest">
+            <button class="k-btn k-btn--white k-btn--block google-btn" id="googleBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h6a5.1 5.1 0 0 1-2.2 3.4v2.8h3.6c2-1.9 3.2-4.7 3.2-8.2z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2v2.9A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14a6.6 6.6 0 0 1 0-4.2V7H2a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2 7l3.7 2.9C6.6 7.3 9.1 5.4 12 5.4z"/></svg>
+              Save with Google
+            </button>
+            <button class="k-btn k-btn--white k-btn--block" id="emailBtn" type="button"><i data-icon="mail"></i>Save with email</button>
+            <form class="email-form" id="emailForm" hidden>
+              <input id="emailInput" type="email" placeholder="Email" autocomplete="email" required>
+              <input id="passInput" type="password" placeholder="Password (6+ characters)" minlength="6" autocomplete="current-password" required>
+              <div class="k-row">
+                <button class="k-btn k-btn--sm" type="submit" data-mode="create">Create account</button>
+                <button class="k-btn k-btn--white k-btn--sm" type="submit" data-mode="signin">I have one</button>
+              </div>
+            </form>
+          </div>
+          <div id="accountConflict" hidden>
+            <p class="account-warn">That account already has saved progress. Load it on this device? Your guest progress here will be replaced.</p>
+            <div class="k-row">
+              <button class="k-btn k-btn--sm" id="useAccountBtn" type="button">Load it</button>
+              <button class="k-btn k-btn--white k-btn--sm" id="keepGuestBtn" type="button">Stay as guest</button>
+            </div>
+          </div>
+          <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="signOutBtn" type="button" hidden>Sign out</button>
+          <p class="account-error" id="accountError" hidden></p>
+        </div>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
       </div>
     </section>
 
@@ -94,6 +203,22 @@
       </div>
     </section>
 
+    <section id="board" class="k-screen" hidden>
+      <div class="k-panel board-panel">
+        <div class="k-ribbon">Top divers</div>
+        <p class="board-status" id="boardStatus"></p>
+        <ol class="board-list" id="boardList"></ol>
+        <form class="board-name" id="nameForm">
+          <label for="nameInput">Your name on the board</label>
+          <div class="k-row">
+            <input id="nameInput" maxlength="16" autocomplete="off" spellcheck="false" enterkeyhint="done">
+            <button class="k-btn k-btn--sm" type="submit">Save</button>
+          </div>
+        </form>
+        <button class="k-btn k-btn--white k-btn--block" id="boardBack" type="button"><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
     <section id="over" class="k-screen" hidden>
       <div class="k-panel over-panel">
         <div class="k-ribbon" id="overRibbon">Game Over</div>
@@ -105,6 +230,9 @@
             <div class="over-close" id="overClose" hidden></div>
             <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
             <div class="k-earned" id="overEarned" hidden></div>
+            <div class="over-rankup" id="overRankUp" hidden></div>
+            <div class="over-rank" id="overRank" hidden></div>
+            <button class="save-nudge" id="saveNudge" type="button" hidden>Don't lose this record: <b>save your progress</b></button>
           </div>
           <div class="over-side">
             <ul class="k-missions" id="overMissions"></ul>

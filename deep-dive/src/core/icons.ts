@@ -22,6 +22,12 @@ const PATHS = {
   boat: '<path d="M2.5 13h19l-3.2 5.5a2 2 0 0 1-1.7 1H7.4a2 2 0 0 1-1.7-1z"/><path d="M11 3.5v8H5.5z"/><path d="M12.5 5v6.5H18z"/>',
   stone: '<ellipse cx="12" cy="13" rx="9" ry="5.5"/>',
   close: '<path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
+  mail: '<rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m4 7.5 8 6 8-6" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/>',
+  gear: '<path fill-rule="evenodd" d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8Zm8.4 5 .1-1.6-.1-1.6 2-1.6-2-3.4-2.4.9a8 8 0 0 0-2.7-1.5L14.9 2h-3.8l-.4 2.3A8 8 0 0 0 8 5.8l-2.4-.9-2 3.4 2 1.6L5.5 12l.1 1.6-2 1.6 2 3.4 2.4-.9a8 8 0 0 0 2.7 1.5l.4 2.3h3.8l.4-2.3a8 8 0 0 0 2.7-1.5l2.4.9 2-3.4z"/>',
+  bag: '<path d="M4.5 8.5h15l-1.1 11.6a1.6 1.6 0 0 1-1.6 1.4H7.2a1.6 1.6 0 0 1-1.6-1.4z"/><path d="M8.6 10V7a3.4 3.4 0 0 1 6.8 0v3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  diver: '<circle cx="12" cy="11" r="8.6"/><circle cx="13.2" cy="11" r="5" fill="#7fd6ff"/><rect x="6.5" y="18.2" width="11" height="3.8" rx="1.6"/>',
+  prev: '<path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  next: '<path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

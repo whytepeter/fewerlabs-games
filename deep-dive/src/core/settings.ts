@@ -3,7 +3,12 @@
 
 // Saved data is namespaced so it never clashes with anything else on the same origin.
 export const NAMESPACE = 'deep-dive';
-const PREFIX = `${NAMESPACE}:`;
+export const PREFIX = `${NAMESPACE}:`;
+
+type WriteListener = (key: string) => void;
+const writeListeners: WriteListener[] = [];
+/** Called after every successful store.set (cloud sync uses this to know what changed). */
+export function onStoreWrite(fn: WriteListener) { writeListeners.push(fn); }
 
 export const store = {
   get<T>(key: string, fallback: T): T {
@@ -18,8 +23,9 @@ export const store = {
     try {
       localStorage.setItem(PREFIX + key, JSON.stringify(value));
     } catch {
-      /* ignore */
+      return; // storage unavailable
     }
+    writeListeners.forEach(fn => fn(key));
   },
 };
 

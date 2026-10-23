@@ -9,9 +9,12 @@ import { BIOMES, biomeIndex, palette, type Palette } from '../game/biomes';
 import { cave } from '../game/cave';
 import { Ambient } from '../game/ambient';
 import { DEEP_SONG } from '../game/song';
-import { SKINS, skinIndex, suits } from '../game/skins';
+import { rankLocked, SKINS, skinIndex, suits } from '../game/skins';
+import { bubbleAir, lifelineChance, magnetTime, shieldTime, upgrades } from '../game/upgrades';
+import { AIR_SAVER, CHARM_WINDOW, gadgets, HEAD_START, LUCKY_CLAM, PEARL_PULL_RANGE, type GadgetId } from '../game/gadgets';
 import { deepMissions } from '../game/missions';
-import { coins, soClose } from '../core/meta';
+import { coins, metaChanged, soClose } from '../core/meta';
+import { cloud } from '../core/cloud';
 import { embed } from '../core/embed';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
@@ -21,7 +24,7 @@ type Image = Phaser.GameObjects.Image;
 type Emitter = Phaser.GameObjects.Particles.ParticleEmitter;
 type Point = { x: number; y: number };
 type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
-type Perk = 'shield' | 'magnet';
+type Perk = 'shield' | 'magnet' | 'lifeline';
 type State = 'title' | 'play' | 'paused' | 'over';
 
 interface Obstacle {
@@ -31,6 +34,8 @@ interface Obstacle {
   lunge?: number; dash?: number;
   /** counted for missions once it is behind the diver */
   passed?: boolean;
+  /** closest clearance while it could hurt you (negative = it touched you) */
+  gap?: number;
 }
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
@@ -51,9 +56,12 @@ const WALL_BOUNCE = 70;        // how hard a plain wall pushes you back
 /** Sharp stretches of wall (coral spikes) appear below SPIKE_FROM metres and cost a life. */
 const SPIKE_SEG = 520, SPIKE_H = 19, SPIKE_FROM = 160;
 const STEER = 1300;            // portrait steering acceleration
-const SHIELD_TIME = 12;
-const MAGNET_TIME = 9;
 const MAGNET_RANGE = 170;
+const CLOSE_CALL = 22;         // clearance (px) that still counts as a close call
+const COMBO_WINDOW = 4;        // seconds to chain the next close call
+const COMBO_MAX = 5;           // a chained close call pays up to this many coins
+const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
+const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
@@ -63,8 +71,8 @@ const portraitView = () => matchMedia('(orientation: portrait)').matches;
 const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish', eel: 'Zapped by an electric eel' };
 /** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
 const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
-const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', shield: 'pk-shield', magnet: 'pk-magnet' };
-const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffe7a8, shield: 0x5fb4ff, magnet: 0xff8fa8 };
+const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', shield: 'pk-shield', magnet: 'pk-magnet', lifeline: 'pk-life' };
+const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffe7a8, shield: 0x5fb4ff, magnet: 0xff8fa8, lifeline: 0xffd23f };
 
 export class GameScene extends Phaser.Scene {
   private state: State = 'title';
@@ -78,7 +86,26 @@ export class GameScene extends Phaser.Scene {
   private touches = new Map<number, number>(); // pointerId -> clientX, for portrait steering
   private shieldT = 0;
   private magnetT = 0;
+  /** Held until a hit (or empty tank) would end the dive, then saves you once. */
+  private lifeline = false;
+  /** Power-up strengths for this dive, from the shop upgrades. */
+  private shieldTime = shieldTime(0);
+  private magnetTime = magnetTime(0);
+  private bubbleAir = bubbleAir(0);
+  private lifelineChance = lifelineChance(0);
+  /** Gadgets equipped for this dive. */
+  private gear = new Set<GadgetId>();
+  private coralGuard = false;
+  private slowT = 0;
+  private combo = 0;
+  private comboT = 0;
+  /** Best depth when this dive started: the marker you're chasing. */
+  private runBest = 0;
+  private bestWarned = false;
+  private bestPassed = false;
   private runPearls = 0;
+  private runClose = 0;
+  private runBonus = 0; // coins from close calls
   private runAir = 0;
   private runPerks = 0;
   private runAnglers = 0;
@@ -124,6 +151,7 @@ export class GameScene extends Phaser.Scene {
   private cone!: Image;
   private diver!: Sprite;
   private shieldRing!: Image;
+  private lifeRing!: Image;
   private exhaust!: Emitter;
   private pops!: Emitter;
   private sparks!: Emitter;
@@ -149,6 +177,7 @@ export class GameScene extends Phaser.Scene {
     this.vent = this.add.graphics().setScrollFactor(0).setDepth(4);
     this.diver = this.add.sprite(0, 0, `diver-${this.skin}`, 0).setOrigin(42 / 82, 0.5).setScale(TEX_SCALE).setDepth(6);
     this.shieldRing = this.add.image(0, 0, 'shield-ring').setScale(TEX_SCALE).setDepth(6.5).setVisible(false);
+    this.lifeRing = this.add.image(0, 0, 'life-ring').setScale(TEX_SCALE).setDepth(6.4).setVisible(false);
     this.lightMask = this.add.image(0, 0, 'lightmask').setScrollFactor(0).setDepth(8);
     this.cone = this.add.image(0, 0, 'cone').setScrollFactor(0).setDepth(9).setOrigin(0, 0.5).setBlendMode(Phaser.BlendModes.ADD);
     this.edges = this.add.graphics().setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
@@ -181,8 +210,13 @@ export class GameScene extends Phaser.Scene {
     addEventListener('blur', () => this.touches.clear());
     kb.on('keydown-ESC', () => this.togglePause());
     kb.on('keydown-P', () => this.togglePause());
-    kb.on('keydown-SPACE', () => { if (this.state === 'title' || this.state === 'over') this.startRun(); });
-    kb.on('keydown-ENTER', () => { if (this.state === 'title' || this.state === 'over') this.startRun(); });
+    // Space / Enter dive from the menus, but never while typing a name or reading the leaderboard.
+    const keyStart = () => {
+      if (ui.typing() || ui.isOpen('board')) return;
+      if (this.state === 'title' || this.state === 'over') this.startRun();
+    };
+    kb.on('keydown-SPACE', keyStart);
+    kb.on('keydown-ENTER', keyStart);
     this.input.on('pointerdown', () => sfx.unlock());
     kb.on('keydown', () => sfx.unlock());
 
@@ -199,12 +233,30 @@ export class GameScene extends Phaser.Scene {
       restart: () => this.startRun(),
       menu: () => this.toTitle(),
       skin: id => this.setSkin(id),
+      typing: on => {
+        // Let the name field receive Space and the arrow keys.
+        const kb = this.input.keyboard!;
+        kb.enabled = !on;
+        if (on) kb.disableGlobalCapture(); else kb.enableGlobalCapture();
+      },
     });
     // Pearls used to unlock suits directly; they're coins now. Convert any saved pearls once.
     const legacy = store.get('pearls', 0);
     if (legacy > 0) { coins.add(legacy); store.set('pearls', 0); }
     music.play(DEEP_SONG, 0.3);
+    cloud.onRestore(() => this.restored());
     this.toTitle();
+  }
+
+  /** A newer cloud save replaced this device's progress: reload what the scene keeps in memory. */
+  private restored() {
+    this.best = store.get('best', 0);
+    this.bestZone = store.get('bestZone', 0);
+    this.learned = store.get('learned', false);
+    this.skin = suits.equipped;
+    this.diver.setTexture(`diver-${this.skin}`, 0).play(`kick-${this.skin}`);
+    metaChanged();
+    if (this.state === 'title') { this.runBest = this.best; ui.showTitle(this.best, this.skin); }
   }
 
   private applyCamera() {
@@ -218,14 +270,14 @@ export class GameScene extends Phaser.Scene {
   private cr(a: number, b: number) { return a + this.rng() * (b - a); }
   private cpick<T>(a: T[]) { return a[(this.rng() * a.length) | 0]; }
 
-  /** Equip a suit, buying it first if needed. Returns false when the player can't afford it. */
+  /** Wear a diver, buying it first if needed. False when it costs too much or needs a higher rank. */
   private setSkin(id: string) {
     const s = SKINS[skinIndex(id)];
+    if (rankLocked(s, deepMissions.rank)) return false;
     const r = suits.buy(s.id);
     if (r === 'poor') return false;
     this.skin = suits.equipped;
     this.diver.setTexture(`diver-${this.skin}`, 0).play(`kick-${this.skin}`);
-    ui.setSkins(this.skin);
     return true;
   }
 
@@ -238,8 +290,10 @@ export class GameScene extends Phaser.Scene {
     music.setIntensity(0.3);
     this.state = 'title';
     this.dist = 0;
+    this.runBest = this.best;
     this.diverY = this.caveMid(0);
-    this.diver.setVisible(true).setAlpha(1).setRotation(0);
+    // The title shows a big portrait of the diver instead.
+    this.diver.setVisible(false).setAlpha(1).setRotation(0);
     this.shieldRing.setVisible(false);
     ui.showTitle(this.best, this.skin);
   }
@@ -255,7 +309,23 @@ export class GameScene extends Phaser.Scene {
     this.invuln = 0;
     this.shieldT = 0;
     this.magnetT = 0;
+    this.shieldTime = shieldTime(upgrades.level('shield'));
+    this.magnetTime = magnetTime(upgrades.level('magnet'));
+    this.bubbleAir = bubbleAir(upgrades.level('bubbles'));
+    this.lifelineChance = lifelineChance(upgrades.level('lifeline'));
+    this.gear = new Set(gadgets.equipped(deepMissions.rank));
+    this.coralGuard = this.gear.has('coralguard');
+    if (this.gear.has('headstart')) this.shieldT = HEAD_START;
+    this.lifeline = false;
+    this.slowT = 0;
+    this.combo = 0;
+    this.comboT = 0;
+    this.runBest = this.best;
+    this.bestWarned = false;
+    this.bestPassed = false;
     this.runPearls = 0;
+    this.runClose = 0;
+    this.runBonus = 0;
     this.runAir = 0;
     this.runPerks = 0;
     this.runAnglers = 0;
@@ -279,6 +349,8 @@ export class GameScene extends Phaser.Scene {
     ui.setHearts(this.hearts);
     ui.setPearls(0);
     ui.setPerk(null, 0);
+    ui.setLifeline(false);
+    ui.setRank(null);
     ui.banner(BIOMES[0].name);
     ui.hint(!this.learned);
     this.ambient.start();
@@ -336,7 +408,10 @@ export class GameScene extends Phaser.Scene {
   // ---------- Simulation
 
   update(_time: number, deltaMs: number) {
-    const dt = Math.min(0.033, deltaMs / 1000);
+    const raw = Math.min(0.033, deltaMs / 1000);
+    // The lifeline save plays out in slow motion for a moment.
+    if (this.state === 'play') this.slowT = Math.max(0, this.slowT - raw);
+    const dt = this.slowT > 0 ? raw * SLOWMO_RATE : raw;
     this.clock += dt;
 
     if (this.state === 'play') this.step(dt);
@@ -388,6 +463,7 @@ export class GameScene extends Phaser.Scene {
     this.speed = 200 + Math.min(200, depth * 0.14);
     this.dist += this.speed * dt;
     ui.setDepth(Math.floor(depth));
+    this.chaseBest(depth);
     this.ambient.setDepth(depth);
     music.setIntensity(0.45 + Math.min(0.55, depth / 450));
 
@@ -396,10 +472,11 @@ export class GameScene extends Phaser.Scene {
     this.wallT = Math.max(0, this.wallT - dt);
     if (this.shieldT > 0) { this.shieldT = Math.max(0, this.shieldT - dt); if (!this.shieldT) this.perkEnded(); }
     if (this.magnetT > 0) { this.magnetT = Math.max(0, this.magnetT - dt); if (!this.magnetT) this.perkEnded(); }
-    ui.setPerk(this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null, this.shieldT ? this.shieldT / SHIELD_TIME : this.magnetT / MAGNET_TIME);
+    if (this.comboT > 0) { this.comboT = Math.max(0, this.comboT - dt); if (!this.comboT) this.combo = 0; }
+    ui.setPerk(this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null, this.shieldT ? this.shieldT / this.shieldTime : this.magnetT / this.magnetTime);
 
     // Oxygen drains a little faster the deeper you are.
-    this.oxy -= (6.5 + depth * 0.003) * dt;
+    this.oxy -= (6.5 + depth * 0.003) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * dt;
     const low = this.oxy < 25;
     ui.setOxygen(this.oxy / 100, low);
     ui.lowO2(low);
@@ -440,12 +517,15 @@ export class GameScene extends Phaser.Scene {
         if (o.lunge !== undefined && o.lunge > 0) { o.lunge -= dt; if (o.lunge <= 0) { o.dash = 0.55; sfx.tone(200, 0.2, { type: 'square', vol: 0.04, slideTo: 120 }); } }
         if (o.dash && o.dash > 0) { o.dash -= dt; o.x -= 300 * dt; o.y += clamp(this.diverY - o.y, -1, 1) * 70 * dt; }
       }
-      if (this.hits(o)) {
+      const gap = this.clearance(o);
+      if (gap !== null) o.gap = Math.min(o.gap ?? Infinity, gap);
+      if (gap !== null && gap < 0) {
         this.hitCreature(o);
         if (this.state !== 'play') return;
       }
       if (!o.passed && o.x < this.dist - 40) {
         o.passed = true;
+        if (o.gap !== undefined && o.gap >= 0 && o.gap < CLOSE_CALL) this.closeCall();
         if (o.kind === 'angler') this.runAnglers++;
         if (o.kind === 'eel') this.runEels++;
       }
@@ -465,7 +545,41 @@ export class GameScene extends Phaser.Scene {
     if (this.diverY - DIVER_R < topEdge) this.hitWall(topEdge + DIVER_R, 1, spikeTop);
     else if (this.diverY + DIVER_R > botEdge) this.hitWall(botEdge - DIVER_R, -1, spikeBot);
     if (this.state !== 'play') return;
-    if (this.oxy <= 0) { this.oxy = 0; this.die('Ran out of air'); }
+    if (this.oxy <= 0) {
+      if (this.lifeline) this.rescue();
+      else { this.oxy = 0; this.die('Ran out of air'); }
+    }
+  }
+
+  /** Warn when your best depth is near, and celebrate passing it mid-dive. */
+  private chaseBest(depth: number) {
+    if (this.runBest <= 0) return;
+    if (this.bestPassed) { ui.setBest(Math.floor(depth)); return; }
+    if (!this.bestWarned && this.runBest >= 100 && depth >= this.runBest - 50) {
+      this.bestWarned = true;
+      ui.damage('50 m to your best!', true);
+    }
+    if (depth < this.runBest) return;
+    this.bestPassed = true;
+    ui.banner('New record!', 'Past your best');
+    this.cameras.main.flash(260, 255, 214, 90);
+    this.sparks.explode(24, this.dist + 20, this.diverY);
+    sfx.tone(523, 0.2, { vol: 0.08 }); sfx.tone(659, 0.2, { vol: 0.08, delay: 0.09 }); sfx.tone(1046, 0.45, { vol: 0.08, delay: 0.18 });
+    buzz([15, 30, 25]);
+  }
+
+  /** Slipping past a creature with very little room: pays coins, more for each one chained. */
+  private closeCall() {
+    const charm = this.gear.has('charm');
+    this.combo = this.comboT > 0 ? Math.min(COMBO_MAX, this.combo + 1) : 1;
+    this.comboT = charm ? CHARM_WINDOW : COMBO_WINDOW;
+    this.runClose++;
+    const pay = this.combo + (charm ? 1 : 0);
+    this.runBonus += pay;
+    ui.damage(this.combo > 1 ? `Close call ×${this.combo}! +${pay}` : `Close call! +${pay}`, true);
+    sfx.tone(660 + this.combo * 110, 0.1, { type: 'triangle', vol: 0.07, slideTo: 990 + this.combo * 110 });
+    buzz(10);
+    this.sparks.explode(3 + this.combo * 2, this.dist + 6, this.diverY);
   }
 
   private spawning(depth: number, dt: number) {
@@ -483,13 +597,27 @@ export class GameScene extends Phaser.Scene {
       this.nextPearls = this.cr(520, 900);
     }
     if ((this.nextPerk -= step) <= 0) {
-      this.spawnRow(this.rng() < 0.5 ? 'shield' : 'magnet', 1, 0);
+      // The lifeline is rare and never offered while you still hold one.
+      const r = this.rng();
+      const lc = this.lifelineChance;
+      this.spawnRow(r < lc && !this.lifeline && depth > LIFELINE_FROM ? 'lifeline' : r < lc + (1 - lc) / 2 ? 'shield' : 'magnet', 1, 0);
       this.nextPerk = this.cr(2200, 3400);
     }
   }
 
   private hitWall(y: number, dir: 1 | -1, sharp: boolean) {
     this.diverY = y;
+    if (sharp && this.coralGuard && this.invuln <= 0 && this.shieldT <= 0) {
+      // Coral Guard takes the first sharp-coral hit of the dive.
+      this.coralGuard = false;
+      this.vy = dir * 220;
+      this.invuln = 0.8;
+      this.pops.explode(12, this.dist, y - dir * DIVER_R);
+      sfx.tone(700, 0.2, { vol: 0.08, slideTo: 400 });
+      buzz(15);
+      ui.damage('Coral Guard!', true);
+      return;
+    }
     if (sharp) {
       this.vy = dir * 220;
       this.sparks.explode(8, this.dist, y - dir * DIVER_R);
@@ -523,12 +651,13 @@ export class GameScene extends Phaser.Scene {
 
   private eelCharged(o: Obstacle) { return ((this.clock + o.ph) % EEL_CYCLE) < EEL_ON; }
 
-  private hits(o: Obstacle) {
-    if (o.kind !== 'eel') return Math.hypot(o.x - this.dist, o.y + o.dy - this.diverY) < o.r + DIVER_R * 0.8;
+  /** Room between the diver and a creature's hit zone (negative = touching), or null while it's harmless. */
+  private clearance(o: Obstacle) {
+    if (o.kind !== 'eel') return Math.hypot(o.x - this.dist, o.y + o.dy - this.diverY) - (o.r + DIVER_R * 0.8);
     // Eels are only dangerous while charged, along their whole body.
-    if (!this.eelCharged(o)) return false;
+    if (!this.eelCharged(o)) return null;
     const dx = clamp(this.dist, o.x - EEL_HALF, o.x + EEL_HALF) - this.dist;
-    return Math.hypot(dx, o.y - this.diverY) < 8 + DIVER_R * 0.8;
+    return Math.hypot(dx, o.y - this.diverY) - (8 + DIVER_R * 0.8);
   }
 
   private hitCreature(o: Obstacle) {
@@ -546,8 +675,10 @@ export class GameScene extends Phaser.Scene {
   private loseLife(reason: string) {
     if (this.invuln > 0) return;
     if (this.shieldT > 0) { this.useShield(); this.invuln = 0.8; return; }
-    this.hearts--;
     if (this.cleanDepth < 0) this.cleanDepth = Math.floor(this.dist / 10);
+    this.combo = 0; this.comboT = 0;
+    if (this.hearts <= 1 && this.lifeline) { this.rescue(); return; }
+    this.hearts--;
     this.invuln = HIT_INVULN;
     ui.setHearts(this.hearts);
     if (this.hearts <= 0) { this.die(reason); return; }
@@ -567,15 +698,34 @@ export class GameScene extends Phaser.Scene {
     this.perkEnded();
   }
 
+  /** The lifeline spends itself instead of ending the dive. */
+  private rescue() {
+    this.lifeline = false;
+    ui.setLifeline(false);
+    this.invuln = 2.2;
+    this.oxy = Math.max(this.oxy, 45);
+    this.slowT = SLOWMO_TIME;
+    this.vy = clamp(this.caveMid(this.dist) - this.diverY, -1, 1) * 260;
+    this.pops.explode(22, this.dist, this.diverY);
+    this.sparks.explode(16, this.dist, this.diverY);
+    this.cameras.main.flash(300, 255, 214, 90);
+    sfx.tone(523, 0.2, { vol: 0.09 }); sfx.tone(784, 0.25, { vol: 0.08, delay: 0.1 }); sfx.tone(1046, 0.5, { vol: 0.08, delay: 0.2 });
+    buzz([20, 40, 60]);
+    ui.damage('Saved by your lifeline!', true);
+  }
+
   private perkEnded() { if (!this.shieldT && !this.magnetT) ui.setPerk(null, 0); }
 
   private collect(dt: number, leftEdge: number) {
     this.items = this.items.filter(p => {
       p.ph += dt;
       // The magnet pulls pearls and air bubbles towards the diver.
-      if (this.magnetT > 0 && (p.type === 'pearl' || p.type === 'air')) {
+      // The magnet (and the Pearl Pull gadget, for pearls only) draws pickups towards the diver.
+      const range = this.magnetT > 0 && (p.type === 'pearl' || p.type === 'air') ? MAGNET_RANGE
+        : p.type === 'pearl' && this.gear.has('pearlpull') ? PEARL_PULL_RANGE : 0;
+      if (range) {
         const dx = this.dist - p.x, dy = this.diverY - p.y, d = Math.hypot(dx, dy);
-        if (d < MAGNET_RANGE && d > 1) { const pull = (1 - d / MAGNET_RANGE) * 520 * dt + 60 * dt; p.x += (dx / d) * pull; p.y += (dy / d) * pull; }
+        if (d < range && d > 1) { const pull = (1 - d / range) * 520 * dt + 60 * dt; p.x += (dx / d) * pull; p.y += (dy / d) * pull; }
       }
       if (Math.hypot(p.x - this.dist, p.y - this.diverY) < DIVER_R + (p.type === 'pearl' ? 10 : 14)) {
         this.take(p);
@@ -591,20 +741,24 @@ export class GameScene extends Phaser.Scene {
   private take(p: Pickup) {
     if (p.type === 'air') {
       this.runAir++;
-      this.oxy = Math.min(100, this.oxy + 11);
+      this.oxy = Math.min(100, this.oxy + this.bubbleAir);
       sfx.tone(rand(620, 820), 0.12, { vol: 0.12, slideTo: 1200 });
       buzz(8);
       this.pops.explode(7, p.x, p.y);
       this.tweens.add({ targets: this.diver, scaleX: TEX_SCALE * 1.18, scaleY: TEX_SCALE * 0.86, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
     } else if (p.type === 'pearl') {
-      this.runPearls++;
+      const lucky = this.gear.has('luckyclam') && Math.random() < LUCKY_CLAM;
+      this.runPearls += lucky ? 2 : 1;
+      if (lucky) this.sparks.explode(6, p.x, p.y);
       ui.setPearls(this.runPearls);
       sfx.tone(1180 + (this.runPearls % 5) * 120, 0.08, { type: 'triangle', vol: 0.06 });
       this.sparks.explode(3, p.x, p.y);
     } else {
       this.runPerks++;
-      if (p.type === 'shield') this.shieldT = SHIELD_TIME; else this.magnetT = MAGNET_TIME;
-      ui.damage(p.type === 'shield' ? 'Shield up!' : 'Magnet!', true);
+      if (p.type === 'shield') this.shieldT = this.shieldTime;
+      else if (p.type === 'magnet') this.magnetT = this.magnetTime;
+      else { this.lifeline = true; ui.setLifeline(true); }
+      ui.damage(p.type === 'shield' ? 'Shield up!' : p.type === 'magnet' ? 'Magnet!' : 'Lifeline!', true);
       sfx.tone(523, 0.18, { vol: 0.09 }); sfx.tone(784, 0.3, { vol: 0.08, delay: 0.08 });
       buzz(18);
       this.sparks.explode(14, p.x, p.y);
@@ -618,7 +772,7 @@ export class GameScene extends Phaser.Scene {
       this.diverY = this.caveMid(0) + Math.sin(this.clock * 1.4) * 8;
       this.diver.anims.timeScale = 0.5;
       this.exhaustT -= dt;
-      if (this.exhaustT <= 0) { this.exhaustT = rand(0.4, 1.1); this.exhaust.emitParticleAt(this.dist - 4, this.diverY - 10, 1); }
+      if (this.exhaustT <= 0 && this.diver.visible) { this.exhaustT = rand(0.4, 1.1); this.exhaust.emitParticleAt(this.dist - 4, this.diverY - 10, 1); }
     } else if (this.state === 'over') {
       this.diverY += 40 * dt;
       this.diver.setAlpha(Math.max(0, this.diver.alpha - dt * 0.6));
@@ -690,20 +844,27 @@ export class GameScene extends Phaser.Scene {
     music.setIntensity(0.25);
     this.diver.setRotation(0.9);
     this.shieldRing.setVisible(false);
+    this.lifeRing.setVisible(false);
+    ui.setLifeline(false);
 
     const depth = Math.floor(this.dist / 10);
-    const prevBest = this.best;
+    const prevBest = this.runBest;
+    // Read the saved best, not the in-memory one: a cloud restore may have raised it mid-dive.
+    this.best = Math.max(this.best, store.get('best', 0));
     const isBest = depth > this.best;
     if (isBest) { this.best = depth; store.set('best', depth); }
+    void this.postScore(depth, isBest);
     embed.score(depth, this.best);
     if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
 
-    // Rewards: coins for the dive plus any missions completed.
-    const runCoins = this.runPearls + Math.floor(depth / 40); // ~25–45 for a good dive
-    coins.add(runCoins);
+    // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
+    const bonus = deepMissions.bonus;
+    const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus); // ~25–45 for a good dive at x1
+    const closeCoins = Math.round(this.runBonus * bonus);
+    coins.add(runCoins + closeCoins);
     const coinsBefore = coins.balance;
-    const results = deepMissions.report({
-      depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks,
+    const { results, rankUp } = deepMissions.report({
+      depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks, closeCalls: this.runClose,
       cleanDepth: this.cleanDepth < 0 ? depth : this.cleanDepth,
       anglers: this.runAnglers, eels: this.runEels,
     });
@@ -715,11 +876,18 @@ export class GameScene extends Phaser.Scene {
       if (this.state !== 'over') return;
       ui.showOver({
         depth, reason, zone: BIOMES[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
-        close: soClose(depth, prevBest, ' m'), results,
-        earned: [{ label: 'Dive', n: runCoins }, { label: 'Missions', n: missionCoins }],
+        close: soClose(depth, prevBest, ' m'), results, rankUp,
+        earned: [{ label: `Dive ×${bonus.toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }],
       });
-      ui.setSkins(this.skin);
     });
+  }
+
+  /** Send a new best to the leaderboard, then show where this dive ranks worldwide. */
+  private async postScore(depth: number, isBest: boolean) {
+    if (!cloud.enabled) return;
+    if (isBest) await cloud.submitBest(depth);
+    const rank = await cloud.rank(depth);
+    if (rank && this.state === 'over') ui.setRank(rank, isBest);
   }
 
   // ---------- Rendering
@@ -835,12 +1003,17 @@ export class GameScene extends Phaser.Scene {
         g.lineStyle(4.5, 0x3ad06b, reef); g.strokePoints(pts);
       }
     }
-    // A flag on the trench floor at your best depth.
-    const flags: [number, number][] = [[this.best, 0xffc43d]];
-    for (const [m, col] of flags) {
-      const fx = m * 10;
-      if (m <= 0 || fx < x0 - 40 || fx > x0 + W + 40) continue;
-      const floor = cave(fx, H, this.cv)[1];
+    // A flag on the trench floor at your best depth (its glowing line across the trench is drawn below).
+    const bestX = this.runBest * 10, bestOn = this.runBest > 0 && bestX > x0 - 40 && bestX < x0 + W + 40;
+    if (bestOn) {
+      const fx = bestX, col = 0xffc43d;
+      const [ceil, floor] = cave(fx, H, this.cv);
+      const la = this.bestPassed ? 0.35 : 1;
+      for (let y = ceil + 6; y < floor - 6; y += 16) {
+        const y2 = Math.min(y + 9, floor - 6);
+        g.lineStyle(6, OUTLINE, la); g.lineBetween(fx, y, fx, y2);
+        g.lineStyle(3, col, la); g.lineBetween(fx, y, fx, y2);
+      }
       g.lineStyle(5, OUTLINE, 1); g.lineBetween(fx, floor + 2, fx, floor - 46);
       g.lineStyle(2.4, 0xeef4f9, 1); g.lineBetween(fx, floor + 2, fx, floor - 46);
       const wave = Math.sin(T * 4) * 3;
@@ -882,7 +1055,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const p of this.items) {
       const y = p.y + Math.sin(p.ph * 3) * 3;
-      const big = p.type === 'shield' || p.type === 'magnet';
+      const big = p.type !== 'air' && p.type !== 'pearl';
       p.sprite.setPosition(p.x, y).setRotation(big ? Math.sin(p.ph * 2) * 0.15 : 0);
       p.glow.setPosition(p.x, y).setDisplaySize(big ? 70 : 44, big ? 70 : 44).setAlpha(big ? 0.55 + Math.sin(p.ph * 5) * 0.2 : 0.35);
     }
@@ -894,6 +1067,10 @@ export class GameScene extends Phaser.Scene {
       .setPosition(this.dist, this.diverY)
       .setScale(TEX_SCALE * (1 + Math.sin(T * 6) * 0.04))
       .setAlpha(this.shieldT < 2 && Math.sin(T * 20) > 0 ? 0.4 : 1);
+    this.lifeRing.setVisible(this.lifeline && this.state !== 'over')
+      .setPosition(this.dist, this.diverY)
+      .setScale(TEX_SCALE * (1.18 + Math.sin(T * 3) * 0.03))
+      .setAlpha(0.8);
 
     // Darkness with a pool of headlamp light around the diver.
     const dark = pal.dark;
@@ -914,6 +1091,14 @@ export class GameScene extends Phaser.Scene {
       // Sharp coral glows red in the dark so it can always be seen coming.
       this.edges.lineStyle(9, 0xff4d6d, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
       for (const run of this.spikeRuns) if (run.length > 1) this.edges.strokePoints(run);
+    }
+    // Your best depth: a dashed gold line across the trench, bright enough to see in the dark.
+    if (bestOn) {
+      const [t, b] = cave(bestX, H, this.cv), a = this.bestPassed ? 0.25 : 0.6 + Math.sin(T * 5) * 0.2;
+      this.edges.lineStyle(10, 0xffb020, a * 0.35);
+      this.edges.lineBetween(bestX, t, bestX, b);
+      this.edges.lineStyle(3, 0xffe27a, a);
+      for (let y = t + 6; y < b - 6; y += 16) this.edges.lineBetween(bestX, y, bestX, Math.min(y + 9, b - 6));
     }
   }
 }

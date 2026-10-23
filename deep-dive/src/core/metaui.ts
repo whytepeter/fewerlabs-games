@@ -19,7 +19,7 @@ export function mountCoins(root: ParentNode = document) {
 
 /** Missions list. Pass `results` after a run to show what moved and what got completed. */
 export function renderMissions(el: HTMLElement, list: Mission[], results?: MissionResult[]) {
-  const rows = results ?? list.map(m => ({ mission: m, done: false, gained: 0 }));
+  const rows = results ?? list.map(m => ({ mission: m, done: !!m.done, gained: 0 }));
   el.innerHTML = rows.map(({ mission: m, done, gained }) => {
     const frac = Math.min(1, m.progress / m.target);
     const prog = `<small>${m.kind === 'run' && !done ? 'Best ' : ''}${Math.min(m.progress, m.target).toLocaleString()} / ${m.target.toLocaleString()}</small>`;

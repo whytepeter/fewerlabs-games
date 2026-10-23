@@ -9,6 +9,7 @@ import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { initPWA } from './core/pwa';
 import { initEmbed } from './core/embed';
+import { cloud } from './core/cloud';
 
 autoScaleUI();
 
@@ -28,4 +29,5 @@ const game = createGame({
 if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
 
 initPWA();
+void cloud.start();
 initEmbed('deep-dive');

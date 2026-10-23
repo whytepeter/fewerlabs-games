@@ -4,29 +4,16 @@
  *   - shop: owned / equipped cosmetics
  *   - missions: three active goals, each paying coins
  *
- * Everything goes through `persist` below so a backend (e.g. Firebase) can replace localStorage
- * later without changing the games.
+ * Everything goes through the same `store` as the rest of the game, so core/cloud.ts can back it
+ * up to Firebase without changing the games.
  */
-
-const ROOT = 'deep-dive:';
-
-const persist = {
-  get<T>(key: string, fallback: T): T {
-    try {
-      const v = localStorage.getItem(ROOT + key);
-      return v === null ? fallback : (JSON.parse(v) as T);
-    } catch {
-      return fallback;
-    }
-  },
-  set(key: string, value: unknown) {
-    try { localStorage.setItem(ROOT + key, JSON.stringify(value)); } catch { /* storage unavailable */ }
-  },
-};
+import { store as persist } from './settings';
 
 type Listener = () => void;
 const listeners: Listener[] = [];
 const changed = () => listeners.forEach(fn => fn());
+/** Tell every listener the saved progress changed (e.g. after a cloud restore). */
+export const metaChanged = changed;
 /** Called whenever coins, ownership or missions change. */
 export function onMeta(fn: Listener) { listeners.push(fn); }
 
@@ -91,11 +78,21 @@ export function shop(game: string, slot: string, items: ShopItem[]) {
  * `text` may contain {n} for the target.
  */
 export interface MissionDef { id: string; text: string; stat: string; kind: 'run' | 'total'; targets: number[]; reward: number }
-export interface Mission { id: string; text: string; stat: string; kind: 'run' | 'total'; target: number; reward: number; progress: number; tier: number }
+export interface Mission { id: string; text: string; stat: string; kind: 'run' | 'total'; target: number; reward: number; progress: number; tier: number; done?: boolean }
 export interface MissionResult { mission: Mission; done: boolean; gained: number }
+export interface RankUp { rank: number; reward: number }
 
+/** Each rank adds this much to the coin bonus, up to MAX_BONUS. */
+const RANK_BONUS = 0.1, MAX_BONUS = 3;
+export const SKIP_COST = 50;
+
+/**
+ * Missions come in sets of three (as in Jetpack Joyride). Finished ones stay ticked until the
+ * whole set is done; then the player ranks up, earns a bonus and gets a fresh, harder set.
+ * Every rank raises the coin bonus for good.
+ */
 export function missions(game: string, pool: MissionDef[]) {
-  const key = `${game}:missions`, tierKey = `${game}:missionTiers`;
+  const key = `${game}:missions`, tierKey = `${game}:missionTiers`, rankKey = `${game}:rank`;
   const tiers = () => persist.get<Record<string, number>>(tierKey, {});
 
   const make = (def: MissionDef): Mission => {
@@ -111,32 +108,59 @@ export function missions(game: string, pool: MissionDef[]) {
     persist.set(key, list);
     return list;
   };
+  const rankReward = (rank: number) => 50 + rank * 25;
 
   return {
     get active() { return load(); },
+    /** Missions ranks completed so far (starts at 1). */
+    get rank() { return persist.get(rankKey, 1); },
+    /** Coin multiplier earned by rank: x1.1 at rank 1, x2 at rank 10, capped at x3. */
+    get bonus() { return Math.min(MAX_BONUS, 1 + this.rank * RANK_BONUS); },
+    /** Coins paid for finishing the current set. */
+    get rankReward() { return rankReward(this.rank + 1); },
+
     /**
-     * Report a finished run's stats. Completed missions pay their coins and are replaced by a
-     * fresh one (the same template comes back harder later). Returns what happened to each.
+     * Report a finished run's stats. Completed missions pay their coins and stay ticked; when the
+     * whole set is done the player ranks up. Returns what happened to each, and any rank-up.
      */
-    report(stats: Record<string, number>): MissionResult[] {
+    report(stats: Record<string, number>): { results: MissionResult[]; rankUp: RankUp | null } {
       const list = load();
       const results: MissionResult[] = [];
-      const next: Mission[] = [];
       for (const m of list) {
+        if (m.done) { results.push({ mission: { ...m }, done: true, gained: 0 }); continue; }
         const v = stats[m.stat] ?? 0;
         const before = m.progress;
         m.progress = m.kind === 'run' ? Math.max(m.progress, v) : m.progress + v;
-        const done = m.progress >= m.target;
-        results.push({ mission: { ...m }, done, gained: m.progress - before });
-        if (done) {
+        if (m.progress >= m.target) {
+          m.done = true;
           coins.add(m.reward);
           const t = tiers(); t[m.id] = (t[m.id] ?? 0) + 1; persist.set(tierKey, t);
-        } else next.push(m);
+        }
+        // Only missions finished in this run count as "done" on the card; older ticks show as ticked.
+        results.push({ mission: { ...m }, done: !!m.done, gained: m.progress - before });
       }
-      persist.set(key, next);
+      let rankUp: RankUp | null = null;
+      if (list.every(m => m.done)) {
+        const rank = this.rank + 1, reward = rankReward(rank);
+        persist.set(rankKey, rank);
+        coins.add(reward);
+        persist.set(key, []);
+        rankUp = { rank, reward };
+      } else persist.set(key, list);
       load(); // refill
       changed();
-      return results;
+      return { results, rankUp };
+    },
+
+    /** Swap an unfinished mission for a new one, for SKIP_COST coins. */
+    skip(id: string) {
+      const list = load(), i = list.findIndex(m => m.id === id && !m.done);
+      const free = pool.filter(d => !list.some(m => m.id === d.id));
+      if (i < 0 || !free.length || !coins.spend(SKIP_COST)) return false;
+      list[i] = make(free[(Math.random() * free.length) | 0]);
+      persist.set(key, list);
+      changed();
+      return true;
     },
   };
 }

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { canvasTexture, glowTexture, sheetTexture } from '../core/tex';
-import { SKINS, type Skin } from '../game/skins';
+import { canvasTexture, glowTexture, sheetTexture, TEX_RES } from '../core/tex';
+import { portraits, SKINS, type Skin } from '../game/skins';
 
 const TAU = Math.PI * 2;
 const OUT = '#16233b'; // cartoon outline, matches --k-outline
@@ -32,7 +32,21 @@ export class BootScene extends Phaser.Scene {
     this.anims.create({ key: 'eel', frames: this.frames('eel', 4), frameRate: 8, repeat: -1 });
     this.anims.create({ key: 'angler', frames: this.frames('angler', 2), frameRate: 6, repeat: -1 });
 
+    // Pictures for the HTML menus (diver select, shop).
+    for (const skin of SKINS) this.portrait(`diver-${skin.id}`, 82, 46);
+    for (const key of ['pk-shield', 'pk-magnet', 'pk-life', 'gd-airsaver', 'gd-headstart', 'gd-pearlpull', 'gd-coralguard', 'gd-luckyclam', 'gd-charm']) this.portrait(key, 32, 32);
+    this.portrait('air', 32, 32);
+
     this.scene.start('game');
+  }
+
+  /** Frame 0 of a texture (logical size w x h) as a data URL. */
+  private portrait(key: string, w: number, h: number) {
+    const src = this.textures.get(key).getSourceImage() as HTMLCanvasElement;
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(w * TEX_RES); c.height = Math.ceil(h * TEX_RES);
+    c.getContext('2d')!.drawImage(src, 0, 0, c.width, c.height, 0, 0, c.width, c.height);
+    portraits[key] = c.toDataURL();
   }
 
   private frames(key: string, n: number) {
@@ -45,27 +59,147 @@ export class BootScene extends Phaser.Scene {
       const k = Math.sin((i / 6) * TAU) * 0.45;
       setup(ctx);
       ctx.translate(42, 23);
+      if (skin.extra === 'glow') {
+        const g = ctx.createRadialGradient(4, 0, 4, 4, 0, 22);
+        g.addColorStop(0, 'rgba(170,235,255,.55)'); g.addColorStop(1, 'rgba(170,235,255,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(4, 0, 22, 0, TAU); ctx.fill();
+      }
       for (const s of [-1, 1]) {
+        // Flippers: a tapered blade with a couple of ridges.
         ctx.save();
-        ctx.translate(-17, s * 4);
+        ctx.translate(-16, s * 4);
         ctx.rotate(k * s);
-        ctx.beginPath(); ctx.ellipse(-10, 0, 10.5, 4.4, 0, 0, TAU);
+        ctx.beginPath();
+        ctx.moveTo(0, -3.4);
+        ctx.quadraticCurveTo(-12, -7.5, -22, -4);
+        ctx.quadraticCurveTo(-19, 0, -22, 4);
+        ctx.quadraticCurveTo(-12, 7.5, 0, 3.4);
+        ctx.closePath();
         fillOut(ctx, skin.fins);
+        ctx.strokeStyle = 'rgba(22,35,59,.28)'; ctx.lineWidth = 1.1;
+        for (const y of [-2.6, 0, 2.6]) { ctx.beginPath(); ctx.moveTo(-4, y * 0.4); ctx.lineTo(-18, y); ctx.stroke(); }
         ctx.restore();
       }
-      roundRect(ctx, -15, -16, 20, 8.5, 4.2); fillOut(ctx, '#d3dde6');
-      ctx.fillStyle = '#ff5a7a'; ctx.fillRect(-12, -13.5, 3, 3.5);
+      // Air tank on the back, with a valve and a hose to the helmet.
+      const metal = ctx.createLinearGradient(0, -17, 0, -8);
+      metal.addColorStop(0, '#ffffff'); metal.addColorStop(0.5, '#d3dde6'); metal.addColorStop(1, '#9fb0c0');
+      roundRect(ctx, -16, -17, 21, 9, 4.5); fillOut(ctx, metal);
+      ctx.fillStyle = '#ff5a7a'; ctx.fillRect(-12.5, -16.2, 3, 7.4);
+      roundRect(ctx, 4, -15.5, 3.4, 6, 1.4); fillOut(ctx, '#8796a8', 1.8);
+      ctx.beginPath(); ctx.moveTo(7, -12.5); ctx.quadraticCurveTo(11, -13, 9.5, -8.5);
+      ctx.lineWidth = 3.6; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.lineWidth = 1.6; ctx.strokeStyle = '#4a5a78'; ctx.stroke();
+      if (skin.extra === 'spikes') {
+        // Puffer spines poking out above and below the body (it covers their bases).
+        for (const a of [-2.5, -2.0, -1.5, -1.0, 1.0, 1.5, 2.0, 2.5]) {
+          const x = Math.cos(a) * 15, y = Math.sin(a) * 8.5, nx = Math.cos(a), ny = Math.sin(a);
+          ctx.beginPath(); ctx.moveTo(x - ny * 3, y + nx * 3); ctx.lineTo(x + nx * 7, y + ny * 7); ctx.lineTo(x + ny * 3, y - nx * 3); ctx.closePath();
+          fillOut(ctx, '#ffe08a', 2);
+        }
+      }
+      // Body: base colour, belly, pattern, then light from above and shade below.
       ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); fillOut(ctx, skin.body);
-      ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(0, 4.5, 13, 4, 0, 0, Math.PI); ctx.fill();
-      ctx.fillStyle = skin.fins; ctx.fillRect(-4, -9.2, 3.2, 18.4);
+      ctx.save();
+      ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); ctx.clip();
+      ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(0, 6, 15, 5, 0, 0, TAU); ctx.fill();
+      if (skin.extra === 'spots') {
+        ctx.fillStyle = 'rgba(255,255,255,.6)';
+        for (const [x, y, r] of [[-9, -3, 2.4], [-1, -5.5, 1.8], [-5, 3, 1.7], [6, -4, 1.4]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
+      } else if (skin.extra === 'stripes') {
+        ctx.fillStyle = skin.belly;
+        ctx.fillRect(-12, -10, 2.8, 20); ctx.fillRect(4, -10, 2.8, 20);
+      }
+      const hi = ctx.createRadialGradient(-5, -6, 1, -5, -6, 14);
+      hi.addColorStop(0, 'rgba(255,255,255,.5)'); hi.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hi; ctx.fillRect(-17, -10, 34, 20);
+      ctx.restore();
+      // Harness strap in the fin colour, with a gold buckle.
+      ctx.fillStyle = skin.fins; ctx.fillRect(-4.5, -9.4, 3.6, 18.8);
+      roundRect(ctx, -5.6, -2, 5.8, 4, 1.2); fillOut(ctx, '#ffc43d', 1.6);
       ctx.beginPath(); ctx.ellipse(0, 0, 17, 10, 0, 0, TAU); ctx.lineWidth = LINE; ctx.strokeStyle = OUT; ctx.stroke();
-      // helmet with a face behind the glass
-      ctx.beginPath(); ctx.arc(16, -1.5, 10.5, 0, TAU); fillOut(ctx, '#eef4f9');
-      ctx.beginPath(); ctx.arc(17.5, -1.5, 7.4, 0, TAU); fillOut(ctx, '#7fd6ff', 2);
-      eye(ctx, 15.4, -3, 1.9); eye(ctx, 20.2, -3, 1.9);
-      ctx.strokeStyle = OUT; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(17.8, 0.4, 2.6, 0.25, Math.PI - 0.25); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(13.6, -6, 2.2, 1.2, -0.6, 0, TAU); ctx.fill();
+      // Helmet: silver dome, brass porthole ring with bolts, glass with a face behind it.
+      const dome = ctx.createRadialGradient(13, -6, 1, 16, -1.5, 11);
+      dome.addColorStop(0, '#ffffff'); dome.addColorStop(1, '#c9d5e0');
+      ctx.beginPath(); ctx.arc(16, -1.5, 10.5, 0, TAU); fillOut(ctx, dome);
+      ctx.beginPath(); ctx.arc(17.5, -1.5, 8.2, 0, TAU); fillOut(ctx, '#ffc43d', 1.8);
+      ctx.fillStyle = OUT;
+      for (const a of [0.6, 2.1, 3.7, 5.2]) { ctx.beginPath(); ctx.arc(17.5 + Math.cos(a) * 8.2, -1.5 + Math.sin(a) * 8.2, 0.8, 0, TAU); ctx.fill(); }
+      const glass = ctx.createLinearGradient(12, -8, 22, 5);
+      glass.addColorStop(0, '#c4f1ff'); glass.addColorStop(1, '#4fb8ee');
+      ctx.beginPath(); ctx.arc(17.5, -1.5, 6.6, 0, TAU); fillOut(ctx, glass, 2);
+      eye(ctx, 15.6, -2.8, 1.8); eye(ctx, 20, -2.8, 1.8);
+      ctx.fillStyle = 'rgba(255,110,150,.55)';
+      ctx.beginPath(); ctx.ellipse(14.2, 0.6, 1.5, 0.9, 0, 0, TAU); ctx.ellipse(21.4, 0.6, 1.5, 0.9, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(17.8, 0.2, 2.3, 0.3, Math.PI - 0.3); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(17.5, -1.5, 5, 3.6, 4.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(21.2, -5.2, 0.9, 0, TAU); ctx.fill();
+      this.drawHeadgear(ctx, skin);
     });
+  }
+
+  /** Shop icons for the gadgets, one 32x32 badge each. */
+  private makeGadgets() {
+    const badge = (key: string, bg: string, draw: (ctx: Ctx) => void) => canvasTexture(this, key, 32, 32, ctx => {
+      setup(ctx); ctx.translate(16, 16);
+      ctx.beginPath(); ctx.arc(0, 0, 13.5, 0, TAU); fillOut(ctx, bg, 2.4);
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-4, -7, 6, 3, -0.4, 0, TAU); ctx.fill();
+      draw(ctx);
+    });
+    badge('gd-airsaver', '#33dcb8', ctx => {
+      roundRect(ctx, -4.5, -7, 9, 15, 4); fillOut(ctx, '#eef4f9', 2);
+      ctx.beginPath(); ctx.arc(0, 1, 2.6, 0, TAU); fillOut(ctx, '#ffd23f', 1.6);
+      roundRect(ctx, -1.6, -10, 3.2, 3.4, 1); fillOut(ctx, '#8796a8', 1.6);
+    });
+    badge('gd-headstart', '#3aa8ff', ctx => {
+      ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(7, -5); ctx.quadraticCurveTo(7, 4, 0, 8.5); ctx.quadraticCurveTo(-7, 4, -7, -5); ctx.closePath();
+      fillOut(ctx, '#eef4f9', 2);
+      ctx.beginPath(); ctx.moveTo(1.5, -5); ctx.lineTo(-2.5, 1); ctx.lineTo(0.5, 1); ctx.lineTo(-1.5, 6); ctx.lineTo(3, -0.5); ctx.lineTo(0, -0.5); ctx.closePath();
+      fillOut(ctx, '#ffd23f', 1.4);
+    });
+    badge('gd-pearlpull', '#9b6bff', ctx => {
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      for (const r of [8.5, 5.8]) { ctx.beginPath(); ctx.arc(0, 0, r, -2.4, -0.7); ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, r, 0.7, 2.4); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(0, 0, 3.6, 0, TAU); fillOut(ctx, '#fbeaff', 1.8);
+    });
+    badge('gd-coralguard', '#ff7aa8', ctx => {
+      ctx.lineWidth = 4.6; ctx.strokeStyle = OUT;
+      const branch = () => { ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(0, -2); ctx.moveTo(0, 2); ctx.lineTo(-5, -4); ctx.moveTo(0, 0); ctx.lineTo(5, -6); ctx.moveTo(0, -2); ctx.lineTo(0, -8); ctx.stroke(); };
+      branch(); ctx.lineWidth = 2.4; ctx.strokeStyle = '#ffd0da'; branch();
+    });
+    badge('gd-luckyclam', '#ffc43d', ctx => {
+      ctx.beginPath(); ctx.moveTo(-8, 2); ctx.quadraticCurveTo(0, -11, 8, 2); ctx.closePath(); fillOut(ctx, '#ffe8f0', 2);
+      ctx.beginPath(); ctx.moveTo(-8, 2); ctx.quadraticCurveTo(0, 9, 8, 2); ctx.closePath(); fillOut(ctx, '#ffb3c8', 2);
+      ctx.beginPath(); ctx.arc(0, 1.5, 2.6, 0, TAU); fillOut(ctx, '#ffffff', 1.4);
+    });
+    badge('gd-charm', '#ff9f43', ctx => {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 3.6 : 8.4, a = -Math.PI / 2 + (i * Math.PI) / 5; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      ctx.closePath(); fillOut(ctx, '#fff59d', 2);
+    });
+  }
+
+  /** Crown, captain's cap or angler lure on top of the helmet. */
+  private drawHeadgear(ctx: Ctx, skin: Skin) {
+    if (skin.extra === 'crown') {
+      ctx.beginPath();
+      ctx.moveTo(9.5, -10); ctx.lineTo(10, -17); ctx.lineTo(13.2, -13.4); ctx.lineTo(16, -18.5);
+      ctx.lineTo(18.8, -13.4); ctx.lineTo(22, -17); ctx.lineTo(22.5, -10); ctx.closePath();
+      fillOut(ctx, '#ffd23f', 2);
+      ctx.fillStyle = '#ff5a7a'; ctx.beginPath(); ctx.arc(16, -12.6, 1.4, 0, TAU); ctx.fill();
+    } else if (skin.extra === 'cap') {
+      roundRect(ctx, 9, -18, 14, 6.5, 3); fillOut(ctx, '#ffffff', 2);
+      ctx.beginPath(); ctx.ellipse(17, -11.2, 9.5, 2.6, 0, 0, TAU); fillOut(ctx, '#1d2c6b', 2);
+      ctx.fillStyle = '#ffc43d'; ctx.beginPath(); ctx.arc(16, -15, 1.6, 0, TAU); ctx.fill();
+    } else if (skin.extra === 'lure') {
+      ctx.beginPath(); ctx.moveTo(18, -11.5); ctx.quadraticCurveTo(20, -21, 28, -18.5);
+      ctx.lineWidth = 3.6; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.lineWidth = 1.6; ctx.strokeStyle = skin.fins; ctx.stroke();
+      const g = ctx.createRadialGradient(29, -18, 0, 29, -18, 7);
+      g.addColorStop(0, 'rgba(255,250,170,.9)'); g.addColorStop(1, 'rgba(255,250,170,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(29, -18, 7, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(29, -18, 2.8, 0, TAU); fillOut(ctx, '#fff59d', 1.8);
+    }
   }
 
   private makePickups() {
@@ -93,6 +227,23 @@ export class BootScene extends Phaser.Scene {
       ctx.fillStyle = '#dfe6ee'; ctx.strokeStyle = OUT; ctx.lineWidth = 2;
       for (const x of [-6.5, 6.5]) { ctx.beginPath(); ctx.rect(x - 2.6, -6, 5.2, 4.5); ctx.fill(); ctx.stroke(); }
     });
+    canvasTexture(this, 'pk-life', 32, 32, ctx => {
+      setup(ctx); ctx.translate(16, 16); bubble(ctx);
+      ctx.beginPath(); ctx.moveTo(0, 7.5);
+      ctx.bezierCurveTo(-9, 1, -7.5, -8, 0, -3.5);
+      ctx.bezierCurveTo(7.5, -8, 9, 1, 0, 7.5);
+      fillOut(ctx, '#ffd23f', 2.2);
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-3.4, -3, 1.8, 1.1, -0.6, 0, TAU); ctx.fill();
+    });
+    canvasTexture(this, 'life-ring', 70, 70, ctx => {
+      setup(ctx); ctx.translate(35, 35);
+      ctx.beginPath(); ctx.arc(0, 0, 30, 0, TAU);
+      ctx.setLineDash([7, 6]);
+      ctx.lineWidth = 4.5; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#ffd23f'; ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    this.makeGadgets();
     canvasTexture(this, 'shield-ring', 70, 70, ctx => {
       setup(ctx); ctx.translate(35, 35);
       ctx.beginPath(); ctx.arc(0, 0, 30, 0, TAU);
