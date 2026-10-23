@@ -1,0 +1,410 @@
+// Pure game simulation for Ripple: no Phaser, no DOM, no relative imports, so it can also be
+// run headless (e.g. `node` with type stripping) for bot playtests.
+// Units are logical CSS pixels and seconds.
+
+/* tuning (from the original prototype) */
+export const RIP_SPEED = 165, RIP_LIFE = 1.7, RIP_BAND = 24, RIP_PUSH = 420;
+export const DRAG = 0.75, MAX_V = 150, BOAT_R = 13, DOCK_R = 32;
+export const LIVES = 3;
+/** Pause between losing the last boat and the game-over screen. */
+export const END_DELAY = 0.9;
+/** Hard cap on live ripples so finger-mashing can't grow per-frame work without bound. */
+const MAX_RIPPLES = 16;
+
+export interface Rect { x: number; y: number; w: number; h: number; r: number }
+export type BoatState = 'in' | 'dock' | 'sink';
+export interface Boat {
+  id: number; x: number; y: number; vx: number; vy: number; ang: number;
+  ci: number; life: number; age: number; state: BoatState; k: number; wake: number; noped: number;
+  dock: Dock | null;
+  /** Magnitude of this frame's ripple push (visual feedback only). */
+  push: number;
+}
+export interface Dock {
+  id: number; x: number; y: number; r: number; ci: number; got: number;
+  moving: boolean; fade: number; moved: boolean; isNew: boolean;
+}
+export interface Rock { id: number; x: number; y: number; r: number; variant: number; isNew: boolean }
+export interface Pad { x: number; y: number; r: number; a: number; flower: boolean }
+export interface Ripple { x: number; y: number; age: number }
+export interface Mote { x: number; y: number; ph: number; sp: number }
+
+export type SimEvent =
+  | { type: 'drop'; x: number; y: number }
+  | { type: 'dock'; boat: Boat; dock: Dock; note: number }
+  | { type: 'nope'; x: number; y: number }
+  | { type: 'bump' }
+  | { type: 'lost'; boat: Boat }
+  | { type: 'unlock'; ci: number }
+  | { type: 'dockMove'; dock: Dock }
+  | { type: 'wake'; x: number; y: number }
+  | { type: 'over'; score: number }
+  | { type: 'hud' };
+
+/** idle = title backdrop, play = running, ending = last life lost (no scoring), over = finished. */
+export type Phase = 'idle' | 'play' | 'ending' | 'over';
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+type Circle = { x: number; y: number; r?: number };
+
+export class Sim {
+  pond: Rect = { x: 0, y: 0, w: 400, h: 600, r: 40 };
+  phase: Phase = 'idle';
+  score = 0;
+  lives = LIVES;
+  t = 0;
+  nextSpawn = 0.8;
+  colors = 1;
+  combo = 0;
+  lastDock = -9;
+  endT = 0;
+  /** The player has tapped at least once in this run (drives the onboarding hint). */
+  tapped = false;
+  /** Longest chain of quick docks this run (1 = a single dock). */
+  bestCombo = 0;
+  /** Title-screen backdrop: a few timer-less boats drift about while idle. */
+  demo = false;
+  private demoT = 0;
+  boats: Boat[] = [];
+  docks: Dock[] = [];
+  rocks: Rock[] = [];
+  pads: Pad[] = [];
+  ripples: Ripple[] = [];
+  motes: Mote[] = [];
+  events: SimEvent[] = [];
+
+  private rng: () => number;
+  private nextId = 1;
+  private laidOut = false;
+
+  constructor(rng: () => number = Math.random) {
+    this.rng = rng;
+  }
+
+  private rand(a: number, b: number) { return a + this.rng() * (b - a); }
+
+  /* ---------- layout */
+
+  /** Set the pond rect. If a world exists, existing positions are rescaled into the new pond. */
+  setPond(p: Rect) {
+    const old = this.pond;
+    this.pond = { ...p };
+    if (this.laidOut && (Math.abs(old.w - p.w) > 0.5 || Math.abs(old.h - p.h) > 0.5 || old.x !== p.x || old.y !== p.y)) {
+      this.refit(old);
+    }
+  }
+
+  /** Keep everything where it was relative to the pond rather than re-rolling rocks and pads. */
+  private refit(old: Rect) {
+    if (!(old.w > 0 && old.h > 0)) return;
+    const p = this.pond;
+    const fit = (o: { x: number; y: number }) => {
+      o.x = p.x + (o.x - old.x) / old.w * p.w;
+      o.y = p.y + (o.y - old.y) / old.h * p.h;
+    };
+    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples] as { x: number; y: number }[][]) list.forEach(fit);
+    this.relax();
+    for (const b of this.boats) {
+      b.x = clamp(b.x, p.x + BOAT_R, p.x + p.w - BOAT_R);
+      b.y = clamp(b.y, p.y + BOAT_R, p.y + p.h - BOAT_R);
+    }
+  }
+
+  /**
+   * A drastic aspect change (portrait -> landscape) squashes distances, so gently push
+   * docks and rocks apart again, then clamp them inside the pond.
+   */
+  private relax() {
+    const p = this.pond;
+    const push = (a: Circle, b: Circle, min: number, moveA: number, moveB: number) => {
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy);
+      if (d >= min) return;
+      if (d < 0.001) { dx = 1; dy = 0; d = 1; }
+      const over = min - d, nx = dx / d, ny = dy / d;
+      a.x -= nx * over * moveA; a.y -= ny * over * moveA;
+      b.x += nx * over * moveB; b.y += ny * over * moveB;
+    };
+    for (let it = 0; it < 8; it++) {
+      for (let i = 0; i < this.docks.length; i++)
+        for (let j = i + 1; j < this.docks.length; j++) push(this.docks[i], this.docks[j], 110, 0.5, 0.5);
+      for (const d of this.docks) for (const k of this.rocks) push(d, k, d.r + k.r + 18, 0, 1);
+      for (let i = 0; i < this.rocks.length; i++)
+        for (let j = i + 1; j < this.rocks.length; j++) push(this.rocks[i], this.rocks[j], this.rocks[i].r + this.rocks[j].r + 24, 0.5, 0.5);
+      for (const d of this.docks) {
+        d.x = clamp(d.x, p.x + d.r + 20, p.x + p.w - d.r - 20);
+        d.y = clamp(d.y, p.y + d.r + 20, p.y + p.h - d.r - 20);
+      }
+      for (const k of this.rocks) {
+        k.x = clamp(k.x, p.x + k.r + 10, p.x + p.w - k.r - 10);
+        k.y = clamp(k.y, p.y + k.r + 10, p.y + p.h - k.r - 10);
+      }
+    }
+  }
+
+  private clearance(x: number, y: number, avoid: Circle[]) {
+    let c = Infinity;
+    for (const o of avoid) c = Math.min(c, Math.hypot(o.x - x, o.y - y) - (o.r ?? 0));
+    return c;
+  }
+  private farFrom(x: number, y: number, list: Circle[], minD: number) {
+    return this.clearance(x, y, list) > minD;
+  }
+  /** Random spot that keeps `minD` clear of `avoid`; falls back to the roomiest spot tried. */
+  private placeInPond(margin: number, avoid: Circle[], minD: number) {
+    const p = this.pond;
+    let best = { x: p.x + p.w / 2, y: p.y + p.h / 2 }, bestC = -Infinity;
+    for (let i = 0; i < 80; i++) {
+      const x = this.rand(p.x + margin, p.x + p.w - margin), y = this.rand(p.y + margin, p.y + p.h - margin);
+      const c = this.clearance(x, y, avoid);
+      if (c > minD) return { x, y };
+      if (c > bestC) { bestC = c; best = { x, y }; }
+    }
+    return best;
+  }
+
+  private addDock(ci: number) {
+    const pt = this.placeInPond(DOCK_R + 26, [...this.docks, ...this.rocks], 130);
+    this.docks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: DOCK_R, ci, got: 0, moving: false, fade: 0, moved: false, isNew: true });
+  }
+
+  private layout() {
+    this.boats = []; this.docks = []; this.rocks = []; this.ripples = []; this.pads = []; this.motes = [];
+    this.addDock(0);
+    const p = this.pond;
+    const nRocks = clamp(Math.round(p.w * p.h / 90000), 2, 5);
+    for (let i = 0; i < nRocks; i++) {
+      const pt = this.placeInPond(50, [...this.rocks, ...this.docks], 90);
+      this.rocks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: this.rand(14, 24), variant: Math.floor(this.rng() * 4), isNew: false });
+    }
+    for (let i = 0; i < 7; i++) {
+      const pt = this.placeInPond(30, [...this.rocks, ...this.docks, ...this.pads], 40);
+      this.pads.push({ x: pt.x, y: pt.y, r: this.rand(12, 20), a: this.rng() * 6, flower: this.rng() < 0.3 });
+    }
+    for (let i = 0; i < 18; i++) {
+      this.motes.push({ x: this.rand(p.x, p.x + p.w), y: this.rand(p.y, p.y + p.h), ph: this.rng() * 6, sp: this.rand(4, 10) });
+    }
+    this.laidOut = true;
+  }
+
+  private resetCounters() {
+    this.score = 0; this.lives = LIVES; this.t = 0; this.nextSpawn = 0.8; this.colors = 1;
+    this.combo = 0; this.lastDock = -9; this.endT = 0; this.tapped = false; this.bestCombo = 0;
+    this.events.length = 0;
+  }
+
+  /** Lay out a fresh pond with no boats, used as the title-screen backdrop. */
+  prepare() {
+    this.layout();
+    this.resetCounters();
+    this.phase = 'idle';
+    this.demo = true;
+    this.demoT = 0.4;
+  }
+
+  /** Begin a run. `keepLayout` reuses an untouched title layout instead of re-rolling it. */
+  start(keepLayout = false) {
+    if (!keepLayout || !this.laidOut) this.layout();
+    else { this.boats = []; this.ripples = []; }
+    this.resetCounters();
+    this.demo = false;
+    this.phase = 'play';
+    this.events.push({ type: 'hud' });
+  }
+
+  /* ---------- play */
+
+  get maxBoats() { return Math.min(6, 2 + Math.floor(this.score / 4)); }
+
+  private spawnBoat(ci = Math.floor(this.rng() * this.colors)) {
+    const p = this.pond, m = 6;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const side = Math.floor(this.rng() * 4);
+      const sp = this.rand(22, 32);
+      let x: number, y: number, vx: number, vy: number;
+      if (side === 0) { x = this.rand(p.x + 60, p.x + p.w - 60); y = p.y + m + BOAT_R; vx = this.rand(-8, 8); vy = sp; }
+      else if (side === 1) { x = p.x + p.w - m - BOAT_R; y = this.rand(p.y + 60, p.y + p.h - 60); vx = -sp; vy = this.rand(-8, 8); }
+      else if (side === 2) { x = this.rand(p.x + 60, p.x + p.w - 60); y = p.y + p.h - m - BOAT_R; vx = this.rand(-8, 8); vy = -sp; }
+      else { x = p.x + m + BOAT_R; y = this.rand(p.y + 60, p.y + p.h - 60); vx = sp; vy = this.rand(-8, 8); }
+      if (!this.farFrom(x, y, this.docks, 50) && attempt < 11) continue;
+      const life = Math.max(22, 34 - this.score * 0.35);
+      this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0 });
+      return;
+    }
+  }
+
+  /** A tap on the water. Returns false when ignored (not playing, or outside the pond). */
+  tap(x: number, y: number) {
+    const p = this.pond;
+    if (this.phase !== 'play') return false;
+    if (x < p.x || x > p.x + p.w || y < p.y || y > p.y + p.h) return false;
+    if (this.ripples.length >= MAX_RIPPLES) this.ripples.shift();
+    this.ripples.push({ x, y, age: 0 });
+    this.tapped = true;
+    this.events.push({ type: 'drop', x, y });
+    return true;
+  }
+
+  /** A decorative ripple for the title backdrop (no sound event, no hint bookkeeping). */
+  splash(x: number, y: number) {
+    const p = this.pond;
+    if (this.phase !== 'idle' || x < p.x || x > p.x + p.w || y < p.y || y > p.y + p.h) return;
+    if (this.ripples.length >= MAX_RIPPLES) this.ripples.shift();
+    this.ripples.push({ x, y, age: 0 });
+  }
+
+  private dockBoat(b: Boat, d: Dock) {
+    b.state = 'dock'; b.k = 0; b.dock = d;
+    this.combo = this.t - this.lastDock < 4 ? this.combo + 1 : 0;
+    this.lastDock = this.t;
+    this.bestCombo = Math.max(this.bestCombo, this.combo + 1);
+    this.score++; d.got++;
+    this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.score / 10)) });
+    this.events.push({ type: 'hud' });
+    // progression: more colours, more rocks, docks that move
+    if (this.score === 8 && this.colors < 2) { this.colors = 2; this.addDock(1); this.events.push({ type: 'unlock', ci: 1 }); }
+    else if (this.score === 20 && this.colors < 3) { this.colors = 3; this.addDock(2); this.events.push({ type: 'unlock', ci: 2 }); }
+    if (this.score % 12 === 0 && this.rocks.length < 7) {
+      const pt = this.placeInPond(50, [...this.rocks, ...this.docks, ...this.boats.map(o => ({ x: o.x, y: o.y, r: 30 }))], 80);
+      this.rocks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: this.rand(14, 22), variant: Math.floor(this.rng() * 4), isNew: true });
+    }
+    if (d.got >= 4 && !d.moving) { d.moving = true; this.events.push({ type: 'dockMove', dock: d }); }
+  }
+
+  private loseBoat(b: Boat) {
+    b.state = 'sink'; b.k = 0;
+    this.lives = Math.max(0, this.lives - 1);
+    this.combo = 0;
+    this.events.push({ type: 'lost', boat: b });
+    this.events.push({ type: 'hud' });
+    if (this.lives <= 0) { this.phase = 'ending'; this.endT = END_DELAY; }
+  }
+
+  /** The boat the onboarding hint should point at, with its dock. */
+  hintTarget(): { boat: Boat; dock: Dock } | null {
+    if (this.phase !== 'play' || this.tapped) return null;
+    let best: { boat: Boat; dock: Dock } | null = null, bestLeft = Infinity;
+    for (const b of this.boats) {
+      if (b.state !== 'in') continue;
+      const d = this.docks.find(o => o.ci === b.ci);
+      if (!d) continue;
+      const left = b.life - b.age;
+      if (left < bestLeft) { bestLeft = left; best = { boat: b, dock: d }; }
+    }
+    return best;
+  }
+
+  /** Decorative motion that runs in every phase, including pause. */
+  ambient(dt: number) {
+    for (const m of this.motes) {
+      m.ph += dt;
+      m.x += Math.cos(m.ph * 0.5) * m.sp * dt;
+      m.y += Math.sin(m.ph * 0.37) * m.sp * dt;
+    }
+  }
+
+  update(dt: number) {
+    const playing = this.phase === 'play';
+    if (playing || this.phase === 'ending') this.t += dt;
+
+    if (playing) {
+      const active = this.boats.reduce((n, b) => n + (b.state === 'in' ? 1 : 0), 0);
+      this.nextSpawn -= dt;
+      if (this.nextSpawn <= 0 && active < this.maxBoats) {
+        this.spawnBoat();
+        this.nextSpawn = Math.max(2.6, 6.5 - this.score * 0.13);
+      }
+      if (active === 0 && this.nextSpawn > 1.2) this.nextSpawn = 1.2;
+    } else if (this.phase === 'idle' && this.demo) {
+      this.demoT -= dt;
+      if (this.demoT <= 0) { this.demoT = 2.2; if (this.boats.length < 3) this.spawnBoat(Math.floor(this.rng() * 3)); }
+    } else if (this.phase === 'ending') {
+      this.endT -= dt;
+      if (this.endT <= 0) { this.phase = 'over'; this.events.push({ type: 'over', score: this.score }); }
+    }
+
+    for (const r of this.ripples) r.age += dt;
+    if (this.ripples.length && this.ripples[0].age >= RIP_LIFE) this.ripples = this.ripples.filter(r => r.age < RIP_LIFE);
+
+    const p = this.pond;
+    for (const b of this.boats) {
+      if (b.state === 'in') {
+        // ripple forces: each expanding ring pushes boats outward as its front passes; rings simply add
+        let fx = 0, fy = 0;
+        for (const r of this.ripples) {
+          const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 0.001;
+          const front = r.age * RIP_SPEED, off = Math.abs(d - front);
+          if (off < RIP_BAND) {
+            const fade = Math.pow(1 - r.age / RIP_LIFE, 1.4) * (1 - off / RIP_BAND);
+            const near = d < 26 ? 1.6 : 1;
+            fx += dx / d * RIP_PUSH * fade * near; fy += dy / d * RIP_PUSH * fade * near;
+          }
+        }
+        b.push = Math.hypot(fx, fy);
+        // gentle swirling current so the pond feels alive
+        fx += Math.sin(b.y * 0.012 + this.t * 0.3) * 3; fy += Math.cos(b.x * 0.012 + this.t * 0.25) * 3;
+        b.vx += fx * dt; b.vy += fy * dt;
+        const damp = Math.exp(-DRAG * dt); b.vx *= damp; b.vy *= damp;
+        const sp = Math.hypot(b.vx, b.vy);
+        if (sp > MAX_V) { b.vx *= MAX_V / sp; b.vy *= MAX_V / sp; }
+        b.x += b.vx * dt; b.y += b.vy * dt;
+        // pond walls
+        const l = p.x + BOAT_R, rgt = p.x + p.w - BOAT_R, t = p.y + BOAT_R, bot = p.y + p.h - BOAT_R;
+        if (b.x < l) { b.x = l; b.vx = Math.abs(b.vx) * 0.55; }
+        if (b.x > rgt) { b.x = rgt; b.vx = -Math.abs(b.vx) * 0.55; }
+        if (b.y < t) { b.y = t; b.vy = Math.abs(b.vy) * 0.55; }
+        if (b.y > bot) { b.y = bot; b.vy = -Math.abs(b.vy) * 0.55; }
+        // rocks
+        for (const k of this.rocks) {
+          const dx = b.x - k.x, dy = b.y - k.y, d = Math.hypot(dx, dy), md = k.r + BOAT_R - 2;
+          if (d < md && d > 0) {
+            const nx = dx / d, ny = dy / d; b.x = k.x + nx * md; b.y = k.y + ny * md;
+            const vn = b.vx * nx + b.vy * ny;
+            if (vn < 0) { b.vx -= 1.6 * vn * nx; b.vy -= 1.6 * vn * ny; if (-vn > 30) this.events.push({ type: 'bump' }); }
+          }
+        }
+        // other boats
+        for (const o of this.boats) {
+          if (o === b || o.state !== 'in') continue;
+          const dx = b.x - o.x, dy = b.y - o.y, d = Math.hypot(dx, dy), md = BOAT_R * 2;
+          if (d < md && d > 0) { const push = (md - d) / 2, nx = dx / d, ny = dy / d; b.x += nx * push; b.y += ny * push; b.vx += nx * 20; b.vy += ny * 20; }
+        }
+        // docks: matching colour takes the boat (only while playing), others push it away
+        for (const d of this.docks) {
+          if (d.moving && d.fade > 0.5) continue;
+          const dd = Math.hypot(b.x - d.x, b.y - d.y);
+          if (dd < d.r - 6) {
+            if (d.ci === b.ci) { if (playing) { this.dockBoat(b, d); break; } }
+            else if (this.t - b.noped > 0.6) { b.noped = this.t; if (playing) this.events.push({ type: 'nope', x: b.x, y: b.y }); }
+          }
+          if (d.ci !== b.ci && dd < d.r + BOAT_R && dd > 0) {
+            const nx = (b.x - d.x) / dd, ny = (b.y - d.y) / dd; b.vx += nx * 160 * dt * 6; b.vy += ny * 160 * dt * 6;
+          }
+        }
+        if (b.state === 'in') {
+          if (sp > 4) b.ang += ((Math.atan2(b.vy, b.vx) - b.ang + Math.PI * 3) % (Math.PI * 2) - Math.PI) * Math.min(1, dt * 4);
+          if (playing) b.age += dt;
+          b.wake += dt * sp;
+          if (b.wake > 26) { b.wake = 0; this.events.push({ type: 'wake', x: b.x - Math.cos(b.ang) * 12, y: b.y - Math.sin(b.ang) * 12 }); }
+          if (playing && b.age >= b.life) this.loseBoat(b);
+        }
+      } else if (b.state === 'dock' && b.dock) {
+        b.k += dt * 2.2;
+        b.x += (b.dock.x - b.x) * Math.min(1, dt * 6); b.y += (b.dock.y - b.y) * Math.min(1, dt * 6);
+      } else if (b.state === 'sink') {
+        b.k += dt * 0.9; b.vx *= 0.95; b.vy *= 0.95; b.x += b.vx * dt; b.y += b.vy * dt;
+      }
+    }
+    if (this.boats.some(b => b.state !== 'in' && b.k >= 1)) this.boats = this.boats.filter(b => !(b.state !== 'in' && b.k >= 1));
+
+    for (const d of this.docks) {
+      if (!d.moving) continue;
+      d.fade += dt * 1.2;
+      if (d.fade >= 1 && !d.moved) {
+        const pt = this.placeInPond(d.r + 26, [...this.docks.filter(o => o !== d), ...this.rocks], 130);
+        d.x = pt.x; d.y = pt.y; d.moved = true; d.got = 0;
+      }
+      if (d.fade >= 2) { d.moving = false; d.moved = false; d.fade = 0; }
+    }
+  }
+}

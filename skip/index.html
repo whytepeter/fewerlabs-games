@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Skip a stone across a sunset lake. Tap as it touches the water to keep it flying." />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ff9e7a" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1b2a6b" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Skip" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="manifest" href="/skip/manifest.webmanifest" />
+  <link rel="icon" href="/skip/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/skip/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/skip/apple-touch-icon-180x180.png" />
+  <title>Skip</title>
+</head>
+<body>
+  <div id="game" aria-label="Stone skipping game. Pull back and release to throw, tap as the stone touches the water."></div>
+
+  <div id="ui">
+    <header id="hud" class="hud" hidden>
+      <div class="hud-side"><div class="hud-best k-outline">BEST <b id="hudBest">0</b></div></div>
+      <div class="hud-center">
+        <div class="k-pill dist-pill"><span class="k-pill-icon"><i data-icon="stone"></i></span><b id="dist">0</b><small>m</small></div>
+        <div class="k-pill streak-pill" id="streakPill" hidden><span class="k-pill-icon flame"><i data-icon="star"></i></span><b>×<span id="streak">0</span></b></div>
+      </div>
+      <div class="hud-side hud-right">
+        <button class="k-icon-btn k-icon-btn--sm k-btn--white" id="pauseBtn" aria-label="Pause"><i data-icon="pause"></i></button>
+      </div>
+    </header>
+
+    <div id="hint" class="hint k-outline" hidden aria-live="polite"><span class="hint-hand" aria-hidden="true"></span><span id="hintText"></span></div>
+
+    <section id="title" class="screen title-screen">
+      <div class="title-top">
+        <h1 class="k-logo" id="logo">Skip</h1>
+        <p class="title-tag k-outline">Skip a stone across the lake!</p>
+      </div>
+      <ul class="howto">
+        <li><span class="howto-n">1</span><span><b>Pull back</b> anywhere, let go</span></li>
+        <li><span class="howto-n">2</span><span><b>Tap</b> as the ring closes</span></li>
+        <li><span class="howto-n">3</span><span>Chain <b>Perfects</b> to fly far</span></li>
+      </ul>
+      <div class="title-bottom">
+        <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>Throw</button>
+        <div class="title-row">
+          <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+          <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
+          <button class="k-icon-btn k-icon-btn--sm" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
+          <a class="k-icon-btn k-icon-btn--sm k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
+        </div>
+      </div>
+    </section>
+
+    <section id="pause" class="k-screen" hidden>
+      <div class="k-panel panel-pause">
+        <div class="k-ribbon">Paused</div>
+        <div class="pause-btns">
+          <button class="k-btn k-btn--block" id="resumeBtn"><i data-icon="play"></i>Resume</button>
+          <button class="k-btn k-btn--yellow k-btn--block" id="restartBtn"><i data-icon="restart"></i>Restart</button>
+          <button class="k-btn k-btn--white k-btn--block" id="menuBtn"><i data-icon="home"></i>Home</button>
+        </div>
+        <div class="k-row pause-toggles">
+          <button class="k-toggle" data-setting="sound">Sound</button>
+          <button class="k-toggle" data-setting="haptics">Vibration</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="over" class="k-screen" hidden>
+      <div class="k-panel panel-over" aria-live="polite">
+        <div class="k-ribbon" id="overRibbon">Splash!</div>
+        <div class="over-main">
+          <div class="k-stars" id="overStars"></div>
+          <div class="k-big-num"><span id="overDist">0</span><small>m</small></div>
+          <div class="over-tag"><span class="k-tag" id="overTag">Best 0 m</span></div>
+        </div>
+        <div class="over-side">
+          <div class="k-stats">
+            <div class="k-stat"><span>Skips</span><b id="overSkips">0</b></div>
+            <div class="k-stat"><span>Best streak</span><b id="overStreak">0</b></div>
+            <div class="k-stat"><span>Lake glass</span><b id="overGlass">0</b></div>
+          </div>
+          <div class="over-btns">
+            <button class="k-btn k-btn--block" id="againBtn"><i data-icon="restart"></i>Throw again</button>
+            <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Home"><i data-icon="home"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/games/skip/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Tap the pond to make ripples and guide paper lantern boats to the dock of their colour." />
+  <meta name="theme-color" content="#8fd16a" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#23503c" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ripple" />
+  <meta name="format-detection" content="telephone=no" />
+  <link rel="manifest" href="/ripple/manifest.webmanifest" />
+  <link rel="icon" href="/ripple/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/ripple/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/ripple/apple-touch-icon-180x180.png" />
+  <title>Ripple</title>
+</head>
+<body>
+  <div id="game" aria-label="Pond game. Tap the water to make ripples that push paper boats into matching docks."></div>
+  <div id="safe" aria-hidden="true"></div>
+
+  <div id="ui">
+    <div id="flash" class="flash" aria-hidden="true"></div>
+    <div id="pops" class="pops" aria-hidden="true"></div>
+
+    <header id="hud" class="hud" hidden>
+      <div class="k-pill score-pill" id="scorePill" aria-label="Boats home">
+        <span class="k-pill-icon"><i data-icon="boat"></i></span><b id="score" aria-live="polite">0</b>
+      </div>
+      <div class="k-pill lives" id="lives" aria-label="3 boats left">
+        <span class="life"><svg viewBox="0 0 36 26" aria-hidden="true"><path class="life-hull" d="M3 14h30l-6 9H9z"/><path class="life-sail" d="M10.5 14 18 3.5 25.5 14z"/><circle class="life-lamp" cx="18" cy="10.6" r="3.1"/></svg></span>
+        <span class="life"><svg viewBox="0 0 36 26" aria-hidden="true"><path class="life-hull" d="M3 14h30l-6 9H9z"/><path class="life-sail" d="M10.5 14 18 3.5 25.5 14z"/><circle class="life-lamp" cx="18" cy="10.6" r="3.1"/></svg></span>
+        <span class="life"><svg viewBox="0 0 36 26" aria-hidden="true"><path class="life-hull" d="M3 14h30l-6 9H9z"/><path class="life-sail" d="M10.5 14 18 3.5 25.5 14z"/><circle class="life-lamp" cx="18" cy="10.6" r="3.1"/></svg></span>
+      </div>
+      <button class="k-icon-btn k-icon-btn--sm k-btn--yellow" id="pauseBtn" aria-label="Pause"><i data-icon="pause"></i></button>
+    </header>
+
+    <div id="toast" class="toast" aria-live="polite"><small id="toastSmall" class="k-outline"></small><span id="toastText" class="k-outline"></span></div>
+    <div id="hint" class="k-pill hint" hidden>
+      <span class="k-pill-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.2"/></svg></span>
+      <span>Tap behind a boat!</span>
+    </div>
+
+    <section id="title" class="k-screen title-screen" aria-labelledby="logo">
+      <div class="title-grid">
+        <div class="title-head">
+          <h1 class="k-logo" id="logo">Ripple</h1>
+          <p class="title-tag k-outline">Float the paper boats home!</p>
+        </div>
+        <div class="k-panel howto-panel">
+          <div class="k-ribbon">How to play</div>
+          <ul class="howto">
+            <li>
+              <span class="howto-ico ico-tap"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="16" cy="16" r="5.5" fill="#fff" stroke="#16233b" stroke-width="2.4"/></svg></span>
+              <span><b>Tap</b> the water to make a ripple. It pushes boats away.</span>
+            </li>
+            <li>
+              <span class="howto-ico ico-dock"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="#16233b" stroke-width="9"/><circle cx="16" cy="16" r="10" fill="none" stroke="#ffb000" stroke-width="5"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="6 9.7" stroke-dashoffset="3"/></svg></span>
+              <span><b>Dock</b> each boat in the ring of its colour.</span>
+            </li>
+            <li>
+              <span class="howto-ico ico-time"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4"/><path d="M16 6a10 10 0 1 1-9.5 13" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></span>
+              <span><b>Hurry</b> before its ring runs out. Lose 3 and it's over.</span>
+            </li>
+          </ul>
+        </div>
+        <div class="title-actions">
+          <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>PLAY</button>
+          <div class="title-row">
+            <div class="k-pill best-pill" aria-label="Best score"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b></div>
+            <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><span class="ico-on"><i data-icon="sound"></i></span><span class="ico-off"><i data-icon="mute"></i></span></button>
+            <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
+            <a class="k-icon-btn k-icon-btn--sm k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pause" class="k-screen" hidden aria-labelledby="pauseH">
+      <div class="k-panel pause-panel">
+        <div class="k-ribbon" id="pauseH">Paused</div>
+        <button class="k-btn k-btn--block" id="resumeBtn"><i data-icon="play"></i>Resume</button>
+        <div class="k-row">
+          <button class="k-btn k-btn--yellow k-btn--sm" id="restartBtn"><i data-icon="restart"></i>Restart</button>
+          <button class="k-btn k-btn--white k-btn--sm" id="menuBtn"><i data-icon="home"></i>Home</button>
+        </div>
+        <div class="k-row pause-toggles">
+          <button class="k-toggle" data-setting="sound">Sound</button>
+          <button class="k-toggle" data-setting="haptics">Vibration</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="over" class="k-screen" hidden aria-labelledby="overRibbon">
+      <div class="k-panel over-panel">
+        <div class="k-ribbon" id="overRibbon">Game Over</div>
+        <div class="over-main">
+          <div class="k-stars" id="stars" role="img" aria-label="0 of 3 stars"></div>
+          <div class="k-big-num" id="overScore">0</div>
+          <div class="over-line" id="overLine">boats home</div>
+          <span class="k-tag" id="overNew" hidden>NEW BEST!</span>
+        </div>
+        <div class="over-side">
+          <div class="k-stats">
+            <div class="k-stat"><span>Best</span><b id="statBest">0</b></div>
+            <div class="k-stat"><span>Colours unlocked</span><b id="statColours">1 / 3</b></div>
+            <div class="k-stat"><span>Best combo</span><b id="statCombo">–</b></div>
+          </div>
+          <div class="over-actions">
+            <button class="k-btn" id="againBtn"><i data-icon="restart"></i>Play again</button>
+            <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Home"><i data-icon="home"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/games/ripple/main.ts"></script>
+</body>
+</html>

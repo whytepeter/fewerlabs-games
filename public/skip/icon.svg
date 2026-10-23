@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3b48e"/>
+      <stop offset="1" stop-color="#fde3c8"/>
+    </linearGradient>
+    <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fc3cc"/>
+      <stop offset="1" stop-color="#3b7792"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe8ba" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#ffe8ba" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <circle cx="356" cy="214" r="120" fill="url(#glow)"/>
+  <circle cx="356" cy="214" r="54" fill="#fff4d4"/>
+  <path d="M0 300Q70 236 150 262T300 250T420 268T512 246V312H0Z" fill="#d6aaa8"/>
+  <path d="M0 312Q90 278 180 292T360 286T512 296V312H0Z" fill="#ad8ca2"/>
+  <rect y="306" width="512" height="206" fill="url(#lake)"/>
+  <g stroke="#fff4d4" stroke-linecap="round" stroke-width="7" opacity=".7">
+    <path d="M318 330H394"/><path d="M330 352H384"/><path d="M340 374H372"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-opacity=".9" stroke-width="7">
+    <ellipse cx="96" cy="392" rx="54" ry="13"/>
+    <ellipse cx="96" cy="392" rx="26" ry="6" stroke-opacity=".6"/>
+    <ellipse cx="220" cy="372" rx="38" ry="9" stroke-opacity=".7"/>
+  </g>
+  <path d="M96 380Q150 250 220 362Q262 290 300 300" fill="none" stroke="#24213a" stroke-opacity=".35" stroke-width="7" stroke-dasharray="2 18" stroke-linecap="round"/>
+  <g transform="translate(318 300) rotate(-14)">
+    <ellipse cx="0" cy="6" rx="52" ry="22" fill="#000" fill-opacity=".15"/>
+    <ellipse cx="0" cy="0" rx="54" ry="26" fill="#6c625d"/>
+    <ellipse cx="-8" cy="-9" rx="24" ry="8" fill="#b8aca2"/>
+  </g>
+</svg>

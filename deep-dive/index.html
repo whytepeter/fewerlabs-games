@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="description" content="Sink as deep as you dare. One button, endless trench." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Deep Dive" />
+  <meta name="format-detection" content="telephone=no" />
+  <meta name="theme-color" content="#0b3d6b" />
+  <link rel="manifest" href="/deep-dive/manifest.webmanifest" />
+  <link rel="icon" href="/deep-dive/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/deep-dive/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/deep-dive/apple-touch-icon-180x180.png" />
+  <title>Deep Dive</title>
+</head>
+<body>
+  <div id="game" aria-label="Deep Dive game area"></div>
+
+  <div id="ui">
+    <header id="hud" class="hud" hidden>
+      <div class="k-pill" id="depthPill"><span class="k-pill-icon"><i data-icon="depth"></i></span><b id="depth">0</b><small>m</small></div>
+      <div class="hud-o2">
+        <div class="o2-icon"><i data-icon="bubble"></i></div>
+        <div class="k-bar" id="o2bar"><div class="k-bar-fill" id="o2"></div></div>
+      </div>
+      <div class="hud-right">
+        <div class="hud-best"><i data-icon="trophy"></i><span id="hudBest">0</span></div>
+        <button class="k-icon-btn k-icon-btn--sm k-btn--white" id="pauseBtn" aria-label="Pause"><i data-icon="pause"></i></button>
+      </div>
+    </header>
+
+    <div id="banner" class="banner" aria-live="polite"><small>Entering</small><span id="bannerText"></span></div>
+    <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText">Hold anywhere to swim up</span></div>
+    <div id="lowO2" class="low-o2"></div>
+
+    <section id="title" class="k-screen title-screen">
+      <div class="title-layout">
+        <div class="title-top">
+          <h1 class="k-logo" id="logo">Deep Dive</h1>
+          <p class="title-tag k-outline">How deep can you go?</p>
+        </div>
+        <div class="title-bottom">
+          <button class="k-btn k-btn--lg" id="playBtn"><i data-icon="play"></i>Dive</button>
+          <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+          <div class="howto">
+            <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Hold</b><span id="howHoldText">to swim up</span></div>
+            <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
+            <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="close"></i></span><b>Avoid</b><span>walls &amp; critters</span></div>
+          </div>
+          <div class="icon-row">
+            <a class="k-icon-btn k-btn--white" href="/" aria-label="All games"><i data-icon="home"></i></a>
+            <button class="k-icon-btn k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
+            <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
+            <button class="k-icon-btn k-btn--yellow" id="fsBtn" aria-label="Full screen" hidden><i data-icon="fullscreen"></i></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pause" class="k-screen" hidden>
+      <div class="k-panel">
+        <div class="k-ribbon">Paused</div>
+        <button class="k-btn k-btn--lg k-btn--block" id="resumeBtn"><i data-icon="play"></i>Resume</button>
+        <div class="k-row" style="margin-top:14px">
+          <button class="k-btn k-btn--yellow" id="restartBtn"><i data-icon="restart"></i>Restart</button>
+          <button class="k-btn k-btn--white" id="menuBtn"><i data-icon="home"></i>Menu</button>
+        </div>
+        <div class="k-row" style="margin-top:16px">
+          <button class="k-icon-btn k-icon-btn--sm k-btn--blue" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
+          <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
+        </div>
+      </div>
+    </section>
+
+    <section id="over" class="k-screen" hidden>
+      <div class="k-panel over-panel">
+        <div class="k-ribbon" id="overRibbon">Game Over</div>
+        <div class="over-grid">
+          <div class="over-main">
+            <div class="k-stars" id="stars"></div>
+            <div class="k-big-num"><span id="overDepth">0</span><small>m</small></div>
+            <div class="over-reason" id="overReason"></div>
+            <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
+          </div>
+          <div class="over-side">
+            <div class="k-stats">
+              <div class="k-stat"><span>Zone</span><b id="overZone">Sunlit Reef</b></div>
+              <div class="k-stat"><span>Best</span><b id="overBestVal">0 m</b></div>
+              <div class="k-stat"><span>Next star</span><b id="overNext">150 m</b></div>
+            </div>
+            <div class="k-row over-buttons">
+              <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
+              <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="/src/games/deep-dive/main.ts"></script>
+</body>
+</html>
