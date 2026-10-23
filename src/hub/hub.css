@@ -81,3 +81,10 @@ header .k-logo { margin: 6px 0 14px; animation: k-float 3.4s ease-in-out infinit
 @media (prefers-reduced-motion: reduce) {
   .bubbles i, header .k-logo { animation: none; }
 }
+
+/* 404 page */
+.lost { min-height: calc(100dvh - 80px); display: grid; place-items: center; }
+.lost .k-panel { width: min(420px, 100%); padding-top: 40px; }
+.lost .k-logo { font-size: clamp(40px, 11vw, 58px); margin: 4px 0 16px; }
+.lost p { font-size: 16px; line-height: 1.45; margin-bottom: 22px; }
+.lost .k-btn { text-decoration: none; }

@@ -5,7 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // One page per game: any top-level folder with an index.html becomes /<folder>/.
 const root = import.meta.dirname;
-const pages: Record<string, string> = { hub: resolve(root, 'index.html') };
+const pages: Record<string, string> = {
+  hub: resolve(root, 'index.html'),
+  notFound: resolve(root, '404.html'), // Vercel serves /404.html for any unknown path
+};
 for (const dir of readdirSync(root, { withFileTypes: true })) {
   if (!dir.isDirectory() || ['node_modules', 'dist', 'public', 'src', 'scripts'].includes(dir.name)) continue;
   const html = resolve(root, dir.name, 'index.html');
