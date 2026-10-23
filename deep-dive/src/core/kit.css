@@ -285,6 +285,11 @@
 .k-update.busy { opacity: .7; pointer-events: none; }
 @keyframes k-update-in { from { opacity: 0; transform: translateY(-16px) scale(.9); } }
 
+/* Install offer in Settings (core/pwa.ts installMode) */
+.k-install { display: grid; gap: 8px; }
+.k-install-hint { margin: 0; font-size: 14px; line-height: 1.35; color: var(--k-ink-soft); text-align: center; }
+.k-install-hint b { color: var(--k-ink); }
+
 /* ---------- Progression (core/metaui.ts): coins, missions, earned summary */
 .k-coins {
   display: inline-flex; align-items: center; gap: 6px;
@@ -332,6 +337,6 @@
 .k-earned-parts { font-size: 12px; color: var(--k-ink-soft); }
 
 /* Inside the Fewer Labs Games store: the store handles updates, so hide the banner here. */
-.is-embedded .k-update { display: none !important; }
+.is-embedded .k-update, .is-embedded .k-install { display: none !important; }
 .embed-exit { margin-top: 8px; white-space: nowrap; }
 .k-row > .embed-exit { margin-top: 0; }

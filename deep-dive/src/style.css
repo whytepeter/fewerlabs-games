@@ -603,3 +603,21 @@ body {
 }
 .save-nudge[hidden] { display: none; }
 .settings-panel .icon-row { margin-top: 6px; }
+
+/* ---------- Tall menus: the card grows to the screen's height and only its list scrolls,
+   so the ribbon, tabs and Back button stay in view. */
+#shop, #missions, #divers, #settings, #board {
+  grid-template-rows: minmax(0, 1fr);
+  padding-top: calc(var(--safe-t) + 34px); /* the ribbon pokes out above the card */
+}
+.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel {
+  display: flex; flex-direction: column; max-height: 100%;
+}
+:is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel) > * { flex-shrink: 0; }
+#shopList, #missionList, #diverGrid, .settings-panel .account, #boardList {
+  flex-shrink: 1; min-height: 0; max-height: none;
+  overflow-y: auto; overscroll-behavior: contain;
+  /* Room for button shadows and "New" badges, which the scroll box would otherwise clip. */
+  padding: 8px 6px 8px; margin-inline: -6px;
+}
+.settings-panel .account { padding-top: 14px; }

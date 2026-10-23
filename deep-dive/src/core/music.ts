@@ -22,7 +22,8 @@ export type Voice =
   | 'whistle'  // sine with gentle vibrato
   | 'drift'    // dark detuned saws whose filter swells and opens with intensity: breathing pads
   | 'glass'    // soft sine with a faint octave and a long tail: droplets, music-box notes
-  | 'sub';     // rounded sine bass with an octave-down sub, soft attack
+  | 'sub'      // rounded sine bass with an octave-down sub, soft attack
+  | 'bounce';  // short round triangle bass with a little pitch blip: playful, bubbly
 
 export type DrumKit = 'none' | 'soft' | 'brush' | 'pop' | 'heartbeat';
 
@@ -44,7 +45,7 @@ export interface Song {
   lead: number[];
   /** Optional strum pattern: when set, the pad is strummed on these steps instead of held. */
   strum?: number[];
-  instruments?: { pad?: Voice; bass?: Voice; arp?: Voice; lead?: Voice };
+  instruments?: { pad?: Voice; bass?: Voice; arp?: Voice; lead?: Voice; hook?: Voice; arp2?: Voice };
   /** Older form, kept for compatibility. */
   sounds?: { pad?: OscillatorType; arp?: OscillatorType; lead?: OscillatorType; arpTone?: number };
   drums?: DrumKit;
@@ -67,12 +68,22 @@ export interface Song {
   /** Octave shifts for the arp (default +1) and bass (default -1). */
   arpOctave?: number;
   bassOctave?: number;
-  /** Bass note length in 16th steps (default 1.8). */
+  /** Bass note length in 16th steps (default 1.8). Bass steps: 1 = chord root, 2 = fifth, 3 = octave. */
   bassLen?: number;
   /** Intensity at which each layer comes in (defaults in the header). */
   layers?: { bass?: number; arp?: number; drums?: number; lead?: number };
-  /** Darker parts used once intensity reaches `at`. Chords switch only on a chord change. */
-  tense?: { at: number; progression?: number[][]; bass?: number[]; arp?: number[]; kick?: number[] };
+  /** Alternate (darker or busier) parts used once intensity reaches `at`. Chords switch only on a chord change. */
+  tense?: {
+    at: number; progression?: number[][]; bass?: number[]; arp?: number[];
+    kick?: number[]; hat?: number[]; snare?: number[];
+  };
+  /**
+   * A written melody: one entry per 16th, semitones above the lead octave, null = rest. It plays
+   * from each bar in `bars` (counted modulo `cycle`), and the seeded lead only plays between hooks.
+   */
+  hook?: { notes: (number | null)[]; bars: number[]; cycle: number; at: number };
+  /** A second arpeggio layer, e.g. high sparkles that join at higher intensity. */
+  arp2?: { pattern: number[]; at: number; octave?: number };
 }
 
 const BUS_VOLUME = 0.32;
@@ -209,7 +220,10 @@ function playStep(sg: Song, n: number, t: number, s16: number) {
     bass: sg.instruments?.bass ?? 'sine',
     arp: sg.instruments?.arp ?? sg.sounds?.arp ?? 'square',
     lead: sg.instruments?.lead ?? sg.sounds?.lead ?? 'triangle',
+    hook: sg.instruments?.hook ?? 'marimba',
+    arp2: sg.instruments?.arp2 ?? 'glass',
   };
+  const leadBase = root + 12 * (sg.leadOctave ?? 1);
 
   // Pad: held chord each bar, or strummed on the strum pattern.
   if (sg.strum) {
@@ -217,25 +231,42 @@ function playStep(sg: Song, n: number, t: number, s16: number) {
   } else if (chordStart) {
     for (const c of chord) voice(inst.pad, midiHz(root + c), t, s16 * 16 * bpc, 0.045, { pad: true });
   }
-  if (intensity >= lv.bass && at(tense?.bass ?? sg.bass, n)) {
-    voice(inst.bass, midiHz(root + 12 * (sg.bassOctave ?? -1) + chord[0]), t, s16 * (sg.bassLen ?? 1.8), 0.16);
+  const b = intensity >= lv.bass ? at(tense?.bass ?? sg.bass, n) : 0;
+  if (b) {
+    const up = b === 2 ? 7 : b === 3 ? 12 : 0;
+    voice(inst.bass, midiHz(root + 12 * (sg.bassOctave ?? -1) + chord[0] + up), t, s16 * (sg.bassLen ?? 1.8), 0.16);
   }
   if (intensity >= lv.arp && at(tense?.arp ?? sg.arp, n)) {
     const c = chord[(n >> 1) % chord.length] + (((n >> 3) & 1) ? 12 : 0);
     voice(inst.arp, midiHz(root + 12 * (sg.arpOctave ?? 1) + c), t, s16 * 1.4, 0.04, { cutoff: sg.sounds?.arpTone });
   }
-  if (intensity >= lv.drums) drums(sg.drums ?? 'soft', sg, n, t, tense?.kick);
+  if (sg.arp2 && intensity >= sg.arp2.at && at(sg.arp2.pattern, n)) {
+    const c = chord[((n >> 1) + 2) % chord.length];
+    voice(inst.arp2, midiHz(root + 12 * (sg.arp2.octave ?? 1) + c), t, s16 * 1.4, 0.03);
+  }
+  if (intensity >= lv.drums) drums(sg.drums ?? 'soft', sg, n, t, tense?.kick, tense?.hat, tense?.snare);
+  // Hook: find where we are inside a hook pass, if any.
+  let hookPos = -1;
+  if (sg.hook) {
+    const cb = bar % sg.hook.cycle;
+    for (const s of sg.hook.bars) {
+      const p = (cb - s) * 16 + i;
+      if (p >= 0 && p < sg.hook.notes.length) hookPos = p;
+    }
+    const note = hookPos >= 0 ? sg.hook.notes[hookPos] : null;
+    if (note != null && intensity >= sg.hook.at) voice(inst.hook, midiHz(leadBase + note), t, s16 * 1.9, 0.06);
+  }
   // The walk restarts each 8-bar phrase: a phrase plays twice, then the next 16 bars get a new one.
   if (i === 0 && bar % 8 === 0) leadNote = Math.floor(sg.scale.length / 2);
-  if (intensity >= lv.lead && at(sg.lead, n)) {
+  if (intensity >= lv.lead && hookPos < 0 && at(sg.lead, n)) {
     const r = hash01((bar % 8) * 16 + i + Math.floor(bar / 16) * 7919);
     leadNote = Math.max(0, Math.min(sg.scale.length * 2 - 1, leadNote + (r < 0.4 ? -1 : r < 0.75 ? 1 : r < 0.88 ? 2 : -2)));
     const deg = sg.scale[leadNote % sg.scale.length] + 12 * Math.floor(leadNote / sg.scale.length);
-    voice(inst.lead, midiHz(root + 12 * (sg.leadOctave ?? 1) + deg), t, s16 * 1.9, 0.06);
+    voice(inst.lead, midiHz(leadBase + deg), t, s16 * 1.9, 0.06);
   }
 }
 
-function drums(kit: DrumKit, sg: Song, n: number, t: number, kickPat = sg.kick) {
+function drums(kit: DrumKit, sg: Song, n: number, t: number, kickPat = sg.kick, hatPat = sg.hat, snarePat = sg.snare) {
   if (kit === 'none') return;
   if (kit === 'heartbeat') {
     // Two soft low thumps, like a slow heartbeat.
@@ -243,12 +274,12 @@ function drums(kit: DrumKit, sg: Song, n: number, t: number, kickPat = sg.kick) 
     return;
   }
   if (at(kickPat, n)) kick(t, kit === 'brush' ? 0.18 : 0.3, kit === 'pop' ? 150 : 130);
-  if (at(sg.hat, n)) {
+  if (at(hatPat, n)) {
     if (kit === 'brush') hit(t, 0.09, 3200, 0.035);       // swishy brush
     else if (kit === 'pop') hit(t, 0.05, 9000, 0.05);     // bright shaker
     else hit(t, 0.03, 8000, 0.05);
   }
-  if (at(sg.snare, n)) {
+  if (at(snarePat, n)) {
     if (kit === 'brush') hit(t, 0.2, 1400, 0.06);
     else if (kit === 'pop') { for (let k = 0; k < 3; k++) hit(t + k * 0.011, 0.07, 1500, 0.07); } // clap
     else hit(t, 0.12, 1800, 0.09);
@@ -348,6 +379,17 @@ function voice(v: Voice, freq: number, t: number, dur: number, vol: number, o: V
       partial(freq, 'sine', t, vol, 0.05, dur + 0.4);
       partial(freq / 2, 'sine', t, vol * 0.7, 0.06, dur + 0.5);
       return;
+    case 'bounce': {
+      const osc = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq * 1.06, t);
+      osc.frequency.exponentialRampToValueAtTime(freq, t + 0.04);
+      f.type = 'lowpass'; f.frequency.value = 900;
+      env(g, t, 0.006, vol * 1.3, dur + 0.12);
+      osc.connect(f).connect(g).connect(dry);
+      osc.start(t); osc.stop(t + dur + 0.2);
+      return;
+    }
     default: {
       // plain oscillator with a sustain, optional lowpass
       const osc = ctx.createOscillator(), g = ctx.createGain();

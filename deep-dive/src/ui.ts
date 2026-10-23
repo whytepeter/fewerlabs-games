@@ -10,6 +10,7 @@ import { portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './gam
 import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cloud, type LinkResult } from './core/cloud';
+import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -143,6 +144,16 @@ export const ui = {
       });
     }
 
+    const syncInstall = () => {
+      const mode = installMode();
+      $('install').hidden = !mode;
+      $('installBtn').hidden = mode !== 'prompt';
+      $('installHint').hidden = mode !== 'ios';
+    };
+    syncInstall();
+    onInstallChange(syncInstall);
+    on('installBtn', () => { void install(); });
+
     const syncOrientation = () => {
       // Portrait dives straight down the screen and steers with the left/right halves.
       $('howHold').textContent = portrait() ? 'Touch' : 'Hold';
@@ -160,6 +171,8 @@ export const ui = {
 
   screen(name: Screen) {
     for (const id of SCREENS) $(id).hidden = id !== name;
+    // No update banner mid-dive (playing or paused); it shows once the dive is over.
+    holdUpdates(name === null || name === 'pause');
     if (name) { $('banner').classList.remove('show'); $('toast').classList.remove('show'); }
   },
 
