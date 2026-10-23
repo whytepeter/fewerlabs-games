@@ -26,8 +26,10 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // 'prompt': a new version waits until the player taps Update (see src/core/pwa.ts),
+      // or takes over on the next launch. Each page registers the worker itself via initPWA().
+      registerType: 'prompt',
+      injectRegister: false,
       // Each game ships its own manifest (public/<game>/manifest.webmanifest) so it can be
       // installed as its own app; one service worker at / caches the whole site for offline play.
       manifest: false,

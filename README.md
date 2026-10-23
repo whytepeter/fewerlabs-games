@@ -33,6 +33,13 @@ npx vercel          # preview deployment
 npx vercel --prod   # production
 ```
 
+## Updates
+
+Players get new versions without reinstalling. When you deploy, an open or installed copy notices
+the update (when it is reopened, comes back to the foreground, or once an hour) and shows a small
+"New version ready · Update" banner. Update reloads straight into the new version; ignoring it is
+fine, the new version is used on the next launch. See `src/core/pwa.ts`.
+
 ## Structure
 
 ```
@@ -47,6 +54,8 @@ src/core/                  shared by every game
   haptics.ts                 vibration on supported devices
   tex.ts                     draws art into 3x textures with the canvas API
   kit.css                    cartoon UI kit: 3D buttons, panels, ribbons, logo text, HUD pills, stars (see its header)
+  pwa.ts                     service worker registration and the update banner
+  music.ts                   generated background music (layers build with intensity)
   icons.ts                   shared icon set (<i data-icon="...">), logo letter wobble, result star
 src/hub/                   hub script and styles
 src/games/<game>/          each game's scenes, logic, UI and styles

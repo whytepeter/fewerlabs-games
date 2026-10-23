@@ -8,6 +8,7 @@ import { createGame, autoScaleUI } from '../../core/view';
 import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
+import { initPWA } from '../../core/pwa';
 
 // Block page gestures the game doesn't want: pinch zoom, double-tap zoom, long-press menus.
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -36,3 +37,5 @@ async function start() {
   });
 }
 void start();
+
+initPWA();

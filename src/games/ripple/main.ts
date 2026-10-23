@@ -11,6 +11,7 @@ import { hydrateIcons, wobbleLetters } from '../../core/icons';
 import { P } from './game/palette';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
+import { initPWA } from '../../core/pwa';
 
 autoScaleUI();
 hydrateIcons();
@@ -88,3 +89,5 @@ if (import.meta.env.DEV) {
     },
   };
 }
+
+initPWA();

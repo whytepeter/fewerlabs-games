@@ -4,6 +4,7 @@ import '@fontsource/fredoka/700.css';
 import '../core/kit.css';
 import './hub.css';
 import { icon, wobbleLetters } from '../core/icons';
+import { initPWA } from '../core/pwa';
 
 wobbleLetters(document.getElementById('logo')!);
 
@@ -33,3 +34,5 @@ addEventListener('beforeinstallprompt', e => {
   btn.hidden = false;
   btn.onclick = () => { void evt.prompt(); box.hidden = true; };
 });
+
+initPWA();

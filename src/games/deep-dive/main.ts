@@ -7,6 +7,7 @@ import Phaser from 'phaser';
 import { autoScaleUI, createGame } from '../../core/view';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
+import { initPWA } from '../../core/pwa';
 
 autoScaleUI();
 
@@ -24,3 +25,5 @@ const game = createGame({
 
 // Dev-only handle for debugging and scripted playtests.
 if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
+
+initPWA();

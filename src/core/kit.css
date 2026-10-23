@@ -263,3 +263,24 @@
 @media (prefers-reduced-motion: reduce) {
   .k-logo .k-l, .k-tag { animation: none; }
 }
+
+/* ---------- Update banner (core/pwa.ts) */
+.k-update {
+  position: fixed; z-index: 1000;
+  top: calc(var(--safe-t) + 66px); left: 50%;
+  translate: -50% 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 8px; border-radius: 999px;
+  background: var(--k-panel); border: 3px solid var(--k-outline);
+  box-shadow: 0 5px 0 rgba(22, 35, 59, .55);
+  color: var(--k-ink); font-family: var(--k-font); font-weight: 600; font-size: 15px;
+  white-space: nowrap; pointer-events: auto;
+  animation: k-update-in .45s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.k-update-icon { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, #ffe58f, #ffc43d); border: 2.5px solid var(--k-outline); }
+.k-update-icon svg { width: 16px; height: 16px; fill: var(--k-outline); }
+.k-update .k-btn--sm { min-height: 36px; font-size: 15px; padding: 0 14px 2px; border-radius: 999px; }
+.k-update-close { appearance: none; border: 0; background: none; cursor: pointer; width: 32px; height: 32px; display: grid; place-items: center; color: var(--k-ink-soft); }
+.k-update-close svg { width: 16px; height: 16px; }
+.k-update.busy { opacity: .7; pointer-events: none; }
+@keyframes k-update-in { from { opacity: 0; transform: translateY(-16px) scale(.9); } }
