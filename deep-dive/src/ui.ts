@@ -48,9 +48,51 @@ let hintTimer = 0, tipTimer = 0;
 let guidePressed = 0;
 let onSkin: (id: string) => boolean = () => false;
 let onCave: (id: CaveId) => boolean = () => false;
-/** A cave's colours, top to bottom through its zones, for its card and the title chip. */
-const caveSwatch = (c: CaveDef) =>
-  `linear-gradient(180deg, ${c.biomes.map((b, i) => `#${b.top.toString(16).padStart(6, '0')} ${(i / c.biomes.length) * 100}%`).join(', ')}, #${c.biomes[c.biomes.length - 1].bot.toString(16).padStart(6, '0')})`;
+const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
+const INK = '#16233b';
+/**
+ * A cave's postcard: a little painted scene in its colours (water, rock walls, and what lives
+ * there), used on its card and on the title chip.
+ */
+let artIds = 0;
+function caveArt(c: CaveDef) {
+  const [z0, z1] = c.biomes, id = `ca-${c.id}-${++artIds}`; // unique: a gradient inside a hidden screen won't paint for the others
+  const rock = hex(z0.rock), rim = hex(z1.top);
+  const ceil = 'M0 0H120V11Q104 19 86 12T50 13T18 11T0 13Z';
+  const floor = 'M0 80V63Q16 55 36 61T74 60T104 57T120 59V80Z';
+  const stroke = (d: string, w: number, col: string) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 3}" stroke-linecap="round"/><path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>`;
+  let scene = '';
+  if (c.id === 'reef') {
+    const coral = (x: number, y: number, col: string) => [0, 1, 2].map(i => `<circle cx="${x + (i - 1) * 6}" cy="${y - (i % 2) * 6}" r="${4.5 - (i % 2)}" fill="${col}" stroke="${INK}" stroke-width="2"/>`).join('');
+    scene = coral(22, 60, '#ff7aa8') + coral(64, 59, '#ffd23f') + coral(98, 56, '#b07cff')
+      + stroke('M44 61Q41 50 45 40', 3.5, '#3ad06b') + stroke('M84 60Q88 50 84 42', 3.5, '#3ad06b')
+      + `<g transform="translate(70 33)"><path d="M-12 0L-19 -6V6Z" fill="#ff9f43" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><ellipse rx="11" ry="7" fill="#ff9f43" stroke="${INK}" stroke-width="2"/><circle cx="5" cy="-1.5" r="1.8" fill="${INK}"/></g>`
+      + `<g transform="translate(34 26) scale(.7)"><path d="M-12 0L-19 -6V6Z" fill="#ffd23f" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/><ellipse rx="11" ry="7" fill="#ffd23f" stroke="${INK}" stroke-width="2.6"/><circle cx="5" cy="-1.5" r="2" fill="${INK}"/></g>`;
+  } else if (c.id === 'kelp') {
+    const strand = (x: number, h: number, bend: number) => {
+      const d = `M${x} 64Q${x + bend} ${64 - h / 2} ${x} ${64 - h}`;
+      const leaves = [0.35, 0.6, 0.85].map((f, i) => `<ellipse cx="${x + bend * 0.5 + (i % 2 ? 5 : -5)}" cy="${64 - h * f}" rx="5" ry="2.6" fill="#7fe08f" stroke="${INK}" stroke-width="1.6"/>`).join('');
+      return stroke(d, 4.5, '#48d16f') + leaves;
+    };
+    scene = strand(14, 46, 10) + strand(30, 34, -8) + strand(88, 50, -10) + strand(106, 38, 8)
+      + `<g transform="translate(60 34)"><path d="M-10 0L-16 -5V5Z" fill="#ffd23f" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><ellipse rx="9" ry="6" fill="#ffd23f" stroke="${INK}" stroke-width="2"/><circle cx="4" cy="-1.5" r="1.6" fill="${INK}"/></g>`;
+  } else {
+    const ice = (x: number, y: number, w: number, h: number) => `<path d="M${x - w / 2} ${y}L${x} ${y + h}L${x + w / 2} ${y}Z" fill="#cff3ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M${x - w * 0.15} ${y + 3}L${x - 1} ${y + h * 0.65}" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`;
+    const spike = (x: number, y: number) => `<path d="M${x - 6} ${y}L${x} ${y - 11}L${x + 6} ${y}Z" fill="#a8e6ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
+    const flakes = [[20, 34], [46, 24], [76, 40], [100, 28], [58, 50], [32, 48], [90, 50]].map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 3 ? 1.4 : 2}" fill="#fff" opacity=".9"/>`).join('');
+    scene = ice(26, 11, 10, 18) + ice(40, 12, 7, 11) + ice(70, 11, 11, 20) + ice(98, 11, 8, 14) + ice(56, 30, 8, 13)
+      + spike(80, 61) + spike(92, 59) + spike(16, 62) + flakes;
+  }
+  return `<svg viewBox="0 0 120 80" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hex(z0.top)}"/><stop offset=".55" stop-color="${hex(z1.top)}"/><stop offset="1" stop-color="${hex(z1.bot)}"/></linearGradient></defs>
+    <rect width="120" height="80" fill="url(#${id})"/>
+    <path d="M18 0H34L16 80H-6ZM62 0H74L56 80H40ZM100 0H110L92 80H80Z" fill="#fff" opacity=".1"/>
+    <path d="M0 80V52Q22 42 46 50T92 46T120 48V80Z" fill="${rim}" opacity=".45"/>
+    ${scene}
+    <path d="${ceil}" fill="${rock}" stroke="${INK}" stroke-width="2.5"/>
+    <path d="${floor}" fill="${rock}" stroke="${INK}" stroke-width="2.5"/>
+  </svg>`;
+}
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
 let shopTab: 'upgrades' | 'gadgets' = 'upgrades';
@@ -220,7 +262,7 @@ export const ui = {
     const cv = currentCave();
     $('titleBest').textContent = caveBest(cv.id).toLocaleString();
     $('caveName').textContent = cv.name;
-    $('caveSwatch').style.background = caveSwatch(cv);
+    $('caveSwatch').innerHTML = caveArt(cv);
     $('caveDot').hidden = !newCaves().length;
     const rank = deepMissions.rank, set = deepMissions.active, done = set.filter(m => m.done).length;
     $('rankNum').textContent = String(rank);
@@ -321,7 +363,7 @@ export const ui = {
           <span class="cave-progress"><span class="cave-bar"><b style="transform:scaleX(${Math.min(1, have / need)})"></b></span><em>${Math.min(have, need)} / ${need} m</em></span>`;
       }
       return `<li><button class="cave-card${c.id === current ? ' on' : ''}${open ? '' : ' locked'}" type="button" data-cave="${c.id}">
-        <span class="cave-art" style="background:${caveSwatch(c)}"></span>
+        <span class="cave-art">${caveArt(c)}</span>
         <span class="cave-body"><b>${c.name}</b><span>${c.blurb}</span>${status}</span>
         ${c.id === current ? '<em class="cave-tag">Diving here</em>' : fresh.has(c.id) ? '<em class="cave-tag cave-tag--new">New</em>' : ''}
       </button></li>`;

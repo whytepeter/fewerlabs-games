@@ -626,8 +626,8 @@ body {
 /* Phones held sideways: the screen is short but wide, so the menus spread out sideways
    instead of squeezing their lists into a sliver. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .shop-panel, .missions-panel, .divers-panel, .settings-panel, .caves-panel { width: min(760px, 100%); padding: 28px 18px 14px; }
-  .board-panel { width: min(560px, 100%); padding: 28px 18px 14px; }
+  .shop-panel, .missions-panel, .divers-panel, .caves-panel { width: min(920px, 100%); padding: 28px 18px 14px; }
+  .board-panel, .settings-panel { width: min(600px, 100%); padding: 28px 18px 14px; }
   .back-btn, #boardBack { margin-top: 8px; }
 
   /* Shop and missions: two columns of rows; the coins sit in the card's corner. */
@@ -723,7 +723,8 @@ body {
   transition: transform .08s ease, box-shadow .08s ease;
 }
 .cave-chip:active { transform: translateY(4px); box-shadow: 0 0 0 var(--k-outline); }
-.cave-swatch { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 3px solid var(--k-outline); }
+.cave-swatch { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 3px solid var(--k-outline); overflow: hidden; }
+.cave-swatch svg, .cave-art svg { display: block; width: 100%; height: 100%; }
 .cave-chip-text { display: grid; flex: 1; line-height: 1.1; }
 .cave-chip-text small { font-size: 11px; font-weight: 700; color: var(--k-ink-soft); text-transform: uppercase; letter-spacing: .06em; }
 .cave-chip-text b { font-size: 16px; }
@@ -734,14 +735,14 @@ body {
 .cave-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .cave-card {
   appearance: none; cursor: pointer; font: inherit; position: relative; width: 100%;
-  display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 12px;
+  display: grid; grid-template-columns: 112px 1fr; align-items: center; gap: 12px;
   padding: 8px 10px 8px 8px; border-radius: 18px; text-align: left;
   background: rgba(22, 35, 59, .06); border: 3px solid transparent; color: var(--k-ink);
   -webkit-tap-highlight-color: transparent;
 }
 .cave-card.on { background: #e3fbe9; border-color: #3ad06b; }
 .cave-card.locked .cave-art { filter: grayscale(.7) brightness(.7); }
-.cave-art { width: 64px; height: 64px; border-radius: 14px; border: 3px solid var(--k-outline); box-shadow: inset 0 -10px 0 rgba(0, 0, 0, .18); }
+.cave-art { width: 112px; height: 76px; border-radius: 14px; border: 3px solid var(--k-outline); overflow: hidden; background: var(--k-outline); }
 .cave-body { display: grid; gap: 2px; min-width: 0; }
 .cave-body b { font-size: 17px; }
 .cave-body > span { font-size: 13px; color: var(--k-ink-soft); }
@@ -758,6 +759,38 @@ body {
 }
 .cave-tag--new { background: #ff5a7a; }
 .over-cave { background: #e3fbe9; box-shadow: inset 0 0 0 2px #3ad06b; }
+/* Phones held sideways: the caves side by side as postcards, the picture on top. */
 @media (orientation: landscape) and (max-height: 520px) {
   .caves-panel { width: min(760px, 100%); }
+  #caveList { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 12px; }
+  .cave-card { display: flex; flex-direction: column; align-items: stretch; gap: 8px; height: 100%; padding: 8px; }
+  .cave-art { width: 100%; height: 86px; }
+  .cave-body { padding: 0 4px 2px; }
+  .cave-body b { font-size: 16px; }
+  .cave-body > span { font-size: 12px; line-height: 1.3; }
+}
+
+/* A little clear space between every ribbon and the first thing under it. */
+.k-panel,
+:is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .over-panel) { padding-top: 42px; }
+
+/* ---------- Short screens: the ribbon slims down and every card leaves room under it,
+   so nothing sits on top of anything else. */
+@media (max-height: 520px) {
+  .k-ribbon { top: -20px; padding: 5px 22px 7px; font-size: 19px; border-width: 3px; box-shadow: 0 4px 0 var(--k-outline), inset 0 -3px 0 var(--k-ribbon-lo); }
+  .k-panel,
+  :is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .over-panel) { padding-top: 34px; }
+  #shop, #missions, #divers, #settings, #board, #caves { padding-top: calc(var(--safe-t) + 28px); }
+  .k-star { width: 44px; height: 44px; }
+  .over-panel .k-big-num { font-size: 46px; }
+  .over-reason { margin-top: 6px; font-size: 14px; }
+  .over-main .k-tag { margin-top: 6px; }
+}
+
+/* ---------- Game over on wider screens (tablets, desktops, the sideways phone above):
+   the result on the left, missions and buttons on the right, instead of one tall column. */
+@media (min-width: 700px) {
+  .over-panel { width: min(720px, 100%); }
+  .over-grid { grid-template-columns: 1fr 1fr; align-items: center; gap: 18px; }
+  .over-side .k-missions { margin-top: 0; }
 }

@@ -1,7 +1,7 @@
 import { store } from '../core/settings';
 import type { Song } from '../core/music';
 import type { Biome } from './biomes';
-import { DEEP_SONG, KELP_SONG } from './song';
+import { DEEP_SONG, FROST_SONG, KELP_SONG } from './song';
 
 /**
  * Caves you can dive in. Each one has its own depth zones (colours and names), trench shape,
@@ -9,7 +9,7 @@ import { DEEP_SONG, KELP_SONG } from './song';
  * opens once you reach a depth in the cave before it. Bests are kept per cave.
  */
 
-export type CaveId = 'reef' | 'kelp';
+export type CaveId = 'reef' | 'kelp' | 'frost';
 export type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
 
 /** Trench shape: the gap narrows from `start` to `end` (fractions of the view height) over `over` metres. */
@@ -29,10 +29,20 @@ export interface CaveDef {
   /** Sharp coral: from this depth, and how often compared with the Reef Trench. */
   spikeFrom: number;
   spikes: number;
+  /** Sharp ice instead of coral: pale blue, and a different message when it gets you. */
+  iceSpikes?: boolean;
   /** Distance between pearl rows (world px). */
   pearlGap: [number, number];
   /** Kelp patches that slow you down: from this depth, this far apart (world px). */
   kelp?: { from: number; gap: [number, number] };
+  /** Icicles on the ceiling that shake loose and fall as you come near: from this depth, this far apart (world px). */
+  icicles?: { from: number; gap: [number, number] };
+  /** Slippery steering: how fast you drift to a stop (normal 2.6) and how hard steering pushes (normal 1). */
+  glide?: { drag: number; steer: number };
+  /** How fast air runs out compared with the Reef Trench. */
+  airDrain?: number;
+  /** Shown once, on the first dive in this cave. */
+  tip?: string;
   /** Sun rays and floor plants fade out by these depths (m); `coral` is the share of plants that are coral. */
   raysUntil: number;
   plantsUntil: number;
@@ -85,6 +95,33 @@ export const CAVES: CaveDef[] = [
     plantsUntil: Infinity,
     coral: 0.18,
     song: KELP_SONG,
+  },
+  {
+    id: 'frost',
+    name: 'Frozen Trench',
+    blurb: 'Slippery ice, falling icicles and cold air that runs out faster.',
+    unlock: { cave: 'kelp', depth: 400 },
+    biomes: [
+      { at: 0,   name: 'Frost Shelf',      top: 0xbfefff, bot: 0x5fb3db, rock: 0x2a5d8c, dark: 0,    vent: 0 },
+      { at: 160, name: 'Glacier Hollow',   top: 0x6cc4ec, bot: 0x2a6fa8, rock: 0x224d7c, dark: 0.3,  vent: 0 },
+      { at: 400, name: 'Blue Ice Deep',    top: 0x2d74b8, bot: 0x123a72, rock: 0x203f72, dark: 0.58, vent: 0 },
+      { at: 750, name: 'The Frozen Heart', top: 0x18306a, bot: 0x0a1638, rock: 0x1d3462, dark: 0.74, vent: 0 },
+    ],
+    shape: { start: 0.82, end: 0.52, over: 1500, wave: 0.13, wave2: 0.05 },
+    creatures: { jelly: 0, mine: 80, eel: 220, angler: 380 },
+    crowdFrom: 500,
+    spikeFrom: 120,
+    spikes: 1.1,
+    iceSpikes: true,
+    pearlGap: [480, 820],
+    icicles: { from: 20, gap: [380, 700] },
+    glide: { drag: 0.9, steer: 0.62 },
+    airDrain: 1.25,
+    tip: 'Icy water: you slide, and air runs out faster',
+    raysUntil: 260,
+    plantsUntil: 40,
+    coral: 0,
+    song: FROST_SONG,
   },
 ];
 

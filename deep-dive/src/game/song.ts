@@ -91,3 +91,33 @@ export const KELP_SONG: Song = {
   layers: { bass: 0.2, arp: 0.28, drums: 0.4, lead: 0.72 },
   instruments: { pad: 'triangle', bass: 'bounce', arp: 'marimba', hook: 'kalimba', lead: 'pluck', arp2: 'glass' },
 };
+
+/**
+ * "Frost Glide": the Frozen Trench's version. Down to E, a little slower and airier, with glassy
+ * music-box arpeggios, a bell hook and lighter drums, so it sparkles like ice instead of bouncing.
+ */
+export const FROST_SONG: Song = {
+  ...DEEP_SONG,
+  bpm: 100,
+  root: 52, // E3
+  swing: 0.06,
+  // Emaj7 – F#6 – G#m7 – F# – Emaj7 – C#m7 – Amaj7 – B
+  progression: [
+    [0, 4, 7, 11], [2, 6, 9, 14], [4, 7, 11, 14], [2, 6, 9, 14],
+    [0, 4, 7, 11], [-3, 4, 7, 9], [-7, 4, 9, 12], [-5, 2, 7, 11],
+  ],
+  arp:   [1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0],
+  hook: {
+    at: 0.3,
+    cycle: 16,
+    bars: [0, 8],
+    // Over Emaj7 then F#6: B E D# B · G# B | C# A# C# D# · F#
+    notes: [
+      7, null, 12, null, 11, null, 7, null, null, null, 4, null, 7, null, null, null,
+      9, null, null, 6, null, null, 9, null, 11, null, null, null, 14, null, null, null,
+    ],
+  },
+  layers: { bass: 0.18, arp: 0.25, drums: 0.6, lead: 0.78 },
+  instruments: { pad: 'triangle', bass: 'sub', arp: 'glass', hook: 'bell', lead: 'kalimba', arp2: 'kalimba' },
+  fx: { delay: 0.28, delayBeats: 0.75, feedback: 0.36, reverb: 0.45, reverbSecs: 3.4, lowpass: 7000 },
+};

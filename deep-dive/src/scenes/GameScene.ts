@@ -38,6 +38,8 @@ interface Obstacle {
 }
 /** A clump of kelp growing from the floor (side 1) or ceiling (side 0): slows you down, never hurts. */
 interface Kelp { x: number; side: 0 | 1; len: number; w: number; ph: number; strands: number }
+/** An icicle on the ceiling: shakes loose when you come within `trigger` px, then falls and shatters on the floor. */
+interface Icicle { x: number; len: number; w: number; trigger: number; shake: number; drop: number; vy: number; falling: boolean; gap?: number; passed?: boolean; gone?: boolean }
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
 
@@ -64,6 +66,7 @@ const COMBO_MAX = 5;           // a chained close call pays up to this many coin
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const KELP_SLOW = 0.55, KELP_HOLD = 0.35;   // tangled in kelp: forward speed, and how long it lingers after you're out
+const ICICLE_SHAKE = 0.3, ICICLE_G = 1100;  // seconds an icicle shakes before it drops, and how fast it falls
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
@@ -128,6 +131,8 @@ export class GameScene extends Phaser.Scene {
   private kelps: Kelp[] = [];
   private tangle = 0;            // seconds left of the kelp slow-down
   private tangles = 0;           // times caught this dive (the message only shows the first few)
+  private nextIcicle = 0;
+  private icicles: Icicle[] = [];
   private biome = 0;
   private beepT = 0;
   private exhaustT = 0;
@@ -365,6 +370,7 @@ export class GameScene extends Phaser.Scene {
     this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.cr(200, 500) : Infinity;
     this.tangle = 0;
     this.tangles = 0;
+    this.nextIcicle = this.def.icicles ? this.def.icicles.from * 10 + this.cr(200, 500) : Infinity;
     this.beepT = 0;
     this.diver.setVisible(true).setAlpha(1).setRotation(0);
     this.state = 'play';
@@ -380,6 +386,11 @@ export class GameScene extends Phaser.Scene {
     ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
     this.guideUsed = 0;
+    // A cave's own tip, on the first dive there.
+    if (this.def.tip && this.learned && !store.get(`tip:${this.def.id}`, false)) {
+      store.set(`tip:${this.def.id}`, true);
+      this.time.delayedCall(1200, () => { if (this.state === 'play') ui.hint(this.def.tip!, 4500); });
+    }
     this.ambient.start();
     music.play(this.def.song, 0.45);
     sfx.tone(330, 0.25, { vol: 0.08, slideTo: 520 });
@@ -428,6 +439,7 @@ export class GameScene extends Phaser.Scene {
     this.obs = [];
     this.items = [];
     this.kelps = [];
+    this.icicles = [];
     this.exhaust.killAll();
     this.pops.killAll();
     this.sparks.killAll();
@@ -469,9 +481,12 @@ export class GameScene extends Phaser.Scene {
     const steer = this.steering();
     const hold = steer !== 0;
     // Kelp drags on you: slower forward and heavier to steer, for a moment after you're out too.
+    // Ice is the opposite: you keep sliding, and it takes longer to change direction.
     this.tangle = Math.max(0, this.tangle - dt);
-    const drag = this.tangle > 0 ? 5 : 2.6;
-    this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * (this.tangle > 0 ? 0.7 : 1) * dt, -340, 340);
+    const glide = this.def.glide;
+    const drag = this.tangle > 0 ? 5 : glide?.drag ?? 2.6;
+    const push = this.tangle > 0 ? 0.7 : glide?.steer ?? 1;
+    this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * push * dt, -340, 340);
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
@@ -506,8 +521,8 @@ export class GameScene extends Phaser.Scene {
     if (this.comboT > 0) { this.comboT = Math.max(0, this.comboT - dt); if (!this.comboT) this.combo = 0; }
     ui.setPerk(this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null, this.shieldT ? this.shieldT / this.shieldTime : this.magnetT / this.magnetTime);
 
-    // Oxygen drains a little faster the deeper you are.
-    this.oxy -= (6.5 + depth * 0.003) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * dt;
+    // Oxygen drains a little faster the deeper you are (and in colder caves).
+    this.oxy -= (6.5 + depth * 0.003) * (this.def.airDrain ?? 1) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * dt;
     const low = this.oxy < 25;
     ui.setOxygen(this.oxy / 100, low);
     ui.lowO2(low);
@@ -569,6 +584,8 @@ export class GameScene extends Phaser.Scene {
 
     this.collect(dt, leftEdge);
     this.kelpCheck(leftEdge);
+    this.icicleCheck(leftEdge, dt);
+    if (this.state !== 'play') return;
 
     // Plain walls just nudge you back; sharp stretches cost a life.
     const [top, bot] = cave(this.dist, this.H, this.cv, this.def.shape);
@@ -639,6 +656,10 @@ export class GameScene extends Phaser.Scene {
       this.spawnKelp();
       this.nextKelp = this.cr(...this.def.kelp.gap);
     }
+    if (this.def.icicles && (this.nextIcicle -= step) <= 0) {
+      this.spawnIcicles(depth);
+      this.nextIcicle = this.cr(...this.def.icicles.gap);
+    }
   }
 
   private hitWall(y: number, dir: 1 | -1, sharp: boolean) {
@@ -657,7 +678,7 @@ export class GameScene extends Phaser.Scene {
     if (sharp) {
       this.vy = dir * 220;
       this.sparks.explode(8, this.dist, y - dir * DIVER_R);
-      this.loseLife('Spiked on sharp coral');
+      this.loseLife(this.def.iceSpikes ? 'Spiked on sharp ice' : 'Spiked on sharp coral');
       return;
     }
     this.vy = dir * WALL_BOUNCE;
@@ -878,6 +899,67 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** One to three icicles just off-screen, each shaking loose at its own distance so they fall in a ragged line. */
+  private spawnIcicles(depth: number) {
+    let wx = this.dist - this.diverX() + this.W + 80;
+    const n = 1 + (this.rng() < 0.35 ? 1 : 0) + (depth > 300 && this.rng() < 0.3 ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      this.icicles.push({
+        x: wx, len: this.cr(30, 52), w: this.cr(16, 24), trigger: this.cr(170, 320),
+        shake: 0, drop: 0, vy: 0, falling: false,
+      });
+      wx += this.cr(40, 70);
+    }
+  }
+
+  /** Where an icicle is: its base on (or below) the ceiling, and its tip. */
+  private icicleAt(c: Icicle): [number, number] {
+    const base = cave(c.x, this.H, this.cv, this.def.shape)[0] - 2 + c.drop;
+    return [base, base + c.len];
+  }
+
+  /** Icicles shake loose as you come near, fall, and shatter on the floor; one hitting you costs a life. */
+  private icicleCheck(leftEdge: number, dt: number) {
+    this.icicles = this.icicles.filter(c => !c.gone && c.x + c.w > leftEdge);
+    for (const c of this.icicles) {
+      const ahead = c.x - this.dist;
+      if (!c.falling && c.shake <= 0 && ahead < c.trigger) {
+        c.shake = ICICLE_SHAKE;
+        if (ahead > -40) sfx.tone(rand(1500, 1900), 0.12, { type: 'triangle', vol: 0.03, slideTo: 1200 });
+      }
+      if (c.shake > 0) { c.shake -= dt; if (c.shake <= 0) c.falling = true; }
+      if (c.falling) { c.vy += ICICLE_G * dt; c.drop += c.vy * dt; }
+      const [base, tip] = this.icicleAt(c);
+      if (tip >= cave(c.x, this.H, this.cv, this.def.shape)[1]) {
+        c.gone = true;
+        if (Math.abs(ahead) < this.W) {
+          this.pops.explode(8, c.x, tip);
+          sfx.noise(0.18, 0.05, 3000);
+        }
+        continue;
+      }
+      // Room between the diver and the icicle (a narrowing spike from base to tip).
+      const dx = Math.abs(this.dist - c.x), y = this.diverY, r = DIVER_R * 0.8;
+      const gap = y > tip ? Math.hypot(dx, y - tip) - r
+        : y < base ? Math.hypot(Math.max(0, dx - c.w / 2), base - y) - r
+        : dx - (c.w / 2) * ((tip - y) / c.len) - r;
+      if (Math.abs(ahead) < 60) c.gap = Math.min(c.gap ?? Infinity, gap);
+      if (gap < 0 && this.invuln <= 0) {
+        c.gone = true;
+        this.pops.explode(10, c.x, Math.min(tip, y));
+        sfx.noise(0.2, 0.08, 2500);
+        this.vy = Math.min(this.vy, 0) - 160;
+        this.loseLife('Hit by a falling icicle');
+        if (this.state !== 'play') return;
+        continue;
+      }
+      if (!c.passed && c.x < this.dist - 40) {
+        c.passed = true;
+        if (c.gap !== undefined && c.gap >= 0 && c.gap < CLOSE_CALL) this.closeCall();
+      }
+    }
+  }
+
   /** A short arc of pickups somewhere inside the trench just off-screen. */
   private spawnRow(type: Pickup['type'], n: number, gap: number) {
     const wx = this.dist - this.diverX() + this.W + 60;
@@ -997,9 +1079,10 @@ export class GameScene extends Phaser.Scene {
 
     // Marine snow drifting past at different depths.
     this.snow.clear();
+    const flake = this.def.glide ? 1.6 : 1; // icy caves get real snowflakes
     for (const m of MOTES) {
-      const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z) % H, s = 1.6 * m.z + 0.6;
-      this.snow.fillStyle(0xdcf0ff, 0.28 * m.z);
+      const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z * flake) % H, s = (1.6 * m.z + 0.6) * flake;
+      this.snow.fillStyle(0xdcf0ff, 0.28 * m.z * flake);
       this.snow.fillRect(x, y, s, s);
     }
 
@@ -1041,7 +1124,8 @@ export class GameScene extends Phaser.Scene {
     g.strokePoints(this.topEdge);
     g.strokePoints(this.botEdge);
 
-    // Sharp coral along dangerous stretches of wall.
+    // Sharp coral (or ice) along dangerous stretches of wall.
+    const ice = !!this.def.iceSpikes;
     this.spikeRuns.length = 0;
     for (let seg = Math.floor((x0 - 40) / SPIKE_SEG); seg * SPIKE_SEG < x0 + W + 40; seg++) {
       for (const side of [0, 1] as const) {
@@ -1051,9 +1135,9 @@ export class GameScene extends Phaser.Scene {
         for (let wx = a; wx <= b; wx += 15) {
           const base = cave(wx, H, this.cv, this.def.shape)[side] - dir * 2;
           const tri = [{ x: wx - 7.5, y: base }, { x: wx, y: base + dir * SPIKE_H }, { x: wx + 7.5, y: base }];
-          g.fillStyle(0xff6b8a, 1); g.fillPoints(tri, true);
+          g.fillStyle(ice ? 0xa8e6ff : 0xff6b8a, 1); g.fillPoints(tri, true);
           g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(tri, true);
-          g.fillStyle(0xffd0da, 1); g.fillTriangle(wx - 2, base + dir * 3, wx, base + dir * (SPIKE_H - 4), wx + 1, base + dir * 3);
+          g.fillStyle(ice ? 0xf2fdff : 0xffd0da, 1); g.fillTriangle(wx - 2, base + dir * 3, wx, base + dir * (SPIKE_H - 4), wx + 1, base + dir * 3);
           run.push({ x: wx, y: base + dir * SPIKE_H * 0.5 });
         }
         this.spikeRuns.push(run);
@@ -1115,6 +1199,16 @@ export class GameScene extends Phaser.Scene {
           g.lineStyle(2, OUTLINE, 1); g.strokeEllipse(p.x + side * 6, p.y, 10, 5);
         }
       }
+    }
+
+    // Icicles: pale blue spikes hanging from the ceiling, shaking just before they drop.
+    for (const c of this.icicles) {
+      if (c.x < x0 - 60 || c.x > x0 + W + 60) continue;
+      const [base, tip] = this.icicleAt(c), sx = c.x + (c.shake > 0 ? Math.sin(T * 70) * 1.8 : 0);
+      const tri = [{ x: sx - c.w / 2, y: base }, { x: sx, y: tip }, { x: sx + c.w / 2, y: base }];
+      g.fillStyle(0xcff3ff, 1); g.fillPoints(tri, true);
+      g.lineStyle(2.6, OUTLINE, 1); g.strokePoints(tri, true);
+      g.lineStyle(2, 0xffffff, 0.9); g.lineBetween(sx - c.w * 0.18, base + 4, sx - 1, tip - c.len * 0.3);
     }
 
     // Mine chains to the floor.
@@ -1184,7 +1278,7 @@ export class GameScene extends Phaser.Scene {
       this.edges.strokePoints(this.topEdge);
       this.edges.strokePoints(this.botEdge);
       // Sharp coral glows red in the dark so it can always be seen coming.
-      this.edges.lineStyle(9, 0xff4d6d, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
+      this.edges.lineStyle(9, ice ? 0x7fe3ff : 0xff4d6d, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
       for (const run of this.spikeRuns) if (run.length > 1) this.edges.strokePoints(run);
     }
     // Kelp glows faintly green in the dark so it can be seen coming.
@@ -1196,6 +1290,14 @@ export class GameScene extends Phaser.Scene {
           const sx = k.x - k.w / 2 + (k.w * (j + 0.5)) / k.strands, base = cave(sx, H, this.cv, this.def.shape)[k.side] - dir * 3;
           this.edges.strokePoints(this.kelpPts(sx, base, dir, k.len * (0.82 + hash(j * 7 + k.ph) * 0.18), T * 1.4 + k.ph + j * 0.9));
         }
+      }
+    }
+    // Icicles glow faintly so they can be seen coming in the dark.
+    if (dark > 0.25) {
+      this.edges.lineStyle(6, 0x9fe8ff, 0.3 * dark);
+      for (const c of this.icicles) {
+        const [base, tip] = this.icicleAt(c);
+        this.edges.strokePoints([{ x: c.x - c.w / 2, y: base }, { x: c.x, y: tip }, { x: c.x + c.w / 2, y: base }], true);
       }
     }
     // Your best depth: a dashed gold line across the trench, bright enough to see in the dark.

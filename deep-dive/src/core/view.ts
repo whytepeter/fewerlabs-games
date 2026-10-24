@@ -69,7 +69,8 @@ export function autoScaleUI(min = 0.8, max = 1.15) {
   const apply = () => {
     const w = window.innerWidth, h = window.innerHeight;
     // ~0.9 on a typical phone so menus and HUDs leave more room for the game.
-    const s = Math.min(Math.min(w, h) / 430, Math.max(w, h) / 930);
+    // Phones held sideways are only ~390 px tall: shrink a little more there so menus aren't cramped.
+    const s = Math.min(Math.min(w, h) / (w > h && h < 520 ? 470 : 430), Math.max(w, h) / 930);
     document.documentElement.style.setProperty('--ui', Math.max(min, Math.min(max, s)).toFixed(3));
   };
   apply();
