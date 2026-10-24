@@ -32,7 +32,7 @@ const NAME_MAX = 16;
 export interface Score { name: string; best: number; me: boolean }
 
 /** Who is playing: a guest (anonymous) or a linked account. */
-export interface Account { guest: boolean; email: string | null; provider: 'google' | 'password' | null }
+export interface Account { guest: boolean; email: string | null; provider: 'google' | 'password' | null; name: string | null; photo: string | null }
 /**
  * 'linked': the guest account now has a sign-in and keeps its progress.
  * 'exists': that sign-in already has its own account; call useExisting() to switch to it.
@@ -58,9 +58,12 @@ const accountListeners: ((a: Account) => void)[] = [];
 let pending: AuthCredential | { email: string; password: string } | null = null;
 
 function describe(user: User | null): Account {
-  if (!user || user.isAnonymous) return { guest: true, email: null, provider: null };
-  const google = user.providerData.some(p => p.providerId === 'google.com');
-  return { guest: false, email: user.email, provider: google ? 'google' : 'password' };
+  if (!user || user.isAnonymous) return { guest: true, email: null, provider: null, name: null, photo: null };
+  const google = user.providerData.find(p => p.providerId === 'google.com');
+  return {
+    guest: false, email: user.email ?? google?.email ?? null, provider: google ? 'google' : 'password',
+    name: user.displayName ?? google?.displayName ?? null, photo: user.photoURL ?? google?.photoURL ?? null,
+  };
 }
 const accountChanged = () => { const a = describe(fb?.auth.currentUser ?? null); accountListeners.forEach(fn => fn(a)); };
 

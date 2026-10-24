@@ -11,6 +11,7 @@ import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cloud, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
+import { shells } from './game/shells';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -32,7 +33,7 @@ export interface Handlers {
 /** Depths that earn 1, 2 and 3 stars: reaching the Twilight Zone, Midnight Zone and the Abyss. */
 export const STAR_DEPTHS = [150, 400, 750];
 
-const SCREENS = ['title', 'pause', 'over', 'board', 'divers', 'missions', 'shop', 'settings', 'caves'] as const;
+const SCREENS = ['title', 'pause', 'saveme', 'over', 'board', 'divers', 'missions', 'shop', 'settings', 'caves'] as const;
 type Screen = (typeof SCREENS)[number] | null;
 /** Menus reached from the title; Back (or Escape) returns to it. */
 const SUB = new Set<Screen>(['board', 'divers', 'missions', 'shop', 'settings', 'caves']);
@@ -46,6 +47,9 @@ let shownPerk: string | null = null;
 let toastTimer = 0;
 let hintTimer = 0, tipTimer = 0;
 let guidePressed = 0;
+const SAVE_ME_SECONDS = 5;
+let diveEnded = false; // the next title screen comes straight after a dive
+const INSTALL_AFTER_DIVES = 3, INSTALL_GAP = 3 * 24 * 60 * 60 * 1000;
 let onSkin: (id: string) => boolean = () => false;
 let onCave: (id: CaveId) => boolean = () => false;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
@@ -103,6 +107,8 @@ const seen = new Set<string>(store.get<string[]>('seen', []));
 const onTap = (id: string, fn: () => void) =>
   $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
 const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
+const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
+const drawShells = () => { const el = document.getElementById('shellCount'); if (el) el.innerHTML = shellTag(shells.count); };
 function nope(el: HTMLElement) {
   buzz(30);
   sfx.tone(200, 0.15, { type: 'triangle', vol: 0.06 });
@@ -116,6 +122,7 @@ function cheer(big: boolean) {
 
 export const ui = {
   init(h: Handlers) {
+    shells.onChange(drawShells);
     hydrateIcons();
     wobbleLetters($('logo'));
     mountCoins();
@@ -208,6 +215,10 @@ export const ui = {
     syncInstall();
     onInstallChange(syncInstall);
     on('installBtn', () => { void install(); });
+    const closeOffer = () => { $('installOffer').hidden = true; };
+    on('installOfferBtn', () => { closeOffer(); void install(); });
+    on('installOfferLater', closeOffer);
+    onInstallChange(() => { if (!installMode()) closeOffer(); });
 
     const syncOrientation = () => {
       // Touch the side you want to move toward: left/right in portrait (the dive runs down the screen), top/bottom in landscape.
@@ -241,12 +252,14 @@ export const ui = {
   /** The title hub; the best shown is the selected cave's. */
   showTitle(skin: string) {
     wearing = skin;
+    drawShells();
     // First-timers see how to play above the Dive button.
     $('howto').hidden = store.get('learned', false);
     $('boardBtn').hidden = !cloud.enabled;
     this.refreshTitle();
     this.hud(false);
     this.screen('title');
+    if (diveEnded) { diveEnded = false; window.setTimeout(() => this.offerInstall(), 700); }
   },
 
   back() {
@@ -285,7 +298,7 @@ export const ui = {
     }).join('');
   },
 
-  /** Settings > Your progress: link the guest to Google or email, switch accounts, sign out. */
+  /** Settings > Your progress: link the guest to Google, switch accounts, sign out. */
   initAccount() {
     const run = async (fn: () => Promise<LinkResult>, btn: HTMLElement) => {
       setBusy(true, btn);
@@ -296,14 +309,6 @@ export const ui = {
       else if (r !== 'redirect') accountError(r.error);
     };
     onTap('googleBtn', () => void run(() => cloud.linkGoogle(), $('googleBtn')));
-    onTap('emailBtn', () => { $('emailForm').hidden = !$('emailForm').hidden; if (!$('emailForm').hidden) $('emailInput').focus(); });
-    $('emailForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null;
-      const mode = submitter?.dataset.mode === 'signin' ? 'signin' : 'create';
-      const email = ($('emailInput') as HTMLInputElement).value, pass = ($('passInput') as HTMLInputElement).value;
-      void run(() => cloud.linkEmail(email, pass, mode), submitter ?? $('emailForm'));
-    });
     onTap('useAccountBtn', () => void (async () => {
       setBusy(true, $('useAccountBtn'));
       const r = await cloud.useExisting();
@@ -330,6 +335,20 @@ export const ui = {
       renderAccount();
       showConflict(true);
     });
+  },
+
+  /**
+   * After a few dives, back on the title screen: offer to install the game (or explain Add to Home
+   * Screen on iPhone). Asked at most three times, a few days apart; never once it's installed.
+   */
+  offerInstall() {
+    const mode = installMode(), asked = store.get('installAsked', { n: 0, at: 0 });
+    if (!mode || store.get('divesDone', 0) < INSTALL_AFTER_DIVES || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
+    if (!$('rotateHint').hidden || !this.isOpen('title')) return;
+    store.set('installAsked', { n: asked.n + 1, at: Date.now() });
+    $('installOfferPrompt').hidden = mode !== 'prompt';
+    $('installOfferIOS').hidden = mode !== 'ios';
+    $('installOffer').hidden = false;
   },
 
   /** Once ever, on a phone held upright: suggest turning it sideways. */
@@ -530,12 +549,46 @@ export const ui = {
     }));
   },
 
+  /**
+   * Out of lives: "Save me?" with a five-second countdown. Resolves true if the player spends Golden
+   * Shells to keep diving (the scene spends them), false if they decline or time runs out.
+   * (A "watch an ad" option can sit beside the shell button later.)
+   */
+  saveMe(reason: string, cost: number, have: number): Promise<boolean> {
+    this.screen('saveme');
+    $('savemeReason').textContent = reason;
+    $('savemeCost').innerHTML = shellTag(cost);
+    $('savemeHave').innerHTML = `You have ${shellTag(have)}`;
+    const ring = $('savemeRing'), count = $('savemeCount');
+    ring.style.animation = 'none'; void ring.getBoundingClientRect(); ring.style.animation = '';
+    return new Promise(resolve => {
+      let left = SAVE_ME_SECONDS;
+      count.textContent = String(left);
+      const tick = window.setInterval(() => {
+        left--;
+        count.textContent = String(Math.max(0, left));
+        if (left > 0) sfx.tone(660, 0.06, { type: 'triangle', vol: 0.05 });
+        else done(false);
+      }, 1000);
+      const done = (yes: boolean) => {
+        clearInterval(tick);
+        $('savemeYes').onclick = $('savemeNo').onclick = null;
+        if (yes) this.screen(null);
+        resolve(yes);
+      };
+      $('savemeYes').onclick = () => { buzz(10); done(true); };
+      $('savemeNo').onclick = () => { buzz(6); done(false); };
+    });
+  },
+
   showOver(o: {
     depth: number; reason: string; zone: string; best: number; isBest: boolean; pearls: number;
     close: string; results: MissionResult[]; earned: { label: string; n: number }[]; rankUp: RankUp | null;
     /** A cave this dive opened, if any. */
     opened: string | null;
   }) {
+    diveEnded = true;
+    store.set('divesDone', store.get('divesDone', 0) + 1);
     const stars = STAR_DEPTHS.filter(d => o.depth >= d).length;
     $('stars').innerHTML = STAR_DEPTHS.map((_, i) => STAR_SVG.replace('class="k-star"', `class="k-star${i < stars ? ' on' : ''}"`)).join('');
     $('overDepth').textContent = o.depth.toLocaleString();
@@ -595,13 +648,13 @@ export const ui = {
   setLifeline(on: boolean) { $('lifeline').hidden = !on; },
 
   /** Active power-up with its remaining time (0..1). */
-  setPerk(kind: 'shield' | 'magnet' | null, frac: number) {
+  setPerk(kind: 'shield' | 'magnet' | 'turbo' | null, frac: number) {
     const el = $('perk');
     if (kind !== shownPerk) {
       shownPerk = kind;
       el.hidden = !kind;
       el.dataset.kind = kind ?? '';
-      $('perkIcon').textContent = kind === 'shield' ? 'Shield' : kind === 'magnet' ? 'Magnet' : '';
+      $('perkIcon').textContent = kind === 'shield' ? 'Shield' : kind === 'magnet' ? 'Magnet' : kind === 'turbo' ? 'Turbo' : '';
     }
     if (kind) $('perkFill').style.transform = `scaleX(${Math.max(0, Math.min(1, frac))})`;
   },
@@ -722,8 +775,25 @@ function renderAccount(message = '') {
   $('account').hidden = !cloud.enabled;
   const a = cloud.account;
   $('accountStatus').textContent = message || (a.guest
-    ? 'You\u2019re playing as a guest, so your progress lives in this browser only. Save it to an account to keep it safe and play on any device.'
-    : `Saved to ${a.email ?? 'your account'}${a.provider === 'google' ? ' (Google)' : ''}. Sign in with it on any device to pick up where you left off.`);
+    ? 'You\u2019re playing as a guest, so your progress lives in this browser only. Sign in with Google to keep it safe and play on any device.'
+    : 'Your progress is saved. Sign in with this account on any device to pick up where you left off.');
+  // Signed in: who you are, with your Google photo (or your initial when there isn't one).
+  $('accountProfile').hidden = a.guest;
+  if (!a.guest) {
+    const who = a.name || a.email?.split('@')[0] || 'Diver';
+    $('accountName').textContent = who;
+    $('accountEmail').textContent = a.email ?? '';
+    $('accountEmail').hidden = !a.email;
+    ($('accountProfile').querySelector('em') as HTMLElement).hidden = a.provider !== 'google';
+    const av = $('accountAvatar');
+    av.textContent = who[0].toUpperCase();
+    if (a.photo) {
+      const img = new Image();
+      img.alt = ''; img.referrerPolicy = 'no-referrer'; // Google photos refuse requests that send a referrer
+      img.onload = () => av.replaceChildren(img);
+      img.src = a.photo;
+    }
+  }
   $('accountStatus').classList.toggle('ok', !!message);
   $('accountGuest').hidden = !a.guest || !$('accountConflict').hidden;
   $('signOutBtn').hidden = a.guest;

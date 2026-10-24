@@ -11,7 +11,7 @@ export interface Upgrade {
 }
 
 export const MAX_LEVEL = 5;
-const COSTS = [150, 300, 600, 1000, 1600];
+const COSTS = [300, 600, 1200, 2200, 3500];
 
 export const UPGRADES: Upgrade[] = [
   { id: 'shield',   name: 'Tough shield',   icon: 'pk-shield', effect: l => `Shield lasts ${shieldTime(l)} s` },

@@ -34,8 +34,9 @@ export class BootScene extends Phaser.Scene {
 
     // Pictures for the HTML menus (diver select, shop).
     for (const skin of SKINS) this.portrait(`diver-${skin.id}`, 82, 46);
-    for (const key of ['pk-shield', 'pk-magnet', 'pk-life', 'gd-airsaver', 'gd-headstart', 'gd-pearlpull', 'gd-coralguard', 'gd-luckyclam', 'gd-charm']) this.portrait(key, 32, 32);
+    for (const key of ['pk-shield', 'pk-magnet', 'pk-life', 'pk-turbo', 'gd-airsaver', 'gd-headstart', 'gd-pearlpull', 'gd-coralguard', 'gd-luckyclam', 'gd-charm']) this.portrait(key, 32, 32);
     this.portrait('air', 32, 32);
+    this.portrait('shell', 30, 28);
 
     this.scene.start('game');
   }
@@ -209,9 +210,14 @@ export class BootScene extends Phaser.Scene {
     };
     canvasTexture(this, 'pearl', 22, 22, ctx => {
       setup(ctx); ctx.translate(11, 11);
-      const g = ctx.createRadialGradient(-3, -3, 1, 0, 0, 8);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(0.6, '#fbeaff'); g.addColorStop(1, '#d6b8f2');
+      // A real pearl: creamy pink with a blue-green sheen on one side.
+      const g = ctx.createRadialGradient(-3, -3, 1, 0, 0, 8.5);
+      g.addColorStop(0, '#fffaf2'); g.addColorStop(0.45, '#ffd9ec'); g.addColorStop(0.8, '#f59ccb'); g.addColorStop(1, '#c86fb0');
       ctx.beginPath(); ctx.arc(0, 0, 7.5, 0, TAU); fillOut(ctx, g, 2.4);
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, 6.3, 0, TAU); ctx.clip();
+      const sheen = ctx.createLinearGradient(2, 6, 6, -2);
+      sheen.addColorStop(0, 'rgba(120,230,255,.75)'); sheen.addColorStop(1, 'rgba(120,230,255,0)');
+      ctx.fillStyle = sheen; ctx.beginPath(); ctx.arc(3.5, 3.5, 5, 0, TAU); ctx.fill(); ctx.restore();
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-2.6, -2.8, 2.4, 1.5, -0.6, 0, TAU); ctx.fill();
     });
     canvasTexture(this, 'pk-shield', 32, 32, ctx => {
@@ -234,6 +240,39 @@ export class BootScene extends Phaser.Scene {
       ctx.bezierCurveTo(7.5, -8, 9, 1, 0, 7.5);
       fillOut(ctx, '#ffd23f', 2.2);
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-3.4, -3, 1.8, 1.1, -0.6, 0, TAU); ctx.fill();
+    });
+    canvasTexture(this, 'pk-turbo', 32, 32, ctx => {
+      setup(ctx); ctx.translate(16, 16); bubble(ctx);
+      // Two speed chevrons pointing forward.
+      for (const x of [-4.5, 2]) {
+        ctx.beginPath(); ctx.moveTo(x - 2.5, -7); ctx.lineTo(x + 4.5, 0); ctx.lineTo(x - 2.5, 7);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.lineWidth = 6.5; ctx.strokeStyle = OUT; ctx.stroke();
+        ctx.lineWidth = 3.4; ctx.strokeStyle = x < 0 ? '#ffd23f' : '#ff7a2f'; ctx.stroke();
+      }
+    });
+    canvasTexture(this, 'shell', 30, 28, ctx => {
+      setup(ctx); ctx.translate(15, 15);
+      // A golden scallop: fan, ridges, hinge.
+      ctx.beginPath(); ctx.moveTo(0, 9); ctx.lineTo(-11, -2); ctx.quadraticCurveTo(-9, -11, 0, -11); ctx.quadraticCurveTo(9, -11, 11, -2); ctx.closePath();
+      const g = ctx.createLinearGradient(0, -11, 0, 9); g.addColorStop(0, '#fff2a8'); g.addColorStop(0.5, '#ffd23f'); g.addColorStop(1, '#f0a500');
+      fillOut(ctx, g, 2.4);
+      ctx.strokeStyle = 'rgba(160,90,0,.55)'; ctx.lineWidth = 1.4;
+      for (const a of [-0.9, -0.45, 0, 0.45, 0.9]) { ctx.beginPath(); ctx.moveTo(0, 8); ctx.lineTo(Math.sin(a) * 10, -Math.cos(a) * 10 + 1); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(-4, 8); ctx.lineTo(4, 8); ctx.lineTo(3, 11); ctx.lineTo(-3, 11); ctx.closePath(); fillOut(ctx, '#f0a500', 2);
+      ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.beginPath(); ctx.ellipse(-4, -6, 2.6, 1.3, -0.5, 0, TAU); ctx.fill();
+    });
+    canvasTexture(this, 'chest', 36, 32, ctx => {
+      setup(ctx); ctx.translate(18, 17);
+      // Lid, box, gold bands and lock.
+      ctx.beginPath(); ctx.moveTo(-13, -2); ctx.lineTo(-13, -6); ctx.quadraticCurveTo(-13, -13, 0, -13); ctx.quadraticCurveTo(13, -13, 13, -6); ctx.lineTo(13, -2); ctx.closePath();
+      fillOut(ctx, '#c9772f', 2.4);
+      ctx.beginPath(); ctx.rect(-13, -2, 26, 14); fillOut(ctx, '#a95d22', 2.4);
+      ctx.fillStyle = '#ffd23f'; ctx.strokeStyle = OUT; ctx.lineWidth = 1.8;
+      for (const x of [-9, 6]) { ctx.beginPath(); ctx.rect(x, -12.5, 3, 24.5); ctx.fill(); ctx.stroke(); }
+      ctx.beginPath(); ctx.rect(-3.5, -5, 7, 7); fillOut(ctx, '#ffd23f', 1.8);
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(0, -1.8, 1.2, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.ellipse(-6, -9, 3, 1.4, -0.3, 0, TAU); ctx.fill();
     });
     canvasTexture(this, 'life-ring', 70, 70, ctx => {
       setup(ctx); ctx.translate(35, 35);

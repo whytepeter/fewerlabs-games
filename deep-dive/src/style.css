@@ -583,17 +583,27 @@ body {
 #accountGuest[hidden] { display: none; }
 .google-btn svg { width: 22px; height: 22px; filter: none; }
 .k-btn--white svg { fill: var(--k-ink); }
-.email-form { display: grid; gap: 8px; }
-.email-form[hidden] { display: none; }
-.email-form input {
-  min-height: 46px; padding: 0 12px; border: 3px solid var(--k-outline); border-radius: 14px; background: #fff;
-  font: inherit; font-size: 16px; font-weight: 600; color: var(--k-ink);
+.account-profile {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px;
+  background: #fff; box-shadow: inset 0 0 0 2.5px var(--k-outline); text-align: left;
 }
-.email-form .k-row > .k-btn { flex: 1; font-size: 15px; padding: 0 10px 3px; }
+.account-profile[hidden] { display: none; }
+.account-avatar {
+  width: 52px; height: 52px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(180deg, #94d3ff, #3aa8ff); border: 3px solid var(--k-outline);
+  color: #fff; font-size: 24px; font-weight: 700; text-shadow: var(--k-text-outline);
+}
+.account-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.account-who { display: grid; gap: 1px; min-width: 0; }
+.account-who b { font-size: 18px; color: var(--k-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-who small { font-size: 14px; font-weight: 600; color: var(--k-ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-who small[hidden], .account-who em[hidden] { display: none; }
+.account-who em { display: inline-flex; align-items: center; gap: 5px; margin-top: 3px; font-style: normal; font-size: 12px; font-weight: 700; color: #1e8f45; }
+.account-who em svg { width: 14px; height: 14px; }
 .account-warn { font-size: 14px; font-weight: 600; color: var(--k-ink); margin: 0 0 8px; }
 .account-error { margin: 0; font-size: 14px; font-weight: 700; color: #c22a4b; }
 .account.busy { pointer-events: none; }
-.account.busy .k-btn:not(.loading), .account.busy input { opacity: .55; }
+.account.busy .k-btn:not(.loading) { opacity: .55; }
 .save-nudge {
   appearance: none; cursor: pointer; font: inherit; margin-top: 8px; width: 100%;
   padding: 6px 10px; border-radius: 12px; border: 2.5px dashed #3aa8ff; background: #e8f5ff;
@@ -646,9 +656,6 @@ body {
   }
   .divers-panel > .back-btn { grid-column: 1 / -1; }
 
-  /* Settings: the sign-in buttons side by side. */
-  #accountGuest { grid-template-columns: 1fr 1fr; }
-  #accountGuest > .email-form { grid-column: 1 / -1; }
 }
 
 /* ---------- Coins look like coins: gold amounts on a dark pill, and the icon sits above the
@@ -820,3 +827,40 @@ body {
   .tq-row { padding: 6px 10px; }
   .tq-text { font-size: 14px; }
 }
+
+/* ---------- Install offer (after a few dives) */
+.install-panel { width: min(340px, 100%); padding-top: 22px; text-align: center; display: grid; gap: 10px; justify-items: center; }
+.install-icon { width: 76px; height: 76px; border-radius: 20px; border: 3px solid var(--k-outline); box-shadow: 0 5px 0 var(--k-outline); }
+.install-panel h2 { margin: 2px 0 0; font-size: 22px; }
+.install-panel p { margin: 0; font-size: 15px; color: var(--k-ink-soft); }
+.install-panel > div, .install-panel > .k-btn { width: 100%; }
+.install-steps { margin: 0; padding: 10px 14px 10px 32px; width: 100%; border-radius: 14px; background: rgba(22, 35, 59, .06); text-align: left; font-size: 15px; display: grid; gap: 6px; }
+.install-steps[hidden], #installOfferPrompt[hidden] { display: none; }
+.install-steps svg { width: 18px; height: 18px; vertical-align: -3px; color: #3a7bff; }
+
+/* ---------- Save me? (keep diving for coins) */
+.saveme-panel { width: min(320px, 100%); text-align: center; display: grid; gap: 12px; justify-items: center; }
+.saveme-reason { margin: 0; font-size: 15px; font-weight: 600; color: var(--k-ink-soft); }
+.saveme-timer { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
+.saveme-timer svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.saveme-timer circle { fill: none; stroke-width: 10; }
+.saveme-track { stroke: rgba(22, 35, 59, .12); }
+.saveme-ring { stroke: #3ad06b; stroke-linecap: round; stroke-dasharray: 264; animation: saveme-ring 5s linear forwards; }
+@keyframes saveme-ring { to { stroke-dashoffset: 264; stroke: #ff5a7a; } }
+.saveme-timer span { font-size: 40px; font-weight: 700; color: var(--k-ink); }
+.saveme-panel > .k-btn { width: 100%; }
+#savemeYes { gap: 10px; white-space: nowrap; font-size: 20px; padding-inline: 12px; }
+#savemeYes .k-coin { width: 18px; height: 18px; }
+.perk[data-kind="turbo"] .perk-bar div { background: #ff9f43; }
+
+/* ---------- Golden Shells (spent on "Save me") */
+.shell-ico { width: 20px; height: 19px; vertical-align: -4px; margin-right: 3px; }
+.k-shells {
+  display: inline-flex; align-items: center; gap: 2px; padding: 4px 12px 4px 8px; border-radius: 999px;
+  background: rgba(22, 35, 59, .72); border: 3px solid var(--k-outline);
+  color: #ffe27a; font-size: 18px; font-weight: 700; text-shadow: var(--k-text-outline);
+}
+.k-shells .shell-ico { width: 22px; height: 21px; vertical-align: 0; }
+.saveme-have { margin: -4px 0 0; font-size: 14px; font-weight: 600; color: var(--k-ink-soft); }
+.saveme-have .shell-ico { width: 16px; height: 15px; vertical-align: -3px; }
+.shell-chip { color: #ffe27a; }

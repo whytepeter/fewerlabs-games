@@ -77,7 +77,7 @@ export const CAVES: CaveDef[] = [
     id: 'kelp',
     name: 'Kelp Forest',
     blurb: 'A wide, wavy forest. Kelp slows you down: steer around it.',
-    unlock: { cave: 'reef', depth: 300 },
+    unlock: { cave: 'reef', depth: 1000 },
     biomes: [
       { at: 0,   name: 'Kelp Shallows',  top: 0x47d9b0, bot: 0x137a66, rock: 0x2f7a52, dark: 0,    vent: 0 },
       { at: 180, name: 'Swaying Canopy', top: 0x23a184, bot: 0x0d5a4e, rock: 0x2a6646, dark: 0.3,  vent: 0 },
@@ -100,7 +100,7 @@ export const CAVES: CaveDef[] = [
     id: 'frost',
     name: 'Frozen Trench',
     blurb: 'Slippery ice, falling icicles and cold air that runs out faster.',
-    unlock: { cave: 'kelp', depth: 400 },
+    unlock: { cave: 'kelp', depth: 1200 },
     biomes: [
       { at: 0,   name: 'Frost Shelf',      top: 0xbfefff, bot: 0x5fb3db, rock: 0x2a5d8c, dark: 0,    vent: 0 },
       { at: 160, name: 'Glacier Hollow',   top: 0x6cc4ec, bot: 0x2a6fa8, rock: 0x224d7c, dark: 0.3,  vent: 0 },

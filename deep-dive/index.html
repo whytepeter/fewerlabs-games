@@ -32,7 +32,7 @@
         </div>
         <div class="hud-sub">
           <div class="hearts" id="hearts" aria-label="3 lives"><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg><svg class="life" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="13" class="life-dome"/><circle cx="17.5" cy="16" r="8.6" class="life-glass"/><circle cx="15" cy="14.4" r="1.7" class="life-eye"/><circle cx="20.2" cy="14.4" r="1.7" class="life-eye"/><path d="M15 18.6q2.6 2.4 5.2 0" class="life-smile"/><path d="M10.6 9.6q2-2.8 5.4-3.4" class="life-shine"/><path d="M12 7l4 7-3 4 5 6" class="life-crack"/></svg></div>
-          <div class="lifeline" id="lifeline" hidden>Lifeline</div>
+          <div class="lifeline" id="lifeline" hidden>Lifeline · next hit free</div>
           <div class="perk" id="perk" hidden><span id="perkIcon"></span><div class="perk-bar"><div id="perkFill"></div></div></div>
         </div>
       </div>
@@ -60,6 +60,7 @@
             <span class="rank-text"><small>Rank</small><span class="rank-pips" id="rankPips"></span></span>
           </button>
           <div class="title-bar-right">
+            <div class="k-shells" id="shellCount" title="Golden Shells: spend them to keep diving"></div>
             <div class="k-coins" data-coins></div>
             <button class="k-icon-btn k-icon-btn--sm k-btn--purple" id="settingsBtn" type="button" aria-label="Settings"><i data-icon="gear"></i></button>
           </div>
@@ -166,6 +167,36 @@
       </div>
     </div>
 
+    <div class="rotate-hint install-offer" id="installOffer" hidden>
+      <div class="k-panel install-panel">
+        <img class="install-icon" src="/pwa-192x192.png" alt="">
+        <h2>Install Deep Dive</h2>
+        <p>Play full screen, even offline, straight from your home screen.</p>
+        <div id="installOfferPrompt">
+          <button class="k-btn k-btn--block" id="installOfferBtn" type="button"><i data-icon="depth"></i>Install</button>
+        </div>
+        <ol class="install-steps" id="installOfferIOS" hidden>
+          <li>Tap <b>Share</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> in the browser bar</li>
+          <li>Choose <b>Add to Home Screen</b></li>
+        </ol>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="installOfferLater" type="button">Not now</button>
+      </div>
+    </div>
+
+    <section id="saveme" class="k-screen" hidden>
+      <div class="k-panel saveme-panel">
+        <div class="k-ribbon">Save me?</div>
+        <p class="saveme-reason" id="savemeReason"></p>
+        <div class="saveme-timer" aria-hidden="true">
+          <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="saveme-track"/><circle cx="50" cy="50" r="42" class="saveme-ring" id="savemeRing"/></svg>
+          <span id="savemeCount">5</span>
+        </div>
+        <button class="k-btn k-btn--block" id="savemeYes" type="button">Keep diving <span class="price-chip shell-chip" id="savemeCost"></span></button>
+        <p class="saveme-have" id="savemeHave"></p>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="savemeNo" type="button">No thanks</button>
+      </div>
+    </section>
+
     <section id="settings" class="k-screen" hidden>
       <div class="k-panel settings-panel">
         <div class="k-ribbon">Settings</div>
@@ -181,21 +212,16 @@
         </div>
         <div class="account" id="account" hidden>
           <h3>Your progress</h3>
+          <div class="account-profile" id="accountProfile" hidden>
+            <span class="account-avatar" id="accountAvatar"></span>
+            <span class="account-who"><b id="accountName"></b><small id="accountEmail"></small><em><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h6a5.1 5.1 0 0 1-2.2 3.4v2.8h3.6c2-1.9 3.2-4.7 3.2-8.2z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2v2.9A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14a6.6 6.6 0 0 1 0-4.2V7H2a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2 7l3.7 2.9C6.6 7.3 9.1 5.4 12 5.4z"/></svg>Signed in with Google</em></span>
+          </div>
           <p class="account-status" id="accountStatus"></p>
           <div id="accountGuest">
             <button class="k-btn k-btn--white k-btn--block google-btn" id="googleBtn" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h6a5.1 5.1 0 0 1-2.2 3.4v2.8h3.6c2-1.9 3.2-4.7 3.2-8.2z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2v2.9A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14a6.6 6.6 0 0 1 0-4.2V7H2a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2 7l3.7 2.9C6.6 7.3 9.1 5.4 12 5.4z"/></svg>
-              Save with Google
+              Sign in with Google
             </button>
-            <button class="k-btn k-btn--white k-btn--block" id="emailBtn" type="button"><i data-icon="mail"></i>Save with email</button>
-            <form class="email-form" id="emailForm" hidden>
-              <input id="emailInput" type="email" placeholder="Email" autocomplete="email" required>
-              <input id="passInput" type="password" placeholder="Password (6+ characters)" minlength="6" autocomplete="current-password" required>
-              <div class="k-row">
-                <button class="k-btn k-btn--sm" type="submit" data-mode="create">Create account</button>
-                <button class="k-btn k-btn--white k-btn--sm" type="submit" data-mode="signin">I have one</button>
-              </div>
-            </form>
           </div>
           <div id="accountConflict" hidden>
             <p class="account-warn">That account already has saved progress. Load it on this device? Your guest progress here will be replaced.</p>
