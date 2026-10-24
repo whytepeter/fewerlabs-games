@@ -37,7 +37,7 @@
         </div>
       </div>
       <div class="hud-right">
-        <div class="hud-best"><i data-icon="trophy"></i><span id="hudBest">0</span></div>
+        <div class="hud-best" id="hudBestPill" title="Your best in this cave"><i data-icon="trophy"></i><span class="hud-best-text"><small>Best</small><span><b id="hudBest">0</b> m</span></span></div>
         <button class="k-icon-btn k-icon-btn--sm k-btn--white" id="pauseBtn" aria-label="Pause"><i data-icon="pause"></i></button>
       </div>
     </header>
@@ -84,6 +84,7 @@
         <div class="title-hero">
           <h1 class="k-logo" id="logo">Deep Dive</h1>
           <p class="title-tag k-outline">How deep can you go?</p>
+          <div class="title-best" id="titleBestBox" title="Your best in this cave"><i data-icon="trophy"></i><small>Best</small><b id="titleBest">0</b><small>m</small></div>
           <button class="showcase" id="showcase" type="button" aria-label="Change diver">
             <span class="showcase-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <img id="showcaseImg" alt="">
@@ -106,7 +107,7 @@
           <div class="title-row">
             <button class="cave-chip" id="caveChip" type="button" aria-label="Choose a cave">
               <span class="cave-swatch" id="caveSwatch"></span>
-              <span class="cave-chip-text"><b id="caveName">Reef Trench</b><small class="best-badge" title="Your best in this cave"><i data-icon="trophy"></i>Best <b><span id="titleBest">0</span> m</b></small></span>
+              <span class="cave-chip-text"><b id="caveName">Reef Trench</b><small class="cave-chip-sub">Change cave</small></span>
               <em class="tile-dot" id="caveDot" hidden>New</em>
               <i data-icon="next"></i>
             </button>
@@ -341,6 +342,7 @@
           <div class="over-main">
             <div class="k-stars" id="stars"></div>
             <div class="k-big-num"><span id="overDepth">0</span><small>m</small></div>
+            <div class="over-best" id="overBest" hidden></div>
             <div class="over-reason" id="overReason"></div>
             <div class="over-close" id="overClose" hidden></div>
             <div class="k-earned" id="overEarned" hidden></div>

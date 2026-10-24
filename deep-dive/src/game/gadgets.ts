@@ -10,12 +10,12 @@ export type GadgetId = 'airsaver' | 'pearlpull' | 'headstart' | 'coralguard' | '
 export interface Gadget { id: GadgetId; name: string; text: string; price: number }
 
 export const GADGETS: Gadget[] = [
-  { id: 'airsaver',   name: 'Air Saver',      text: 'Your air lasts 20% longer.',                       price: 1000 },
-  { id: 'headstart',  name: 'Head Start',     text: 'Kick off every dive with a Turbo burst, then a short shield.', price: 1600 },
-  { id: 'pearlpull',  name: 'Pearl Pull',     text: 'Pearls close by drift to you, no magnet needed.',  price: 1800 },
-  { id: 'coralguard', name: 'Coral Guard',    text: 'The first sharp coral you hit each dive is free.', price: 2300 },
-  { id: 'luckyclam',  name: 'Lucky Clam',     text: 'One pearl in four counts double.',                 price: 2900 },
-  { id: 'charm',      name: 'Close-Call Charm', text: 'Close calls chain for longer and pay +1 more.',  price: 3500 },
+  { id: 'airsaver',   name: 'Air Saver',      text: 'Your air lasts 20% longer.',                       price: 2000 },
+  { id: 'headstart',  name: 'Head Start',     text: 'Kick off every dive with a Turbo burst, then a short shield.', price: 3200 },
+  { id: 'pearlpull',  name: 'Pearl Pull',     text: 'Pearls close by drift to you, no magnet needed.',  price: 3600 },
+  { id: 'coralguard', name: 'Coral Guard',    text: 'The first sharp coral you hit each dive is free.', price: 4600 },
+  { id: 'luckyclam',  name: 'Lucky Clam',     text: 'One pearl in four counts double.',                 price: 5800 },
+  { id: 'charm',      name: 'Close-Call Charm', text: 'Close calls chain for longer and pay +1 more.',  price: 7000 },
 ];
 
 export const AIR_SAVER = 0.8;          // oxygen drain multiplier

@@ -405,7 +405,9 @@ export const ui = {
     $('showcaseName').textContent = charOf(s).name;
     $('showcaseSpecial').textContent = specialOf(s.id).name;
     const cv = currentCave();
-    $('titleBest').textContent = caveBest(cv.id).toLocaleString();
+    const best = caveBest(cv.id);
+    $('titleBest').textContent = best.toLocaleString();
+    $('titleBestBox').classList.toggle('empty', !best);
     $('caveName').textContent = cv.name;
     $('caveSwatch').innerHTML = caveArt(cv);
     $('caveDot').hidden = !newCaves().length;
@@ -915,6 +917,10 @@ export const ui = {
     $('stars').innerHTML = STAR_DEPTHS.map((_, i) => STAR_SVG.replace('class="k-star"', `class="k-star${i < stars ? ' on' : ''}"`)).join('');
     $('overDepth').textContent = o.depth.toLocaleString();
     $('overReason').textContent = `${o.reason} · ${o.zone}`;
+    // Not a record: show the best to beat and how far off it was.
+    $('overBest').hidden = o.isBest || o.best <= 0;
+    $('overBest').innerHTML = `${icon('trophy')}${o.daily ? 'Today’s best' : 'Best'} <b>${o.best.toLocaleString()} m</b>`
+      + (o.best > o.depth ? `<small>${(o.best - o.depth).toLocaleString()} m to go</small>` : '');
     $('overRibbon').textContent = o.daily ? (o.isBest ? 'Today’s best!' : 'Daily Dive') : o.isBest ? 'New Record!' : 'Game Over';
     // Daily missions finished by this dive (and the all-three booster).
     const fresh = o.today.results.filter(r => r.justDone);
@@ -958,7 +964,12 @@ export const ui = {
     if (m > 0 && m % 100 === 0) bump($('depthPill'));
   },
 
-  setBest(m: number) { $('hudBest').textContent = m.toLocaleString(); },
+  /** `passed`: the dive is past the best, so the pill counts the new record live and glows. No best yet: no pill. */
+  setBest(m: number, passed = false) {
+    $('hudBest').textContent = m.toLocaleString();
+    $('hudBestPill').classList.toggle('passed', passed);
+    $('hudBestPill').hidden = m <= 0;
+  },
 
   setPearls(n: number) {
     $('runPearls').textContent = String(n);

@@ -750,7 +750,7 @@ export class GameScene extends Phaser.Scene {
   /** Warn when your best depth is near, and celebrate passing it mid-dive. */
   private chaseBest(depth: number) {
     if (this.runBest <= 0) return;
-    if (this.bestPassed) { ui.setBest(Math.floor(depth)); return; }
+    if (this.bestPassed) { ui.setBest(Math.floor(depth), true); return; }
     if (!this.bestWarned && this.runBest >= 100 && depth >= this.runBest - 50) {
       this.bestWarned = true;
       ui.damage('50 m to your best!', true);

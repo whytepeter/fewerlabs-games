@@ -100,11 +100,24 @@ body {
 .o2-icon svg { width: 22px; height: 22px; fill: var(--k-outline); color: var(--k-outline); }
 .hud-o2.low .o2-icon { background: linear-gradient(180deg, #ffc2cf, #ff5a7a); animation: k-bump .5s ease infinite; }
 .hud-right { justify-self: end; display: flex; align-items: center; gap: 10px; }
+/* The best to beat: a gold-rimmed pill that glows once the dive passes it. */
 .hud-best {
-  display: flex; align-items: center; gap: 5px;
-  font-weight: 700; font-size: 18px; text-shadow: var(--k-text-outline);
+  display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 2px 12px 2px 4px;
+  border-radius: 999px; background: rgba(22, 35, 59, .72); border: 3px solid #ffd23f;
+  box-shadow: 0 0 0 2px var(--k-outline), 0 4px 0 rgba(22, 35, 59, .6);
+  font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: var(--k-text-outline);
 }
-.hud-best svg { width: 20px; height: 20px; fill: #ffd23f; filter: drop-shadow(0 2px 0 var(--k-outline)); }
+.hud-best svg {
+  width: 30px; height: 30px; padding: 5px; flex: none; border-radius: 50%;
+  background: linear-gradient(180deg, #ffe58f, #ffc43d); border: 2.5px solid var(--k-outline); fill: var(--k-outline);
+}
+.hud-best-text { display: grid; line-height: 1; text-align: left; }
+.hud-best-text small { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #ffd23f; }
+.hud-best-text span { font-size: 14px; }
+.hud-best-text b { font-size: 20px; }
+.hud-best.passed { background: linear-gradient(180deg, #ffd23f, #f0a500); animation: best-glow 1.2s ease-in-out infinite; }
+.hud-best.passed .hud-best-text small { color: #fff; }
+@keyframes best-glow { 50% { box-shadow: 0 0 0 2px var(--k-outline), 0 4px 0 rgba(22, 35, 59, .6), 0 0 18px 4px rgba(255, 210, 63, .8); } }
 
 .toast {
   position: absolute; left: 0; right: 0; top: 40%;
@@ -253,6 +266,14 @@ body {
 .over-panel { width: min(400px, 100%); }
 .over-grid { display: grid; gap: 6px; }
 .over-reason { margin-top: 12px; color: var(--k-ink-soft); font-size: 16px; font-weight: 500; }
+.over-best {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 3px 12px 4px 8px;
+  border-radius: 999px; background: #fff3c4; border: 2.5px solid var(--k-outline);
+  font-size: 16px; font-weight: 600; color: var(--k-ink);
+}
+.over-best svg { width: 18px; height: 18px; fill: #f0a500; }
+.over-best b { font-variant-numeric: tabular-nums; }
+.over-best small { font-size: 13px; color: var(--k-ink-soft); }
 .over-main .k-tag { margin-top: 10px; }
 .over-buttons { margin-top: 16px; align-items: center; flex-wrap: nowrap; }
 
@@ -266,7 +287,9 @@ body {
   .banner { top: 22%; }
 }
 @media (max-width: 480px) {
-  .hud-best { display: none; }
+  .hud-best { min-height: 34px; padding-right: 9px; gap: 4px; }
+  .hud-best svg { width: 24px; height: 24px; padding: 4px; }
+  .hud-best-text b { font-size: 16px; }
   .hud .k-pill { font-size: 20px; padding-right: 12px; }
 }
 
@@ -1101,6 +1124,21 @@ body.dev-mode::after {
 }
 .title-hero .k-logo { font-size: clamp(36px, min(12cqw, 14cqh), 76px); white-space: nowrap; }
 .title-tag { display: none; margin-top: 8px; font-size: 16px; opacity: .95; }
+/* Your best in the chosen cave, right under the logo: the number to beat. */
+.title-best {
+  display: inline-flex; align-items: center; gap: 8px; padding: 3px 18px 3px 4px; border-radius: 999px;
+  background: rgba(22, 35, 59, .78); border: 3px solid #ffd23f; box-shadow: 0 0 0 2.5px var(--k-outline), 0 4px 0 rgba(6, 20, 45, .45);
+  color: #fff; font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: var(--k-text-outline); white-space: nowrap;
+}
+.title-best svg {
+  width: 34px; height: 34px; padding: 6px; flex: none; border-radius: 50%;
+  background: linear-gradient(180deg, #ffe58f, #ffc43d); border: 2.5px solid var(--k-outline); fill: var(--k-outline);
+}
+.title-best small { font-size: 14px; color: #ffd23f; letter-spacing: .06em; text-transform: uppercase; }
+.title-best small:last-child { color: #fff; text-transform: none; margin-left: -4px; }
+.title-best b { font-size: 26px; line-height: 1; }
+.title-best.empty b, .title-best.empty small:last-child { display: none; }
+.title-best.empty small::after { content: ' · set a record'; color: #fff; text-transform: none; letter-spacing: 0; }
 .showcase {
   appearance: none; cursor: pointer; background: none; border: 0; padding: 0; font: inherit;
   display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 0;
@@ -1108,7 +1146,7 @@ body.dev-mode::after {
 }
 .showcase img {
   /* As big as the room allows: never under the rail (portrait), never pushing the pill off. */
-  width: max(90px, min(340px, 92cqw, (100cqh - 150px) * 1.78)); aspect-ratio: 82 / 46; object-fit: contain;
+  width: max(90px, min(340px, 92cqw, (100cqh - 196px) * 1.78)); aspect-ratio: 82 / 46; object-fit: contain;
   filter: drop-shadow(0 10px 0 rgba(6, 20, 45, .35));
   animation: k-float 2.6s ease-in-out infinite;
 }
@@ -1126,15 +1164,15 @@ body.dev-mode::after {
 .showcase-name > svg { width: 14px; height: 14px; flex: none; fill: none; stroke: #b6fff0; stroke-width: 3; }
 @container hero (min-height: 460px) {
   .title-tag { display: block; }
-  .showcase img { width: max(90px, min(380px, 92cqw, (100cqh - 190px) * 1.78)); }
+  .showcase img { width: max(90px, min(380px, 92cqw, (100cqh - 236px) * 1.78)); }
 }
 @media (orientation: portrait) {
   /* The rail floats over the stage's left edge (64px): the diver takes the room right of it,
      while the logo stays centred on the screen. */
   .showcase { margin-left: 74px; }
-  .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 150px) * 1.78)); }
+  .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 196px) * 1.78)); }
   @container hero (min-height: 460px) {
-    .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 190px) * 1.78)); }
+    .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 236px) * 1.78)); }
   }
 }
 
@@ -1201,9 +1239,7 @@ body.dev-mode::after {
 .cave-swatch { width: 36px; height: 36px; flex: none; border-radius: 50%; border: 3px solid var(--k-outline); overflow: hidden; }
 .cave-chip-text { display: grid; flex: 1; min-width: 0; line-height: 1.15; }
 .cave-chip-text > b { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.best-badge { display: flex; align-items: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--k-ink-soft); white-space: nowrap; }
-.best-badge svg { width: 14px; height: 14px; flex: none; fill: #f0a500; }
-.best-badge b { color: var(--k-ink); font-variant-numeric: tabular-nums; }
+.cave-chip-sub { font-size: 12px; font-weight: 600; color: var(--k-ink-soft); white-space: nowrap; }
 .cave-chip > svg { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--k-ink); }
 .daily-btn { flex: none; }
 .daily-ico { display: grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 50%; background: linear-gradient(180deg, #ffb3c8, #ff5a7a); border: 2.5px solid var(--k-outline); }
