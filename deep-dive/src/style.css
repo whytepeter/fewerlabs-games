@@ -607,15 +607,15 @@ body {
 
 /* ---------- Tall menus: the card grows to the screen's height and only its list scrolls,
    so the ribbon, tabs and Back button stay in view. */
-#shop, #missions, #divers, #settings, #board {
+#shop, #missions, #divers, #settings, #board, #caves {
   grid-template-rows: minmax(0, 1fr);
   padding-top: calc(var(--safe-t) + 34px); /* the ribbon pokes out above the card */
 }
-.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel {
+.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel {
   display: flex; flex-direction: column; max-height: 100%;
 }
-:is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel) > * { flex-shrink: 0; }
-#shopList, #missionList, #diverGrid, .settings-panel .account, #boardList {
+:is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel) > * { flex-shrink: 0; }
+#shopList, #missionList, #diverGrid, .settings-panel .account, #boardList, #caveList {
   flex-shrink: 1; min-height: 0; max-height: none;
   overflow-y: auto; overscroll-behavior: contain;
   /* Room for button shadows and "New" badges, which the scroll box would otherwise clip. */
@@ -626,12 +626,12 @@ body {
 /* Phones held sideways: the screen is short but wide, so the menus spread out sideways
    instead of squeezing their lists into a sliver. */
 @media (orientation: landscape) and (max-height: 520px) {
-  .shop-panel, .missions-panel, .divers-panel, .settings-panel { width: min(760px, 100%); padding: 28px 18px 14px; }
+  .shop-panel, .missions-panel, .divers-panel, .settings-panel, .caves-panel { width: min(760px, 100%); padding: 28px 18px 14px; }
   .board-panel { width: min(560px, 100%); padding: 28px 18px 14px; }
   .back-btn, #boardBack { margin-top: 8px; }
 
   /* Shop and missions: two columns of rows; the coins sit in the card's corner. */
-  .shop-list, #missionList { grid-template-columns: 1fr 1fr; align-content: start; }
+  .shop-list, #missionList, #caveList { grid-template-columns: 1fr 1fr; align-content: start; }
   .shop-wallet { position: absolute; top: 8px; right: 14px; margin: 0; }
   .shop-panel .tabs { margin-right: 120px; }
 
@@ -711,4 +711,53 @@ body {
   .guide-zone[data-dir="up"] .guide-tag { flex-direction: row-reverse; }
   .guide-tag { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; }
   @keyframes guide-bob { 50% { transform: translateX(4px); } }
+}
+
+/* ---------- Caves: the chip above Dive and the picker */
+.cave-chip {
+  appearance: none; cursor: pointer; position: relative; font: inherit;
+  display: flex; align-items: center; gap: 10px; min-width: 240px;
+  padding: 5px 12px 5px 5px; border-radius: 999px;
+  background: var(--k-panel); border: 3px solid var(--k-outline); box-shadow: 0 4px 0 var(--k-outline);
+  color: var(--k-ink); text-align: left; -webkit-tap-highlight-color: transparent;
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+.cave-chip:active { transform: translateY(4px); box-shadow: 0 0 0 var(--k-outline); }
+.cave-swatch { width: 34px; height: 34px; flex: none; border-radius: 50%; border: 3px solid var(--k-outline); }
+.cave-chip-text { display: grid; flex: 1; line-height: 1.1; }
+.cave-chip-text small { font-size: 11px; font-weight: 700; color: var(--k-ink-soft); text-transform: uppercase; letter-spacing: .06em; }
+.cave-chip-text b { font-size: 16px; }
+.cave-chip > svg { width: 16px; height: 16px; fill: none; stroke: var(--k-ink); flex: none; }
+.cave-chip .tile-dot { top: -8px; right: -6px; }
+
+.caves-panel { width: min(460px, 100%); }
+.cave-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cave-card {
+  appearance: none; cursor: pointer; font: inherit; position: relative; width: 100%;
+  display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 8px; border-radius: 18px; text-align: left;
+  background: rgba(22, 35, 59, .06); border: 3px solid transparent; color: var(--k-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+.cave-card.on { background: #e3fbe9; border-color: #3ad06b; }
+.cave-card.locked .cave-art { filter: grayscale(.7) brightness(.7); }
+.cave-art { width: 64px; height: 64px; border-radius: 14px; border: 3px solid var(--k-outline); box-shadow: inset 0 -10px 0 rgba(0, 0, 0, .18); }
+.cave-body { display: grid; gap: 2px; min-width: 0; }
+.cave-body b { font-size: 17px; }
+.cave-body > span { font-size: 13px; color: var(--k-ink-soft); }
+.cave-body small { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.cave-goal { display: flex; align-items: center; gap: 5px; }
+.cave-goal svg { width: 14px; height: 14px; flex: none; fill: var(--k-ink-soft); }
+.cave-progress { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; }
+.cave-progress em { font-style: normal; font-size: 12px; font-weight: 600; color: var(--k-ink-soft); }
+.cave-bar { height: 8px; border-radius: 4px; background: rgba(22, 35, 59, .12); overflow: hidden; }
+.cave-bar b { display: block; height: 100%; background: #3ad06b; transform-origin: left; }
+.cave-tag {
+  position: absolute; top: -9px; right: 10px; padding: 1px 8px 2px; border-radius: 999px;
+  background: #3ad06b; border: 2px solid var(--k-outline); color: #fff; font-size: 11px; font-weight: 700; font-style: normal;
+}
+.cave-tag--new { background: #ff5a7a; }
+.over-cave { background: #e3fbe9; box-shadow: inset 0 0 0 2px #3ad06b; }
+@media (orientation: landscape) and (max-height: 520px) {
+  .caves-panel { width: min(760px, 100%); }
 }

@@ -85,6 +85,12 @@
             <span class="tq-reward" id="tqReward"></span>
             <span class="tq-list" id="tqList"></span>
           </button>
+          <button class="cave-chip" id="caveChip" type="button" aria-label="Choose a cave">
+            <span class="cave-swatch" id="caveSwatch"></span>
+            <span class="cave-chip-text"><small>Cave</small><b id="caveName">Reef Trench</b></span>
+            <em class="tile-dot" id="caveDot" hidden>New</em>
+            <i data-icon="next"></i>
+          </button>
           <button class="k-btn k-btn--lg dive-btn" id="playBtn"><i data-icon="play"></i>Dive</button>
           <div class="title-best k-outline"><i data-icon="trophy"></i>Best <b id="titleBest">0</b> m</div>
           <nav class="tiles" aria-label="Menu">
@@ -123,6 +129,14 @@
         </div>
         <p class="rank-next" id="rankNext"></p>
         <ul class="k-missions" id="missionList"></ul>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
+    <section id="caves" class="k-screen" hidden>
+      <div class="k-panel caves-panel">
+        <div class="k-ribbon">Caves</div>
+        <ul class="cave-list" id="caveList"></ul>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
       </div>
     </section>
@@ -239,6 +253,7 @@
             <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
             <div class="k-earned" id="overEarned" hidden></div>
             <div class="over-rankup" id="overRankUp" hidden></div>
+            <div class="over-rankup over-cave" id="overCave" hidden></div>
             <div class="over-rank" id="overRank" hidden></div>
             <button class="save-nudge" id="saveNudge" type="button" hidden>Don't lose this record: <b>save your progress</b></button>
           </div>

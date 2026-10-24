@@ -5,10 +5,10 @@ import { music } from '../core/music';
 import { buzz } from '../core/haptics';
 import { store } from '../core/settings';
 import { mixNum, TEX_SCALE } from '../core/tex';
-import { BIOMES, biomeIndex, palette, type Palette } from '../game/biomes';
+import { biomeIndex, palette, type Palette } from '../game/biomes';
 import { cave } from '../game/cave';
 import { Ambient } from '../game/ambient';
-import { DEEP_SONG } from '../game/song';
+import { bestKey, CAVES, currentCave, isUnlocked, selectCave, type CaveDef, type CaveId, type Kind } from '../game/caves';
 import { rankLocked, SKINS, skinIndex, suits } from '../game/skins';
 import { bubbleAir, lifelineChance, magnetTime, shieldTime, upgrades } from '../game/upgrades';
 import { AIR_SAVER, CHARM_WINDOW, gadgets, HEAD_START, LUCKY_CLAM, PEARL_PULL_RANGE, type GadgetId } from '../game/gadgets';
@@ -23,7 +23,6 @@ type Sprite = Phaser.GameObjects.Sprite;
 type Image = Phaser.GameObjects.Image;
 type Emitter = Phaser.GameObjects.Particles.ParticleEmitter;
 type Point = { x: number; y: number };
-type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
 type Perk = 'shield' | 'magnet' | 'lifeline';
 type State = 'title' | 'play' | 'paused' | 'over';
 
@@ -37,6 +36,8 @@ interface Obstacle {
   /** closest clearance while it could hurt you (negative = it touched you) */
   gap?: number;
 }
+/** A clump of kelp growing from the floor (side 1) or ceiling (side 0): slows you down, never hurts. */
+interface Kelp { x: number; side: 0 | 1; len: number; w: number; ph: number; strands: number }
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
 
@@ -54,7 +55,7 @@ const HIT_INVULN = 1.6;        // seconds of blinking after losing a heart
 const WALL_BONK_GAP = 0.35;    // plain walls only nudge you back (sound/shake at most this often)
 const WALL_BOUNCE = 70;        // how hard a plain wall pushes you back
 /** Sharp stretches of wall (coral spikes) appear below SPIKE_FROM metres and cost a life. */
-const SPIKE_SEG = 520, SPIKE_H = 19, SPIKE_FROM = 160;
+const SPIKE_SEG = 520, SPIKE_H = 19;
 const STEER = 1300;            // steering acceleration
 const MAGNET_RANGE = 170;
 const CLOSE_CALL = 22;         // clearance (px) that still counts as a close call
@@ -62,6 +63,7 @@ const COMBO_WINDOW = 4;        // seconds to chain the next close call
 const COMBO_MAX = 5;           // a chained close call pays up to this many coins
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
+const KELP_SLOW = 0.55, KELP_HOLD = 0.35;   // tangled in kelp: forward speed, and how long it lingers after you're out
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
@@ -122,12 +124,18 @@ export class GameScene extends Phaser.Scene {
   private nextAir = 0;
   private nextPearls = 0;
   private nextPerk = 0;
+  private nextKelp = 0;
+  private kelps: Kelp[] = [];
+  private tangle = 0;            // seconds left of the kelp slow-down
+  private tangles = 0;           // times caught this dive (the message only shows the first few)
   private biome = 0;
   private beepT = 0;
   private exhaustT = 0;
   private guideUsed = 0;         // first-dive guide: bit 1 = swam up, bit 2 = swam down
   private learned = store.get('learned', false);
-  private best = store.get('best', 0);
+  /** The cave being dived (picked on the title screen). */
+  private def: CaveDef = currentCave();
+  private best = store.get(bestKey(this.def.id), 0);
   private bestZone = store.get('bestZone', 0);
   private skin = suits.equipped;
   private k = 1; // world zoom on top of the device pixel ratio
@@ -233,6 +241,7 @@ export class GameScene extends Phaser.Scene {
       restart: () => this.startRun(),
       menu: () => this.toTitle(),
       skin: id => this.setSkin(id),
+      cave: id => this.setCave(id),
       typing: on => {
         // Let the name field receive Space and the arrow keys.
         const kb = this.input.keyboard!;
@@ -243,20 +252,21 @@ export class GameScene extends Phaser.Scene {
     // Pearls used to unlock suits directly; they're coins now. Convert any saved pearls once.
     const legacy = store.get('pearls', 0);
     if (legacy > 0) { coins.add(legacy); store.set('pearls', 0); }
-    music.play(DEEP_SONG, 0.3);
+    music.play(this.def.song, 0.3);
     cloud.onRestore(() => this.restored());
     this.toTitle();
   }
 
   /** A newer cloud save replaced this device's progress: reload what the scene keeps in memory. */
   private restored() {
-    this.best = store.get('best', 0);
+    this.def = currentCave();
+    this.best = store.get(bestKey(this.def.id), 0);
     this.bestZone = store.get('bestZone', 0);
     this.learned = store.get('learned', false);
     this.skin = suits.equipped;
     this.diver.setTexture(`diver-${this.skin}`, 0).play(`kick-${this.skin}`);
     metaChanged();
-    if (this.state === 'title') { this.runBest = this.best; ui.showTitle(this.best, this.skin); }
+    if (this.state === 'title') { this.runBest = this.best; ui.showTitle(this.skin); }
   }
 
   private applyCamera() {
@@ -281,13 +291,24 @@ export class GameScene extends Phaser.Scene {
     return true;
   }
 
+  /** Pick the cave to dive in from the title screen. False while it's still locked. */
+  private setCave(id: CaveId) {
+    if (!selectCave(id)) return false;
+    this.def = currentCave();
+    this.best = store.get(bestKey(this.def.id), 0);
+    this.runBest = this.best;
+    this.diverY = this.caveMid(0);
+    music.play(this.def.song, 0.3);
+    return true;
+  }
+
   // ---------- Flow
 
   private toTitle() {
     this.clearWorld();
     this.ambient.stop();
     sfx.resume();
-    music.setIntensity(0.3);
+    music.play(this.def.song, 0.3);
     this.state = 'title';
     this.dist = 0;
     this.runBest = this.best;
@@ -295,13 +316,15 @@ export class GameScene extends Phaser.Scene {
     // The title shows a big portrait of the diver instead.
     this.diver.setVisible(false).setAlpha(1).setRotation(0);
     this.shieldRing.setVisible(false);
-    ui.showTitle(this.best, this.skin);
+    ui.showTitle(this.skin);
   }
 
   private startRun() {
     sfx.unlock();
     sfx.resume();
     this.clearWorld();
+    this.def = currentCave();
+    this.best = store.get(bestKey(this.def.id), 0);
     this.dist = 0;
     this.speed = 200;
     this.oxy = 100;
@@ -339,6 +362,9 @@ export class GameScene extends Phaser.Scene {
     this.nextAir = 320;
     this.nextPearls = 700;
     this.nextPerk = this.cr(1600, 2400);
+    this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.cr(200, 500) : Infinity;
+    this.tangle = 0;
+    this.tangles = 0;
     this.beepT = 0;
     this.diver.setVisible(true).setAlpha(1).setRotation(0);
     this.state = 'play';
@@ -351,11 +377,11 @@ export class GameScene extends Phaser.Scene {
     ui.setPerk(null, 0);
     ui.setLifeline(false);
     ui.setRank(null);
-    ui.banner(BIOMES[0].name);
+    ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
     this.guideUsed = 0;
     this.ambient.start();
-    music.play(DEEP_SONG, 0.45);
+    music.play(this.def.song, 0.45);
     sfx.tone(330, 0.25, { vol: 0.08, slideTo: 520 });
   }
 
@@ -401,6 +427,7 @@ export class GameScene extends Phaser.Scene {
     for (const p of this.items) { p.sprite.destroy(); p.glow.destroy(); }
     this.obs = [];
     this.items = [];
+    this.kelps = [];
     this.exhaust.killAll();
     this.pops.killAll();
     this.sparks.killAll();
@@ -441,7 +468,10 @@ export class GameScene extends Phaser.Scene {
     // No gravity: the diver drifts to a stop when you let go.
     const steer = this.steering();
     const hold = steer !== 0;
-    this.vy = clamp(this.vy * Math.exp(-2.6 * dt) - steer * STEER * dt, -340, 340);
+    // Kelp drags on you: slower forward and heavier to steer, for a moment after you're out too.
+    this.tangle = Math.max(0, this.tangle - dt);
+    const drag = this.tangle > 0 ? 5 : 2.6;
+    this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * (this.tangle > 0 ? 0.7 : 1) * dt, -340, 340);
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
@@ -462,7 +492,7 @@ export class GameScene extends Phaser.Scene {
 
     const depth = this.dist / 10;
     this.speed = 200 + Math.min(200, depth * 0.14);
-    this.dist += this.speed * dt;
+    this.dist += this.speed * (this.tangle > 0 ? KELP_SLOW : 1) * dt;
     ui.setDepth(Math.floor(depth));
     this.chaseBest(depth);
     this.ambient.setDepth(depth);
@@ -486,10 +516,10 @@ export class GameScene extends Phaser.Scene {
       if (this.beepT <= 0) { this.beepT = 0.55; sfx.tone(880, 0.07, { type: 'square', vol: 0.025 }); }
     }
 
-    const bi = biomeIndex(depth);
+    const bi = biomeIndex(this.def.biomes, depth);
     if (bi !== this.biome) {
       this.biome = bi;
-      ui.banner(BIOMES[bi].name);
+      ui.banner(this.def.biomes[bi].name);
       this.cameras.main.flash(260, 180, 230, 255);
       sfx.tone(392, 0.7, { vol: 0.08 });
       sfx.tone(587, 0.9, { vol: 0.06, delay: 0.08 });
@@ -499,7 +529,7 @@ export class GameScene extends Phaser.Scene {
     this.spawning(depth, dt);
 
     const leftEdge = this.dist - this.diverX() - 140;
-    const dark = palette(depth, this.pal).dark;
+    const dark = palette(this.def.biomes, depth, this.pal).dark;
     for (const o of this.obs) {
       this.animate(o, dt);
       if (o.dead) continue;
@@ -538,9 +568,10 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.collect(dt, leftEdge);
+    this.kelpCheck(leftEdge);
 
     // Plain walls just nudge you back; sharp stretches cost a life.
-    const [top, bot] = cave(this.dist, this.H, this.cv);
+    const [top, bot] = cave(this.dist, this.H, this.cv, this.def.shape);
     const spikeTop = this.spiky(this.dist, 0), spikeBot = this.spiky(this.dist, 1);
     const topEdge = top + (spikeTop ? SPIKE_H * 0.6 : 0), botEdge = bot - (spikeBot ? SPIKE_H * 0.6 : 0);
     if (this.diverY - DIVER_R < topEdge) this.hitWall(topEdge + DIVER_R, 1, spikeTop);
@@ -595,7 +626,7 @@ export class GameScene extends Phaser.Scene {
     }
     if ((this.nextPearls -= step) <= 0) {
       this.spawnRow('pearl', 5 + ((this.rng() * 4) | 0), 26);
-      this.nextPearls = this.cr(520, 900);
+      this.nextPearls = this.cr(...this.def.pearlGap);
     }
     if ((this.nextPerk -= step) <= 0) {
       // The lifeline is rare and never offered while you still hold one.
@@ -603,6 +634,10 @@ export class GameScene extends Phaser.Scene {
       const lc = this.lifelineChance;
       this.spawnRow(r < lc && !this.lifeline && depth > LIFELINE_FROM ? 'lifeline' : r < lc + (1 - lc) / 2 ? 'shield' : 'magnet', 1, 0);
       this.nextPerk = this.cr(2200, 3400);
+    }
+    if (this.def.kelp && (this.nextKelp -= step) <= 0) {
+      this.spawnKelp();
+      this.nextKelp = this.cr(...this.def.kelp.gap);
     }
   }
 
@@ -641,8 +676,9 @@ export class GameScene extends Phaser.Scene {
    */
   private spiky(wx: number, side: 0 | 1) {
     const seg = Math.floor(wx / SPIKE_SEG), d = (seg * SPIKE_SEG) / 10;
-    if (d < SPIKE_FROM) return false;
-    const chance = 0.14 + Math.min(0.26, (d - SPIKE_FROM) / 2500);
+    const from = this.def.spikeFrom;
+    if (d < from) return false;
+    const chance = (0.14 + Math.min(0.26, (d - from) / 2500)) * this.def.spikes;
     const topSharp = hash(seg * 13.7 + 5.1) < chance;
     const sharp = side === 0 ? topSharp : !topSharp && hash(seg * 13.7 + 91.3) < chance;
     if (!sharp) return false;
@@ -788,12 +824,14 @@ export class GameScene extends Phaser.Scene {
 
   private spawnObstacle(depth: number) {
     const wx = this.dist - this.diverX() + this.W + 80;
-    const [t, b] = cave(wx, this.H, this.cv);
-    const kinds: Kind[] = ['jelly'];
-    if (depth > 50) kinds.push('mine');
-    if (depth > 200) kinds.push('angler');
-    if (depth > 320) kinds.push('eel');
-    if (depth > 450) kinds.push('jelly', 'angler', 'mine', 'eel');
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    // Each cave lets creatures in at its own depths; deep down every kind is doubled up.
+    const kinds: Kind[] = [];
+    for (const [k, from] of Object.entries(this.def.creatures) as [Kind, number][]) {
+      if (depth >= from) kinds.push(k);
+      if (depth >= Math.max(from, this.def.crowdFrom)) kinds.push(k);
+    }
+    if (!kinds.length) kinds.push('jelly');
     const kind = this.cpick(kinds), y = this.cr(t + 45, b - 45);
     const base = { kind, y, y0: y, ph: this.cr(0, TAU), amp: 0, vx: 0, floor: b, dy: 0 };
     let o: Obstacle;
@@ -813,10 +851,37 @@ export class GameScene extends Phaser.Scene {
     this.obs.push(o);
   }
 
+  /** A clump of kelp just off-screen, from the floor or the ceiling, always leaving a way past. */
+  private spawnKelp() {
+    const wx = this.dist - this.diverX() + this.W + 80;
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    this.kelps.push({
+      x: wx, side: this.rng() < 0.6 ? 1 : 0, len: (b - t) * this.cr(0.38, 0.56),
+      w: this.cr(44, 72), ph: this.cr(0, TAU), strands: 3 + ((this.rng() * 2) | 0),
+    });
+  }
+
+  /** Swimming through kelp slows you down for a moment; drop clumps once they're behind. */
+  private kelpCheck(leftEdge: number) {
+    this.kelps = this.kelps.filter(k => k.x + k.w > leftEdge);
+    for (const k of this.kelps) {
+      if (Math.abs(this.dist - k.x) > k.w / 2 + DIVER_R * 0.5) continue;
+      const [t, b] = cave(k.x, this.H, this.cv, this.def.shape);
+      const inside = k.side === 1 ? this.diverY + DIVER_R * 0.5 > b - k.len : this.diverY - DIVER_R * 0.5 < t + k.len;
+      if (!inside) continue;
+      if (this.tangle <= 0) {
+        sfx.noise(0.25, 0.05, 900);
+        buzz(10);
+        if (this.tangles++ < 2) ui.damage('Tangled in kelp!');
+      }
+      this.tangle = KELP_HOLD;
+    }
+  }
+
   /** A short arc of pickups somewhere inside the trench just off-screen. */
   private spawnRow(type: Pickup['type'], n: number, gap: number) {
     const wx = this.dist - this.diverX() + this.W + 60;
-    const [t, b] = cave(wx, this.H, this.cv);
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
     const y = this.cr(t + 40, b - 40), arc = n > 3 ? this.cr(-30, 30) : 0;
     for (let i = 0; i < n; i++) {
       const x = wx + i * gap, f = n > 1 ? i / (n - 1) : 0;
@@ -850,13 +915,18 @@ export class GameScene extends Phaser.Scene {
 
     const depth = Math.floor(this.dist / 10);
     const prevBest = this.runBest;
+    const key = bestKey(this.def.id), locked = CAVES.filter(c => !isUnlocked(c));
     // Read the saved best, not the in-memory one: a cloud restore may have raised it mid-dive.
-    this.best = Math.max(this.best, store.get('best', 0));
+    this.best = Math.max(this.best, store.get(key, 0));
     const isBest = depth > this.best;
-    if (isBest) { this.best = depth; store.set('best', depth); }
-    void this.postScore(depth, isBest);
-    embed.score(depth, this.best);
-    if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
+    if (isBest) { this.best = depth; store.set(key, depth); }
+    const opened = locked.find(isUnlocked) ?? null;
+    // The leaderboard and the store's scores are for the Reef Trench (one board per cave comes later).
+    if (this.def.id === 'reef') {
+      void this.postScore(depth, isBest);
+      embed.score(depth, this.best);
+      if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
+    }
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus;
@@ -877,8 +947,8 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(800, () => {
       if (this.state !== 'over') return;
       ui.showOver({
-        depth, reason, zone: BIOMES[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
-        close: soClose(depth, prevBest, ' m'), results, rankUp,
+        depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
+        close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null,
         earned: [{ label: `Dive ×${bonus.toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }],
       });
     });
@@ -895,11 +965,17 @@ export class GameScene extends Phaser.Scene {
   // ---------- Rendering
 
   private diverX() { return Math.min(this.W * 0.28, 260); }
-  private caveMid(wx: number) { const [t, b] = cave(wx, this.H, this.cv); return (t + b) / 2; }
+  /** Points along one swaying kelp strand growing from a wall (dir -1 = up from the floor, 1 = down from the ceiling). */
+  private kelpPts(x: number, base: number, dir: number, len: number, t: number): Point[] {
+    const pts: Point[] = [];
+    for (let i = 0; i <= 8; i++) pts.push({ x: x + Math.sin(t + i * 0.5) * i * 1.4, y: base + (dir * len * i) / 8 });
+    return pts;
+  }
+  private caveMid(wx: number) { const [t, b] = cave(wx, this.H, this.cv, this.def.shape); return (t + b) / 2; }
 
   private draw() {
     const W = this.W, H = this.H, T = this.clock, depth = this.dist / 10;
-    const pal = palette(depth, this.pal);
+    const pal = palette(this.def.biomes, depth, this.pal);
     const px = this.diverX();
     const x0 = this.dist - px;
     this.cameras.main.scrollX = x0;
@@ -910,7 +986,7 @@ export class GameScene extends Phaser.Scene {
 
     // Sun rays fade out as the light disappears.
     this.rays.clear();
-    const ray = portraitView() ? 0 : clamp(1 - depth / 180, 0, 1); // rays would fall sideways in portrait
+    const ray = portraitView() ? 0 : clamp(1 - depth / this.def.raysUntil, 0, 1); // rays would fall sideways in portrait
     if (ray > 0) {
       this.rays.fillStyle(0xb4f0ff, 0.05 * ray);
       for (let i = 0; i < 5; i++) {
@@ -946,7 +1022,7 @@ export class GameScene extends Phaser.Scene {
     this.topEdge.length = this.botEdge.length = this.topRim.length = this.botRim.length = n;
     for (let i = 0; i < n; i++) {
       const wx = x0 - 20 + i * 12;
-      cave(wx, H, this.cv);
+      cave(wx, H, this.cv, this.def.shape);
       (this.topEdge[i] ??= { x: 0, y: 0 }).x = wx; this.topEdge[i].y = this.cv[0];
       (this.botEdge[i] ??= { x: 0, y: 0 }).x = wx; this.botEdge[i].y = this.cv[1];
       (this.topRim[i] ??= { x: 0, y: 0 }).x = wx; this.topRim[i].y = this.cv[0] - 6;
@@ -973,7 +1049,7 @@ export class GameScene extends Phaser.Scene {
         if (!this.spiky(a + 1, side)) continue;
         const dir = side === 0 ? 1 : -1, run: Point[] = [];
         for (let wx = a; wx <= b; wx += 15) {
-          const base = cave(wx, H, this.cv)[side] - dir * 2;
+          const base = cave(wx, H, this.cv, this.def.shape)[side] - dir * 2;
           const tri = [{ x: wx - 7.5, y: base }, { x: wx, y: base + dir * SPIKE_H }, { x: wx + 7.5, y: base }];
           g.fillStyle(0xff6b8a, 1); g.fillPoints(tri, true);
           g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(tri, true);
@@ -984,12 +1060,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Kelp and coral on the reef floor.
-    const reef = clamp(1 - depth / 220, 0, 1);
+    // Kelp and coral on the floor (the Kelp Forest keeps its plants all the way down).
+    const reef = clamp(1 - depth / this.def.plantsUntil, 0, 1);
     if (reef > 0) {
       for (let k = Math.floor(x0 / 70); k < (x0 + W) / 70 + 1; k++) {
-        const wx = k * 70 + hash(k + 9) * 40, base = cave(wx, H, this.cv)[1] + 4;
-        if (hash(k) < 0.4) {
+        const wx = k * 70 + hash(k + 9) * 40, base = cave(wx, H, this.cv, this.def.shape)[1] + 4;
+        if (hash(k) < this.def.coral) {
           const c = CORAL[(hash(k + 5) * CORAL.length) | 0];
           for (let j = 0; j < 3; j++) {
             const cx = wx + (j - 1) * 7, cy = base - 4 - hash(k + j) * 10, r = 4.5 + hash(k + j + 2) * 3.5;
@@ -1009,7 +1085,7 @@ export class GameScene extends Phaser.Scene {
     const bestX = this.runBest * 10, bestOn = this.runBest > 0 && bestX > x0 - 40 && bestX < x0 + W + 40;
     if (bestOn) {
       const fx = bestX, col = 0xffc43d;
-      const [ceil, floor] = cave(fx, H, this.cv);
+      const [ceil, floor] = cave(fx, H, this.cv, this.def.shape);
       const la = this.bestPassed ? 0.35 : 1;
       for (let y = ceil + 6; y < floor - 6; y += 16) {
         const y2 = Math.min(y + 9, floor - 6);
@@ -1022,6 +1098,23 @@ export class GameScene extends Phaser.Scene {
       const flag = [{ x: fx, y: floor - 46 }, { x: fx + 26, y: floor - 40 + wave }, { x: fx, y: floor - 32 }];
       g.fillStyle(col, 1); g.fillPoints(flag, true);
       g.lineStyle(2.5, OUTLINE, 1); g.strokePoints(flag, true);
+    }
+
+    // Kelp clumps you can get tangled in: tall swaying strands with leaves.
+    for (const k of this.kelps) {
+      if (k.x < x0 - 80 || k.x > x0 + W + 80) continue;
+      const dir = k.side === 1 ? -1 : 1;
+      for (let j = 0; j < k.strands; j++) {
+        const sx = k.x - k.w / 2 + (k.w * (j + 0.5)) / k.strands, base = cave(sx, H, this.cv, this.def.shape)[k.side] - dir * 3;
+        const len = k.len * (0.82 + hash(j * 7 + k.ph) * 0.18), pts = this.kelpPts(sx, base, dir, len, T * 1.4 + k.ph + j * 0.9);
+        g.lineStyle(10, OUTLINE, 1); g.strokePoints(pts);
+        g.lineStyle(6, j % 2 ? 0x2fb35c : 0x48d16f, 1); g.strokePoints(pts);
+        for (let i = 2; i < pts.length; i += 2) {
+          const p = pts[i], side = i % 4 ? 1 : -1;
+          g.fillStyle(0x7fe08f, 1); g.fillEllipse(p.x + side * 6, p.y, 10, 5);
+          g.lineStyle(2, OUTLINE, 1); g.strokeEllipse(p.x + side * 6, p.y, 10, 5);
+        }
+      }
     }
 
     // Mine chains to the floor.
@@ -1094,9 +1187,20 @@ export class GameScene extends Phaser.Scene {
       this.edges.lineStyle(9, 0xff4d6d, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
       for (const run of this.spikeRuns) if (run.length > 1) this.edges.strokePoints(run);
     }
+    // Kelp glows faintly green in the dark so it can be seen coming.
+    if (dark > 0.25) {
+      this.edges.lineStyle(7, 0x6dffa4, 0.16 * dark);
+      for (const k of this.kelps) {
+        const dir = k.side === 1 ? -1 : 1;
+        for (let j = 0; j < k.strands; j++) {
+          const sx = k.x - k.w / 2 + (k.w * (j + 0.5)) / k.strands, base = cave(sx, H, this.cv, this.def.shape)[k.side] - dir * 3;
+          this.edges.strokePoints(this.kelpPts(sx, base, dir, k.len * (0.82 + hash(j * 7 + k.ph) * 0.18), T * 1.4 + k.ph + j * 0.9));
+        }
+      }
+    }
     // Your best depth: a dashed gold line across the trench, bright enough to see in the dark.
     if (bestOn) {
-      const [t, b] = cave(bestX, H, this.cv), a = this.bestPassed ? 0.25 : 0.6 + Math.sin(T * 5) * 0.2;
+      const [t, b] = cave(bestX, H, this.cv, this.def.shape), a = this.bestPassed ? 0.25 : 0.6 + Math.sin(T * 5) * 0.2;
       this.edges.lineStyle(10, 0xffb020, a * 0.35);
       this.edges.lineBetween(bestX, t, bestX, b);
       this.edges.lineStyle(3, 0xffe27a, a);

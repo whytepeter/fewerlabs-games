@@ -61,3 +61,33 @@ export const DEEP_SONG: Song = {
   fx: { delay: 0.22, delayBeats: 0.75, feedback: 0.3, reverb: 0.35, reverbSecs: 2.6, lowpass: 6000 },
   gain: 1,
 };
+
+/**
+ * "Kelp Drift": the Kelp Forest's version of Bubble Run. A step higher in G, a touch quicker,
+ * a kalimba hook over marimba arpeggios, and the shaker comes in from the very start.
+ */
+export const KELP_SONG: Song = {
+  ...DEEP_SONG,
+  bpm: 112,
+  root: 55, // G3
+  swing: 0.14,
+  // Gmaj7 – Am7 – Bm7 – Am7 – Gmaj7 – C – Em7 – D
+  progression: [
+    [0, 4, 7, 11], [2, 5, 9, 12], [4, 7, 11, 14], [2, 5, 9, 12],
+    [0, 4, 7, 11], [-7, 4, 9, 12], [-3, 4, 7, 11], [-5, 2, 7, 9],
+  ],
+  arp:   [1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+  hat:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 1],
+  hook: {
+    at: 0.3,
+    cycle: 16,
+    bars: [0, 8],
+    // Over Gmaj7 then Am7: D G F# D · B D | E C E G · E
+    notes: [
+      7, null, 12, null, 11, null, 7, null, null, null, 4, null, 7, null, null, null,
+      9, null, null, 5, null, null, 9, null, 12, null, null, 14, null, null, 9, null,
+    ],
+  },
+  layers: { bass: 0.2, arp: 0.28, drums: 0.4, lead: 0.72 },
+  instruments: { pad: 'triangle', bass: 'bounce', arp: 'marimba', hook: 'kalimba', lead: 'pluck', arp2: 'glass' },
+};

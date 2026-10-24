@@ -11,6 +11,7 @@ import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cloud, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
+import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -24,15 +25,17 @@ export interface Handlers {
   skin(id: string): boolean;
   /** A text field has focus: game keys must not steal typing. */
   typing(on: boolean): void;
+  /** Pick the cave to dive in; false while it's locked. */
+  cave(id: CaveId): boolean;
 }
 
 /** Depths that earn 1, 2 and 3 stars: reaching the Twilight Zone, Midnight Zone and the Abyss. */
 export const STAR_DEPTHS = [150, 400, 750];
 
-const SCREENS = ['title', 'pause', 'over', 'board', 'divers', 'missions', 'shop', 'settings'] as const;
+const SCREENS = ['title', 'pause', 'over', 'board', 'divers', 'missions', 'shop', 'settings', 'caves'] as const;
 type Screen = (typeof SCREENS)[number] | null;
 /** Menus reached from the title; Back (or Escape) returns to it. */
-const SUB = new Set<Screen>(['board', 'divers', 'missions', 'shop', 'settings']);
+const SUB = new Set<Screen>(['board', 'divers', 'missions', 'shop', 'settings', 'caves']);
 const LABELS: Record<keyof Settings, string> = { sound: 'Sound', music: 'Music', haptics: 'Vibration' };
 const portrait = () => matchMedia('(orientation: portrait)').matches;
 
@@ -44,9 +47,12 @@ let toastTimer = 0;
 let hintTimer = 0, tipTimer = 0;
 let guidePressed = 0;
 let onSkin: (id: string) => boolean = () => false;
+let onCave: (id: CaveId) => boolean = () => false;
+/** A cave's colours, top to bottom through its zones, for its card and the title chip. */
+const caveSwatch = (c: CaveDef) =>
+  `linear-gradient(180deg, ${c.biomes.map((b, i) => `#${b.top.toString(16).padStart(6, '0')} ${(i / c.biomes.length) * 100}%`).join(', ')}, #${c.biomes[c.biomes.length - 1].bot.toString(16).padStart(6, '0')})`;
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let bestShown = 0;
 let shopTab: 'upgrades' | 'gadgets' = 'upgrades';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
@@ -72,6 +78,7 @@ export const ui = {
     wobbleLetters($('logo'));
     mountCoins();
     onSkin = h.skin;
+    onCave = h.cave;
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
     on('playBtn', () => { enterFullscreen(); h.play(); });
@@ -85,6 +92,11 @@ export const ui = {
     on('boardBack', () => this.back());
     on('showcase', () => this.openDivers());
     on('diversBtn', () => this.openDivers());
+    on('caveChip', () => this.openCaves());
+    $('caveList').addEventListener('click', e => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>('[data-cave]');
+      if (card) this.pickCave(card.dataset.cave as CaveId, card);
+    });
     on('missionsBtn', () => this.openMissions());
     on('rankBadge', () => this.openMissions());
     on('shopBtn', () => this.openShop());
@@ -184,8 +196,8 @@ export const ui = {
     if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); clearTimeout(tipTimer); }
   },
 
-  showTitle(best: number, skin: string) {
-    bestShown = best;
+  /** The title hub; the best shown is the selected cave's. */
+  showTitle(skin: string) {
     wearing = skin;
     // First-timers see how to play above the Dive button.
     $('howto').hidden = store.get('learned', false);
@@ -205,7 +217,11 @@ export const ui = {
     const s = SKINS[skinIndex(wearing)];
     ($('showcaseImg') as HTMLImageElement).src = portraits[`diver-${s.id}`] ?? '';
     $('showcaseName').textContent = s.name;
-    $('titleBest').textContent = bestShown.toLocaleString();
+    const cv = currentCave();
+    $('titleBest').textContent = caveBest(cv.id).toLocaleString();
+    $('caveName').textContent = cv.name;
+    $('caveSwatch').style.background = caveSwatch(cv);
+    $('caveDot').hidden = !newCaves().length;
     const rank = deepMissions.rank, set = deepMissions.active, done = set.filter(m => m.done).length;
     $('rankNum').textContent = String(rank);
     $('rankPips').innerHTML = set.map(m => `<i class="${m.done ? 'on' : ''}"></i>`).join('');
@@ -283,6 +299,40 @@ export const ui = {
     if (!isTouch() || !portrait() || store.get('rotateHint', false)) return;
     store.set('rotateHint', true);
     el.hidden = false;
+  },
+
+  // ---------- Caves
+
+  openCaves() {
+    this.screen('caves');
+    this.renderCaves();
+    markCavesSeen();
+  },
+
+  renderCaves() {
+    const current = currentCave().id, fresh = new Set(newCaves().map(c => c.id));
+    $('caveList').innerHTML = CAVES.map(c => {
+      const open = isUnlocked(c), best = caveBest(c.id);
+      let status: string;
+      if (open) status = `<small>${best ? `Best <b>${best.toLocaleString()} m</b>` : 'Not dived yet'}</small>`;
+      else {
+        const from = CAVES.find(x => x.id === c.unlock!.cave)!, have = caveBest(from.id), need = c.unlock!.depth;
+        status = `<small class="cave-goal">${icon('lock')}<span>Reach <b>${need} m</b> in the ${from.name}</span></small>
+          <span class="cave-progress"><span class="cave-bar"><b style="transform:scaleX(${Math.min(1, have / need)})"></b></span><em>${Math.min(have, need)} / ${need} m</em></span>`;
+      }
+      return `<li><button class="cave-card${c.id === current ? ' on' : ''}${open ? '' : ' locked'}" type="button" data-cave="${c.id}">
+        <span class="cave-art" style="background:${caveSwatch(c)}"></span>
+        <span class="cave-body"><b>${c.name}</b><span>${c.blurb}</span>${status}</span>
+        ${c.id === current ? '<em class="cave-tag">Diving here</em>' : fresh.has(c.id) ? '<em class="cave-tag cave-tag--new">New</em>' : ''}
+      </button></li>`;
+    }).join('');
+  },
+
+  pickCave(id: CaveId, card: HTMLElement) {
+    if (!onCave(id)) { nope(card); return; }
+    cheer(false);
+    this.renderCaves();
+    this.refreshTitle();
   },
 
   // ---------- Divers (character select)
@@ -441,6 +491,8 @@ export const ui = {
   showOver(o: {
     depth: number; reason: string; zone: string; best: number; isBest: boolean; pearls: number;
     close: string; results: MissionResult[]; earned: { label: string; n: number }[]; rankUp: RankUp | null;
+    /** A cave this dive opened, if any. */
+    opened: string | null;
   }) {
     const stars = STAR_DEPTHS.filter(d => o.depth >= d).length;
     $('stars').innerHTML = STAR_DEPTHS.map((_, i) => STAR_SVG.replace('class="k-star"', `class="k-star${i < stars ? ' on' : ''}"`)).join('');
@@ -460,6 +512,8 @@ export const ui = {
       const unlocked = SKINS.find(d => d.rank === o.rankUp!.rank);
       up.innerHTML = `Rank up! You're rank ${o.rankUp.rank}: coin bonus ×${deepMissions.bonus.toFixed(1)}${unlocked ? ` and <b>${unlocked.name}</b> unlocked` : ''}`;
     }
+    $('overCave').hidden = !o.opened;
+    if (o.opened) $('overCave').innerHTML = `New cave unlocked: <b>${o.opened}</b>! Pick it on the title screen.`;
     this.hud(false);
     this.screen('over');
   },
