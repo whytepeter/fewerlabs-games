@@ -6,14 +6,22 @@ import { sfx } from './core/sfx';
 import { buzz } from './core/haptics';
 import { isTouch } from './core/view';
 import { hydrateIcons, icon, STAR_SVG, wobbleLetters } from './core/icons';
-import { canAfford, portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './game/skins';
+import { canAfford, CHARACTERS, charOf, charOwned, earnProgress, grantEarned, outfitsOf, portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './game/skins';
 import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cloud, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
-import { SHELL_PRICES, shellShop, shells } from './game/shells';
+import { claimSignupGift, SHELL_PRICES, shellShop, shells, SIGNUP_GIFT } from './game/shells';
 import type { ChestPrize } from './game/chests';
+import type { Special } from './game/specials';
+import { specialOf } from './game/specials';
+import { boosterById, BOOSTERS, boosters, BOOSTER_WINDOW, type Booster, type BoosterId } from './game/boosters';
+import { HUNT, hunt, type HuntPrize } from './game/hunt';
+import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from './game/daily';
+import { STREAK, streak, type StreakGift } from './game/streak';
+import { dev } from './core/dev';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
+import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -29,15 +37,23 @@ export interface Handlers {
   typing(on: boolean): void;
   /** Pick the cave to dive in; false while it's locked. */
   cave(id: CaveId): boolean;
+  /** Fire the diver's special move (when its meter is full). */
+  special(): void;
+  /** Start today's Daily Dive. */
+  daily(): void;
+  /** "Again" on the game-over screen: the same kind of dive as the last one. */
+  again(): void;
+  /** Use a booster at the start of a dive; false when it can't be used now. */
+  booster(id: BoosterId): boolean;
 }
 
 /** Depths that earn 1, 2 and 3 stars: reaching the Twilight Zone, Midnight Zone and the Abyss. */
 export const STAR_DEPTHS = [150, 400, 750];
 
-const SCREENS = ['title', 'pause', 'saveme', 'over', 'board', 'divers', 'missions', 'shop', 'settings', 'caves'] as const;
+const SCREENS = ['title', 'pause', 'saveme', 'over', 'board', 'divers', 'missions', 'shop', 'settings', 'caves', 'treasures'] as const;
 type Screen = (typeof SCREENS)[number] | null;
 /** Menus reached from the title; Back (or Escape) returns to it. */
-const SUB = new Set<Screen>(['board', 'divers', 'missions', 'shop', 'settings', 'caves']);
+const SUB = new Set<Screen>(['board', 'divers', 'missions', 'shop', 'settings', 'caves', 'treasures']);
 const LABELS: Record<keyof Settings, string> = { sound: 'Sound', music: 'Music', haptics: 'Vibration' };
 const portrait = () => matchMedia('(orientation: portrait)').matches;
 
@@ -81,6 +97,29 @@ function caveArt(c: CaveDef) {
     };
     scene = strand(14, 46, 10) + strand(30, 34, -8) + strand(88, 50, -10) + strand(106, 38, 8)
       + `<g transform="translate(60 34)"><path d="M-10 0L-16 -5V5Z" fill="#ffd23f" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><ellipse rx="9" ry="6" fill="#ffd23f" stroke="${INK}" stroke-width="2"/><circle cx="4" cy="-1.5" r="1.6" fill="${INK}"/></g>`;
+  } else if (c.id === 'pirate') {
+    // A wrecked pirate ship on the sand: planked hull, broken mast with a tattered sail and flag, spilled gold.
+    const hull = 'M10 60Q12 46 30 44L80 41Q88 41 90 48L84 62Z';
+    const planks = [48, 54].map(y => `<path d="M16 ${y + 1}L${86 - (y - 48) * 0.4} ${y - 2}" stroke="${INK}" stroke-width="1.4" opacity=".55"/>`).join('');
+    const coins = [[97, 54], [104, 55], [111, 54], [100, 49], [107, 49], [104, 44]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="4.2" ry="3.4" fill="#ffd23f" stroke="${INK}" stroke-width="1.6"/>`).join('');
+    scene = `<path d="${hull}" fill="#9a6235" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>${planks}`
+      + [28, 44, 60, 76].map(x => `<circle cx="${x}" cy="51" r="2.4" fill="${INK}"/>`).join('')
+      + stroke('M50 44L60 20', 3.5, '#8a5a32') + stroke('M52 30L72 33', 2.4, '#8a5a32')
+      + `<path d="M54 31L71 34L69 46L65 43L61 47L57 43L53 46Z" fill="#efe1c0" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`
+      + `<path d="M60 20L71 22L70 27L59 25Z" fill="${INK}"/><circle cx="65" cy="23.4" r="1.5" fill="#fff"/>`
+      + coins
+      + `<g transform="translate(22 32) rotate(-25)"><rect x="-10" y="-4" width="20" height="8" rx="2" fill="#3b4252" stroke="${INK}" stroke-width="2"/><circle cx="-11" r="3" fill="#3b4252" stroke="${INK}" stroke-width="1.8"/></g>`;
+  } else if (c.id === 'titanic') {
+    // A great liner's hull fading into the dark: portholes, deck railing, a buff funnel with a black top, and a blue glint.
+    const deck = (x: number) => 62 - (x + 4) * 0.385;
+    const hull = 'M-4 62L74 32Q84 29 90 36L96 50L-4 76Z';
+    const ports = [10, 24, 38, 52, 66].map(x => `<circle cx="${x}" cy="${deck(x) + 8}" r="2.6" fill="#bfe9ff" stroke="${INK}" stroke-width="1.4"/>`).join('');
+    const rail = [0, 1, 2, 3, 4, 5, 6].map(i => { const x = 4 + i * 11; return `<path d="M${x} ${deck(x)}V${deck(x) - 7}" stroke="#c9d3dc" stroke-width="1.4"/>`; }).join('');
+    scene = `<g transform="translate(58 34) rotate(-14)"><rect x="-7" y="-17" width="14" height="17" fill="#d9a04a" stroke="${INK}" stroke-width="2.2"/><rect x="-7" y="-22" width="14" height="6" fill="#1d1f26" stroke="${INK}" stroke-width="2.2"/></g>`
+      + `<path d="${hull}" fill="#2e3a4a" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`
+      + `<path d="M-4 76L96 50L98 56L-4 82Z" fill="#8a2b2b" stroke="${INK}" stroke-width="2"/>`
+      + stroke(`M-2 ${deck(-2) - 7}L74 ${deck(74) - 7}`, 1.6, '#c9d3dc') + rail + ports
+      + `<circle cx="106" cy="42" r="8" fill="#5fb8ff" opacity=".35"/><path d="M106 46.5C100.5 43 100.5 37.5 106 40C111.5 37.5 111.5 43 106 46.5Z" fill="#2f7bff" stroke="${INK}" stroke-width="1.4"/>`;
   } else {
     const ice = (x: number, y: number, w: number, h: number) => `<path d="M${x - w / 2} ${y}L${x} ${y + h}L${x + w / 2} ${y}Z" fill="#cff3ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M${x - w * 0.15} ${y + 3}L${x - 1} ${y + h * 0.65}" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`;
     const spike = (x: number, y: number) => `<path d="M${x - 6} ${y}L${x} ${y - 11}L${x + 6} ${y}Z" fill="#a8e6ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;
@@ -98,9 +137,20 @@ function caveArt(c: CaveDef) {
     <path d="${floor}" fill="${rock}" stroke="${INK}" stroke-width="2.5"/>
   </svg>`;
 }
+/** A cave's rare treasures on its card: little pictures, dark until found. */
+function treasureLine(c: CaveDef) {
+  const ts = caveTreasures(c.id);
+  if (!ts.length) return '';
+  const got = ts.filter(t => treasureLog.count(t.id) > 0).length;
+  const pics = ts.map(t => `<img class="${treasureLog.count(t.id) ? '' : 'unfound'}" src="${portraits[`tr-${t.id}`] ?? ''}" alt="">`).join('');
+  return `<small class="cave-goal cave-treasures">${pics}<span>${got ? `<b>${got}/${ts.length}</b> found` : ts.length > 1 ? `${ts.length} rare treasures` : 'A rare treasure'}</span></small>`;
+}
+/** The count on the title screen's Treasures tile. */
+const drawTreasures = () => { const el = document.getElementById('treasuresCount'); if (el) el.textContent = `${treasureLog.found()}/${TREASURES.length}`; };
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let shopTab: 'upgrades' | 'gadgets' | 'shells' = 'upgrades';
+let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' = 'upgrades';
+let shownSpecial = '';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
 
@@ -109,7 +159,7 @@ const onTap = (id: string, fn: () => void) =>
   $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
 const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
-/** A diver's price, in coins or Golden Shells. */
+/** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
 /** Shut treasure chests on the game-over screen; tapping one shakes it open to show its prize. */
 function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
@@ -131,8 +181,10 @@ function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
         b.classList.replace('opening', 'open');
         b.removeAttribute('aria-label');
         b.innerHTML = prize.kind === 'shell'
-          ? `<span class="over-chest-prize"><img class="shell-ico" src="${portraits.shell ?? ''}" alt="">Golden Shell!</span>`
-          : `<span class="over-chest-prize">${coinIcon()}+${prize.n}</span>`;
+          ? `<span class="over-chest-prize"><img class="shell-ico" src="${portraits.shell ?? ''}" alt="">Sea Heart!</span>`
+          : prize.kind === 'booster'
+            ? `<span class="over-chest-prize"><img class="shell-ico" src="${portraits[boosterById(prize.id).icon] ?? ''}" alt="">${boosterById(prize.id).name}!</span>`
+            : `<span class="over-chest-prize">${coinIcon()}+${prize.n}</span>`;
         sfx.tone(659, 0.15, { vol: 0.08 }); sfx.tone(880, 0.15, { vol: 0.08, delay: 0.08 }); sfx.tone(1318, 0.4, { vol: 0.08, delay: 0.16 });
         buzz([15, 25, 15]);
       }, 380);
@@ -152,6 +204,32 @@ function cheer(big: boolean) {
   if (big) sfx.tone(880, 0.25, { vol: 0.07, delay: 0.1 });
 }
 
+/** A hunt prize as a small tag: coins, a booster or a Sea Heart. */
+function prizeTag(p: HuntPrize) {
+  if (p.kind === 'coins') return coinTag(p.n);
+  if (p.kind === 'shell') return shellTag(p.n);
+  return `<img class="shell-ico" src="${portraits[boosterById(p.id).icon] ?? ''}" alt="">×${p.n}`;
+}
+const prizeName = (p: HuntPrize) => p.kind === 'coins' ? `${p.n} coins` : p.kind === 'shell' ? 'a Sea Heart' : `${p.n} ${boosterById(p.id).name} boosters`;
+
+/** The weekly Pearl Hunt: a bar with the three prizes along it. `gained` highlights this dive's pearls. */
+function huntBar(gained = 0) {
+  // Prizes sit evenly along the bar (a third each); the fill moves through each stretch in turn.
+  const now = hunt.pearls, k = HUNT.length;
+  const frac = (n: number) => {
+    const i = HUNT.findIndex(t => n < t.at);
+    if (i < 0) return 1;
+    const from = i ? HUNT[i - 1].at : 0;
+    return (i + (n - from) / (HUNT[i].at - from)) / k;
+  };
+  const marks = HUNT.map(t => `<span class="hunt-mark${now >= t.at ? ' won' : ''}" style="left:${frac(t.at) * 100}%"><i>${prizeTag(t.prize)}</i></span>`).join('');
+  return `<span class="hunt-track"><b class="hunt-was" style="transform:scaleX(${frac(now - gained)})"></b><b class="hunt-now" style="transform:scaleX(${frac(now)})"></b>${marks}</span>`;
+}
+function huntHead() {
+  const next = hunt.next, d = hunt.daysLeft;
+  return `<span class="hunt-head"><b>${icon('pearl')}Pearl Hunt</b><small>${next ? `${(next.at - hunt.pearls).toLocaleString()} pearls to the next prize` : 'All prizes won!'} · ${d === 1 ? 'ends today' : `${d} days left`}</small></span>`;
+}
+
 export const ui = {
   init(h: Handlers) {
     shells.onChange(drawShells);
@@ -163,8 +241,18 @@ export const ui = {
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
     on('playBtn', () => { enterFullscreen(); h.play(); });
-    on('againBtn', h.play);
+    on('againBtn', h.again);
+    on('dailyBtn', () => { enterFullscreen(); h.daily(); });
+    document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.addEventListener('click', () => {
+      buzz(6);
+      void openBoard(b.dataset.board === 'today');
+    }));
     on('pauseBtn', h.pause);
+    $('specialBtn').addEventListener('click', () => { sfx.unlock(); h.special(); });
+    $('boosterBar').addEventListener('click', e => {
+      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-booster]');
+      if (b && !h.booster(b.dataset.booster as BoosterId)) nope(b);
+    });
     on('resumeBtn', h.resume);
     on('restartBtn', h.restart);
     on('menuBtn', h.menu);
@@ -174,6 +262,9 @@ export const ui = {
     on('showcase', () => this.openDivers());
     on('diversBtn', () => this.openDivers());
     on('caveChip', () => this.openCaves());
+    on('treasuresBtn', () => this.openTreasures());
+    treasureLog.onChange(drawTreasures);
+    drawTreasures();
     $('caveList').addEventListener('click', e => {
       const card = (e.target as HTMLElement).closest<HTMLElement>('[data-cave]');
       if (card) this.pickCave(card.dataset.cave as CaveId, card);
@@ -187,12 +278,18 @@ export const ui = {
       shopTab = b.dataset.tab as typeof shopTab;
       this.renderShop();
     }));
-    this.rotateHint();
+    this.askAge(() => this.offerStreak(() => this.rotateHint()));
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
-    on('diverPrev', () => this.showDiver(viewed - 1));
-    on('diverNext', () => this.showDiver(viewed + 1));
+    $('devMode').addEventListener('change', e => {
+      dev.set((e.target as HTMLInputElement).checked);
+      buzz(10);
+      document.body.classList.toggle('dev-mode', dev.on);
+    });
+    document.body.classList.toggle('dev-mode', dev.on);
+    on('diverPrev', () => this.showCharacter(-1));
+    on('diverNext', () => this.showCharacter(1));
     on('diverAction', () => this.diverAction());
     document.querySelectorAll<HTMLElement>('[data-back]').forEach(b => b.addEventListener('click', () => { buzz(6); this.back(); }));
     addEventListener('keydown', e => {
@@ -278,6 +375,8 @@ export const ui = {
 
   hud(visible: boolean) {
     $('hud').hidden = !visible;
+    $('specialBtn').hidden = !visible;
+    if (!visible) $('boosterBar').hidden = true;
     if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); clearTimeout(tipTimer); }
   },
 
@@ -303,7 +402,8 @@ export const ui = {
   refreshTitle() {
     const s = SKINS[skinIndex(wearing)];
     ($('showcaseImg') as HTMLImageElement).src = portraits[`diver-${s.id}`] ?? '';
-    $('showcaseName').textContent = s.name;
+    $('showcaseName').textContent = charOf(s).name;
+    $('showcaseSpecial').textContent = specialOf(s.id).name;
     const cv = currentCave();
     $('titleBest').textContent = caveBest(cv.id).toLocaleString();
     $('caveName').textContent = cv.name;
@@ -313,13 +413,15 @@ export const ui = {
     $('rankNum').textContent = String(rank);
     $('rankPips').innerHTML = set.map(m => `<i class="${m.done ? 'on' : ''}"></i>`).join('');
     $('missionsCount').textContent = `${done}/${set.length}`;
+    // Daily Dive: today's best, or a nudge if you haven't dived it yet today.
+    $('dailyInfo').textContent = dailyRun.tries ? `Best ${dailyRun.best.toLocaleString()} m` : `+${DAILY_BONUS} coins`;
+    $('dailyDot').hidden = dailyRun.tries > 0;
     $('diversDot').hidden = !SKINS.some(d => isNewDiver(d, rank));
     $('shopDot').hidden = !UPGRADES.some(u => isNewUpgrade(u.id)) && !GADGETS.some(g => isNewGadget(g.id));
 
-    // The current mission set, right on the hub (as Jetpack Joyride and Subway Surfers do).
+    // The mission set on the hub (as Jetpack Joyride does); CSS shows only the next unfinished one.
     $('titleQuests').hidden = !store.get('learned', false);
     $('tqSet').textContent = `${done} of ${set.length} done`;
-    $('tqReward').innerHTML = `Finish all three to reach <b>rank ${rank + 1}</b> ${coinTag(deepMissions.rankReward)}`;
     $('tqList').innerHTML = set.map(m => {
       const frac = m.done ? 1 : Math.min(1, m.progress / m.target);
       return `<span class="tq-row${m.done ? ' done' : ''}"><i class="tq-check">${m.done ? icon('star') : ''}</i>
@@ -328,6 +430,11 @@ export const ui = {
           <em>${Math.min(m.progress, m.target).toLocaleString()} / ${m.target.toLocaleString()}</em></span>
         <span class="tq-coin">${m.done ? 'Done' : coinTag(m.reward)}</span></span>`;
     }).join('');
+    // The Pearl Hunt in one line: progress to the next prize.
+    const next = hunt.next, now = hunt.pearls;
+    $('tqHunt').innerHTML = `${icon('pearl')}<b>Pearl Hunt</b>` + (next
+      ? `<span class="tq-bar"><b style="transform:scaleX(${Math.min(1, now / next.at)})"></b></span><em>${now.toLocaleString()} / ${next.at.toLocaleString()}</em><span class="tq-coin">${prizeTag(next.prize)}</span>`
+      : '<em>All prizes won this week</em>');
   },
 
   /** Settings > Your progress: link the guest to Google, switch accounts, sign out. */
@@ -336,7 +443,7 @@ export const ui = {
       setBusy(true, btn);
       const r = await fn();
       setBusy(false);
-      if (r === 'linked') { cheer(true); renderAccount('Saved! Your progress now follows your account.'); }
+      if (r === 'linked') { cheer(true); renderAccount(giftNote('Saved! Your progress now follows your account.')); }
       else if (r === 'exists') showConflict(true);
       else if (r !== 'redirect') accountError(r.error);
     };
@@ -345,7 +452,7 @@ export const ui = {
       setBusy(true, $('useAccountBtn'));
       const r = await cloud.useExisting();
       setBusy(false);
-      if (r === true) { showConflict(false); cheer(true); renderAccount('Welcome back! Your saved progress is loaded.'); }
+      if (r === true) { showConflict(false); cheer(true); renderAccount(giftNote('Welcome back! Your saved progress is loaded.')); }
       else accountError(r.error);
     })());
     onTap('keepGuestBtn', () => { cloud.cancelPending(); showConflict(false); renderAccount(); });
@@ -361,7 +468,9 @@ export const ui = {
     });
     cloud.onAccount(() => { if (this.isOpen('settings')) renderAccount(); });
     // Back from a Google redirect whose account already had progress: ask what to keep.
+    // Also back from a redirect that linked the account: its sign-up shell (only once the save has synced).
     void cloud.start().then(() => {
+      if (!cloud.account.guest && claimSignupGift() && this.isOpen('settings')) renderAccount(giftNote('Saved!', true));
       if (!cloud.hasPending) return;
       this.screen('settings');
       renderAccount();
@@ -383,6 +492,53 @@ export const ui = {
     $('installOffer').hidden = false;
   },
 
+  /**
+   * First open: the player's age, on a slider with Accept, before anything else (saved and synced,
+   * so it's asked once). Accept stays off until the slider has been moved. Then `next`.
+   */
+  askAge(next: () => void) {
+    if (store.get<number | null>('age', null) !== null) { next(); return; }
+    const el = $('ageGate'), range = $('ageRange') as HTMLInputElement, ok = $('ageOk') as HTMLButtonElement;
+    range.addEventListener('input', () => {
+      $('ageValue').textContent = range.value === range.max ? `${range.value}+` : range.value;
+      $('ageValue').classList.add('picked');
+      ok.disabled = false;
+    });
+    ok.addEventListener('click', () => {
+      buzz(6);
+      store.set('age', Number(range.value));
+      el.hidden = true;
+      next();
+    });
+    el.hidden = false;
+  },
+
+  /** The age popover is up (the game's keys stay quiet). */
+  askingAge() { return !$('ageGate').hidden || !$('streakPop').hidden; },
+
+  /** Once a day, on opening the game: the login streak's gift for today, then `next`. */
+  offerStreak(next: () => void) {
+    const t = streak.today;
+    if (!t.claimable) { next(); return; }
+    const gift = (g: StreakGift) => g.kind === 'coins' ? coinTag(g.n) : g.kind === 'shell' ? shellTag(g.n)
+      : `<img class="shell-ico" src="${portraits[boosterById(g.id).icon] ?? ''}" alt="">`;
+    $('streakDays').innerHTML = STREAK.map((g, i) => `<li class="${i < t.day ? 'got' : i === t.day ? 'now' : ''}${i === STREAK.length - 1 ? ' big' : ''}">
+      <small>Day ${i + 1}</small><span>${i < t.day ? icon('star') : gift(g)}</span></li>`).join('');
+    $('streakSub').textContent = t.day ? `Day ${t.day + 1} in a row! Come back tomorrow for more.` : 'Come back every day for a bigger gift. Day 7 is a Sea Heart!';
+    const el = $('streakPop');
+    el.hidden = false;
+    $('streakClaim').onclick = () => {
+      if (!streak.claim()) return;
+      cheer(true);
+      // Seven days in a row earns Royal.
+      const earnedNow = grantEarned();
+      if (earnedNow.length) $('streakSub').innerHTML = `Seven days in a row! <b>${earnedNow.map(d => d.name).join(', ')}</b> joins your divers.`;
+      el.querySelector(`li.now`)?.classList.add('claimed');
+      drawShells();
+      window.setTimeout(() => { el.hidden = true; next(); }, earnedNow.length ? 2400 : 650);
+    };
+  },
+
   /** Once ever, on a phone held upright: suggest turning it sideways. */
   rotateHint() {
     const el = $('rotateHint');
@@ -395,6 +551,24 @@ export const ui = {
   },
 
   // ---------- Caves
+
+  /** Every rare treasure: found ones in colour with their story, the rest as dark "?" silhouettes. */
+  openTreasures() {
+    this.screen('treasures');
+    drawTreasures();
+    const log = treasureLog.all();
+    $('treasureCount').textContent = `${treasureLog.found()} of ${TREASURES.length} found`;
+    $('treasureList').innerHTML = TREASURES.map(t => {
+      const e = log[t.id], cave = CAVES.find(c => c.id === t.cave)!;
+      const when = e ? new Date(`${e.first}T12:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      return `<li class="treasure${e ? ' found' : ''}${t.legendary ? ' legendary' : ''}" style="--glow:${hex(t.glow)}">
+        <span class="treasure-art"><img src="${portraits[`tr-${t.id}`] ?? ''}" alt="">${e ? '' : '<b aria-hidden="true">?</b>'}</span>
+        <span class="treasure-body"><b>${e ? t.name : '???'}</b><small>${cave.name}${t.legendary ? ' · Legendary' : ''}</small>
+          <span>${e ? t.story : `Somewhere between ${t.from} and ${t.to} m. Very rare.`}</span>
+          ${e ? `<em>${e.n > 1 ? `Found ${e.n} times · ` : ''}First found ${when}</em>` : ''}</span>
+      </li>`;
+    }).join('');
+  },
 
   openCaves() {
     this.screen('caves');
@@ -415,7 +589,7 @@ export const ui = {
       }
       return `<li><button class="cave-card${c.id === current ? ' on' : ''}${open ? '' : ' locked'}" type="button" data-cave="${c.id}">
         <span class="cave-art">${caveArt(c)}</span>
-        <span class="cave-body"><b>${c.name}</b><span>${c.blurb}</span>${status}</span>
+        <span class="cave-body"><b>${c.name}</b><span>${c.blurb}</span>${status}${open ? treasureLine(c) : ''}</span>
         ${c.id === current ? '<em class="cave-tag">Diving here</em>' : fresh.has(c.id) ? '<em class="cave-tag cave-tag--new">New</em>' : ''}
       </button></li>`;
     }).join('');
@@ -435,9 +609,17 @@ export const ui = {
     this.showDiver(skinIndex(wearing));
   },
 
+  /** Step to the previous or next character, showing the outfit they wear (or their first one). */
+  showCharacter(dir: number) {
+    const at = CHARACTERS.indexOf(charOf(SKINS[viewed]));
+    const c = CHARACTERS[(at + dir + CHARACTERS.length) % CHARACTERS.length];
+    this.showDiver(skinIndex(charOf(SKINS[skinIndex(wearing)]) === c ? wearing : c.base));
+  },
+
+  /** Show one outfit: its character up top (name, bio, special), the outfit's own perk below. */
   showDiver(i: number) {
     viewed = (i + SKINS.length) % SKINS.length;
-    const s = SKINS[viewed], rank = deepMissions.rank;
+    const s = SKINS[viewed], c = charOf(s), rank = deepMissions.rank;
     markSeen(`diver:${s.id}`, isNewDiver(s, rank));
     const img = $('diverImg') as HTMLImageElement;
     img.src = portraits[`diver-${s.id}`] ?? '';
@@ -445,37 +627,90 @@ export const ui = {
     img.classList.toggle('locked', rankLocked(s, rank));
     img.classList.toggle('for-sale', !suits.owns(s.id));
     img.classList.remove('pop'); void img.offsetWidth; img.classList.add('pop');
-    $('diverName').textContent = s.name;
-    $('diverBio').textContent = s.bio;
-    $('diverPerk').textContent = s.perkText;
+    $('diverName').textContent = c.name;
+    $('diverBio').textContent = c.bio;
+    $('diverPerk').innerHTML = `<b>${s.name}</b>${s.perkText}`;
+    const sp = specialOf(s.id);
+    $('diverSpecial').innerHTML = `<b>${sp.name}</b><span>${sp.text}</span>`;
     const btn = $('diverAction'), need = $('diverNeed');
     btn.className = 'k-btn k-btn--block';
+    need.className = 'need-more';
     need.hidden = true;
-    if (rankLocked(s, rank)) {
+    if (!charOwned(c) && s.id !== c.base) {
+      btn.innerHTML = `${icon('lock')}Unlock ${c.name} first`; btn.classList.add('k-btn--white');
+      need.hidden = false; need.textContent = `Get ${c.name} with their ${SKINS[skinIndex(c.base)].name} outfit, then dress them up.`;
+    } else if (rankLocked(s, rank)) {
       btn.innerHTML = `${icon('lock')}Unlocks at rank ${s.rank}`; btn.classList.add('k-btn--white');
       need.hidden = false; need.textContent = 'Finish mission sets to rank up.';
     } else if (s.id === wearing) { btn.innerHTML = 'Wearing'; btn.classList.add('k-btn--white'); }
     else if (suits.owns(s.id)) btn.textContent = 'Wear';
-    else {
+    else if (s.earn) {
+      // Earned by playing: show the goal and how far along you are; Sea Hearts skip the rest.
+      const p = earnProgress(s)!;
+      need.hidden = false;
+      need.className = 'need-more earn-goal';
+      need.innerHTML = `<b>${icon('star')}${s.earn.text}</b><span class="earn-bar"><b style="transform:scaleX(${p / s.earn.n})"></b></span><em>${p.toLocaleString()} / ${s.earn.n.toLocaleString()}</em>`;
+      btn.innerHTML = `<span>Skip the goal</span><span class="price-chip">${priceTag(s)}</span>`;
+      btn.classList.add('k-btn--yellow');
+      if (shells.count < s.price) btn.classList.add('short');
+    } else {
       const short = s.price - (s.shells ? shells.count : coins.balance);
-      btn.innerHTML = `<span>Buy</span><span class="price-chip">${priceTag(s)}</span>`;
+      btn.innerHTML = `<span>${s.id === c.base ? 'Unlock' : 'Buy'}</span><span class="price-chip">${priceTag(s)}</span>`;
       btn.classList.add('k-btn--yellow', 'k-btn--lg');
       if (short > 0) {
         btn.classList.add('short');
         need.hidden = false;
         need.innerHTML = s.shells
-          ? `You need ${shellTag(short)} more. Find Golden Shells in treasure chests, or buy them in the shop.`
+          ? `You need ${shellTag(short)} more. Find Sea Hearts in treasure chests, or buy them in the shop.`
           : `You need ${coinTag(short)} more. Dive and finish missions to earn coins.`;
       }
     }
+    this.charTabs();
     this.diverGrid();
+    this.loadout();
+  },
+
+  /** One tab per character: their picture, name, and a lock until you have them. */
+  charTabs() {
+    const now = charOf(SKINS[viewed]), worn = SKINS[skinIndex(wearing)];
+    $('charTabs').innerHTML = CHARACTERS.map(c => {
+      const pic = charOf(worn) === c ? worn.id : c.base, owned = charOwned(c);
+      const fresh = outfitsOf(c.id).some(s => isNewDiver(s, deepMissions.rank));
+      return `<button type="button" class="char-tab${c === now ? ' on' : ''}${owned ? '' : ' for-sale'}${fresh ? ' new' : ''}" role="radio"
+        aria-checked="${c === now}" data-c="${c.id}"><img src="${portraits[`diver-${pic}`] ?? ''}" alt=""><span>${owned ? '' : icon('lock')}${c.name}</span></button>`;
+    }).join('');
+    $('charTabs').querySelectorAll<HTMLButtonElement>('[data-c]').forEach(b => b.addEventListener('click', () => {
+      buzz(6);
+      const c = CHARACTERS.find(x => x.id === b.dataset.c)!;
+      this.showCharacter(CHARACTERS.indexOf(c) - CHARACTERS.indexOf(charOf(SKINS[viewed])));
+    }));
+  },
+
+  /** The gadgets you own, to equip right here before a dive (buying them stays in the shop). */
+  loadout(message = '') {
+    const rank = deepMissions.rank, eq = gadgets.equipped(rank), slots = gadgets.slots(rank);
+    const owned = GADGETS.filter(g => gadgets.owns(g.id));
+    $('loadoutCount').textContent = `${eq.length}/${slots}`;
+    $('loadout').innerHTML = owned.map(g => {
+      const on = eq.includes(g.id);
+      return `<button type="button" class="gadget-chip${on ? ' on' : ''}" data-eq="${g.id}" aria-pressed="${on}" title="${g.text}">
+        <img src="${portraits[`gd-${g.id}`] ?? ''}" alt=""><span>${g.name}</span></button>`;
+    }).join('') + (message ? `<p class="need-more">${message}</p>` : '')
+      + `<button type="button" class="k-btn k-btn--white k-btn--sm gadget-shop" data-shop>${owned.length ? 'More gadgets' : 'Get gadgets in the shop'}</button>`;
+    $('loadout').querySelectorAll<HTMLButtonElement>('[data-eq]').forEach(b => b.addEventListener('click', () => {
+      if (gadgets.toggle(b.dataset.eq as GadgetId, deepMissions.rank)) { buzz(6); this.loadout(); }
+      else { nope(b); this.loadout('All slots are full. Take one off first.'); }
+    }));
+    $('loadout').querySelector('[data-shop]')!.addEventListener('click', () => this.openShop('gadgets'));
   },
 
   diverGrid() {
     const rank = deepMissions.rank;
     $('diverGrid').innerHTML = SKINS.map((s, i) => {
+      if (charOf(s) !== charOf(SKINS[viewed])) return '';
       const locked = rankLocked(s, rank), owned = suits.owns(s.id) && !locked;
-      const tag = owned ? '' : locked ? `<small>${icon('lock')}${s.rank}</small>` : `<small>${priceTag(s)}</small>`;
+      const tag = owned ? '' : locked ? `<small>${icon('lock')}${s.rank}</small>`
+        : s.earn ? `<small>${icon('star')}${earnProgress(s)}/${s.earn.n}</small>` : `<small>${priceTag(s)}</small>`;
       return `<button type="button" class="diver-thumb${i === viewed ? ' on' : ''}${locked ? ' locked' : owned ? '' : ' for-sale'}${s.id === wearing ? ' worn' : ''}${isNewDiver(s, rank) ? ' new' : ''}"
         role="radio" aria-checked="${i === viewed}" aria-label="${s.name}" data-i="${i}"><img src="${portraits[`diver-${s.id}`] ?? ''}" alt="">${tag}</button>`;
     }).join('');
@@ -507,6 +742,13 @@ export const ui = {
     $('rankBonus').textContent = `Coin bonus ×${deepMissions.bonus.toFixed(1)} on every dive`;
     const next = SKINS.find(d => d.rank === rank + 1);
     $('rankNext').innerHTML = `Finish all three to reach rank ${rank + 1} and earn ${coinTag(deepMissions.rankReward)}${next ? `, plus <b>${next.name}</b>` : ''}.`;
+    // Today's three daily missions, and the booster for clearing them all.
+    const today = dailyMissions.list, b = boosterById(dailyMissions.bonusBooster);
+    $('todayCard').innerHTML = `<span class="today-head"><b>${icon('calendar')}Today</b><small>${today.filter(m => m.done).length} of 3 · all three: <img class="shell-ico" src="${portraits[b.icon] ?? ''}" alt="">${b.name}${dailyMissions.bonusPaid ? ' (won!)' : ''}</small></span>`
+      + today.map(m => `<span class="today-row${m.done ? ' done' : ''}"><i class="tq-check">${m.done ? icon('star') : ''}</i><span class="tq-body"><span class="tq-text">${m.text}</span>
+        <span class="tq-bar"><b style="transform:scaleX(${Math.min(1, m.progress / m.target)})"></b></span></span><span class="tq-coin">${m.done ? 'Done' : coinTag(m.reward)}</span></span>`).join('');
+    $('huntCard').innerHTML = huntHead() + huntBar()
+      + `<span class="hunt-prizes">${HUNT.map(t => `<span class="${hunt.pearls >= t.at ? 'won' : ''}"><b>${t.at.toLocaleString()}</b> pearls: ${prizeName(t.prize)}</span>`).join('')}</span>`;
     const list = $('missionList');
     renderMissions(list, set);
     list.querySelectorAll('li').forEach((li, i) => {
@@ -542,6 +784,7 @@ export const ui = {
     document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === shopTab)));
     $('gadgetInfo').hidden = shopTab === 'upgrades';
     if (shopTab === 'gadgets') { this.renderGadgets(); return; }
+    if (shopTab === 'boosters') { this.renderBoosters(); return; }
     if (shopTab === 'shells') { this.renderShells(); return; }
     const list = $('shopList');
     list.innerHTML = UPGRADES.map(u => {
@@ -585,7 +828,22 @@ export const ui = {
     }));
   },
 
-  /** Golden Shells for coins: this week's few, each dearer than the last. */
+  /** One-use boosters: buy as many as you like, then tap them at the start of a dive. */
+  renderBoosters() {
+    $('gadgetInfo').innerHTML = 'Tap a booster in the <b>first few seconds</b> of a dive to use it. Chests and the Pearl Hunt give them too.';
+    $('gadgetInfo').classList.remove('warn');
+    $('shopList').innerHTML = BOOSTERS.map(b => {
+      const n = boosters.count(b.id);
+      return `<li class="shop-item"><img src="${portraits[b.icon] ?? ''}" alt="">
+        <div class="shop-body"><b>${b.name}</b><span>${b.text}</span><small class="shop-have">You have ${n}</small></div>
+        <button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < b.price ? ' short' : ''}" data-boost="${b.id}" aria-label="Buy ${b.name} for ${b.price} coins">${coinTag(b.price)}</button></li>`;
+    }).join('');
+    $('shopList').querySelectorAll<HTMLButtonElement>('[data-boost]').forEach(b => b.addEventListener('click', () => {
+      if (boosters.buy(b.dataset.boost as BoosterId) === 'bought') { cheer(true); this.renderBoosters(); } else nope(b);
+    }));
+  },
+
+  /** Sea Hearts for coins: this week's few, each dearer than the last. */
   renderShells() {
     const bought = shellShop.bought;
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
@@ -593,9 +851,9 @@ export const ui = {
     $('shopList').innerHTML = SHELL_PRICES.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
-        : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Golden Shell for ${price} coins">${coinTag(price)}</button>`;
+        : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Sea Heart for ${price} coins">${coinTag(price)}</button>`;
       return `<li class="shop-item${i < bought ? ' equipped' : ''}"><img src="${portraits.shell ?? ''}" alt="">
-        <div class="shop-body"><b>Golden Shell</b><span>${i === 0 ? 'This week’s first shell' : i === bought ? 'Another one, a little dearer' : i < bought ? 'Bought this week' : `Opens once you buy the ${SHELL_PRICES[i - 1].toLocaleString()}-coin shell`}</span></div>${btn}</li>`;
+        <div class="shop-body"><b>Sea Heart</b><span>${i === 0 ? 'This week’s first Sea Heart' : i === bought ? 'Another one, a little dearer' : i < bought ? 'Bought this week' : `Opens once you buy the ${SHELL_PRICES[i - 1].toLocaleString()}-coin one`}</span></div>${btn}</li>`;
     }).join('');
     $('shopList').querySelector<HTMLButtonElement>('[data-shell]')?.addEventListener('click', e => {
       const b = e.currentTarget as HTMLButtonElement;
@@ -642,6 +900,14 @@ export const ui = {
     opened: string | null;
     /** Treasure chests found this dive (already paid out), shut until tapped. */
     chests: ChestPrize[];
+    /** The weekly Pearl Hunt: pearls counted before this dive, and prizes it just won. */
+    hunt: { before: number; won: HuntPrize[] };
+    /** It was today's Daily Dive (its own best and board). */
+    daily: boolean;
+    /** Daily missions after this dive, and the booster if all three just got done. */
+    today: { results: DailyResult[]; bonus: BoosterId | null };
+    /** Divers this dive earned (their goal was just reached). */
+    newDivers: string[];
   }) {
     diveEnded = true;
     store.set('divesDone', store.get('divesDone', 0) + 1);
@@ -649,21 +915,29 @@ export const ui = {
     $('stars').innerHTML = STAR_DEPTHS.map((_, i) => STAR_SVG.replace('class="k-star"', `class="k-star${i < stars ? ' on' : ''}"`)).join('');
     $('overDepth').textContent = o.depth.toLocaleString();
     $('overReason').textContent = `${o.reason} · ${o.zone}`;
-    $('overRibbon').textContent = o.isBest ? 'New Record!' : 'Game Over';
-    $('overBest').hidden = !o.isBest;
+    $('overRibbon').textContent = o.daily ? (o.isBest ? 'Today’s best!' : 'Daily Dive') : o.isBest ? 'New Record!' : 'Game Over';
+    // Daily missions finished by this dive (and the all-three booster).
+    const fresh = o.today.results.filter(r => r.justDone);
+    $('overToday').hidden = !fresh.length;
+    $('overToday').innerHTML = fresh.map(r => `<span>${icon('star')}Daily: ${r.mission.text} ${coinTag(r.mission.reward)}</span>`).join('')
+      + (o.today.bonus ? `<span class="over-today-bonus">${icon('gift')}All three done: +1 ${boosterById(o.today.bonus).name}</span>` : '');
     $('overClose').hidden = !o.close;
     $('overClose').textContent = o.close;
     renderEarned($('overEarned'), o.earned);
     renderChests($('overChests'), o.chests);
     renderMissions($('overMissions'), [], o.results);
+    const gained = hunt.pearls - o.hunt.before;
+    $('overHunt').hidden = gained <= 0 && !o.hunt.won.length;
+    $('overHunt').innerHTML = huntHead() + huntBar(gained)
+      + (o.hunt.won.length ? `<span class="hunt-won">${icon('star')}Pearl Hunt prize: ${o.hunt.won.map(prizeTag).join(' ')}</span>` : '');
     // A new record is the moment guests care most about losing progress (Subway Surfers asks here too).
     $('saveNudge').hidden = !(cloud.enabled && cloud.account.guest && o.isBest && o.depth >= 150);
     const up = $('overRankUp');
-    up.hidden = !o.rankUp;
+    up.hidden = !o.rankUp && !o.newDivers.length;
     if (o.rankUp) {
       const unlocked = SKINS.find(d => d.rank === o.rankUp!.rank);
       up.innerHTML = `Rank up! You're rank ${o.rankUp.rank}: coin bonus ×${deepMissions.bonus.toFixed(1)}${unlocked ? ` and <b>${unlocked.name}</b> unlocked` : ''}`;
-    }
+    } else if (o.newDivers.length) up.innerHTML = `New diver earned: <b>${o.newDivers.join('</b> and <b>')}</b>! Wear them from Divers.`;
     $('overCave').hidden = !o.opened;
     if (o.opened) $('overCave').innerHTML = `New cave unlocked: <b>${o.opened}</b>! Pick it on the title screen.`;
     this.hud(false);
@@ -671,10 +945,10 @@ export const ui = {
   },
 
   /** Worldwide rank for the dive just finished (null hides it). */
-  setRank(rank: number | null, isBest = false) {
+  setRank(rank: number | null, isBest = false, daily = false) {
     const el = $('overRank');
     el.hidden = !rank;
-    if (rank) el.textContent = `${isBest ? 'Your new best ranks' : 'This dive ranks'} #${rank.toLocaleString()} worldwide`;
+    if (rank) el.textContent = daily ? `#${rank.toLocaleString()} in today’s Daily Dive` : `${isBest ? 'Your new best ranks' : 'This dive ranks'} #${rank.toLocaleString()} worldwide`;
   },
 
   setDepth(m: number) {
@@ -699,6 +973,35 @@ export const ui = {
       el.classList.toggle('lost', i >= n);
       if (was && i >= n) { el.classList.remove('shake'); void (el as unknown as HTMLElement).offsetWidth; el.classList.add('shake'); }
     });
+  },
+
+  /** The special button: the diver's face in a ring that fills as pearls charge the meter. */
+  setSpecial(diver: string, s: Special, charge: number, active: boolean) {
+    const btn = $('specialBtn');
+    if (shownSpecial !== diver) {
+      shownSpecial = diver;
+      ($('specialImg') as HTMLImageElement).src = portraits[`diver-${diver}`] ?? '';
+      $('specialName').textContent = s.name;
+      btn.setAttribute('aria-label', `${s.name}: ${s.text}`);
+    }
+    $('specialFill').style.strokeDashoffset = String(176 * (1 - Math.max(0, Math.min(1, charge))));
+    const ready = charge >= 1 && !active;
+    if (ready && !btn.classList.contains('ready')) bump(btn);
+    btn.classList.toggle('ready', ready);
+    btn.classList.toggle('active', active);
+  },
+
+  /** Booster chips at the start of a dive (null or empty hides them). */
+  setBoosters(list: Booster[] | null) {
+    const bar = $('boosterBar');
+    bar.hidden = !list?.length;
+    if (!list?.length) return;
+    const fresh = bar.dataset.open !== '1';
+    bar.dataset.open = '1';
+    bar.innerHTML = list.map(b => `<button class="booster-chip" type="button" data-booster="${b.id}" aria-label="Use ${b.name} (${boosters.count(b.id)} left)" title="${b.name}">
+      <img src="${portraits[b.icon] ?? ''}" alt=""><em>${boosters.count(b.id)}</em></button>`).join('')
+      + `<span class="booster-timer" style="animation-duration:${BOOSTER_WINDOW}s"></span>`;
+    if (!fresh) (bar.querySelector('.booster-timer') as HTMLElement).style.animation = 'none';
   },
 
   /** The held lifeline (saves one dive-ending hit). */
@@ -800,15 +1103,17 @@ export const ui = {
 };
 
 /** The leaderboard screen: top divers, plus your own row when you're further down. */
-async function openBoard() {
+/** The leaderboard: all time (Reef Trench), or today's Daily Dive. */
+async function openBoard(today = false) {
   ui.screen('board');
+  document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.setAttribute('aria-selected', String((b.dataset.board === 'today') === today)));
   const list = $('boardList'), status = $('boardStatus');
   ($('nameInput') as HTMLInputElement).value = cloud.name;
   status.textContent = 'Loading…';
   status.hidden = false;
   list.replaceChildren();
-  const best = store.get('best', 0);
-  const [top, rank] = await Promise.all([cloud.top(20), cloud.rank(best)]);
+  const day = today ? dailyRun.day : undefined, best = today ? dailyRun.best : store.get('best', 0);
+  const [top, rank] = await Promise.all([cloud.top(20, day), cloud.rank(best, day)]);
   if (!top) { status.textContent = 'Can’t reach the leaderboard right now.'; return; }
   status.hidden = top.length > 0;
   status.textContent = 'No dives yet. Be the first!';
@@ -829,10 +1134,14 @@ async function openBoard() {
 }
 
 function renderAccount(message = '') {
+  // Dev mode: only for the dev server and the developer's account (see core/dev.ts).
+  $('devToggle').hidden = !dev.allowed;
+  ($('devMode') as HTMLInputElement).checked = dev.on;
+  document.body.classList.toggle('dev-mode', dev.on);
   $('account').hidden = !cloud.enabled;
   const a = cloud.account;
   $('accountStatus').textContent = message || (a.guest
-    ? 'You\u2019re playing as a guest, so your progress lives in this browser only. Sign in with Google to keep it safe and play on any device.'
+    ? 'You\u2019re playing as a guest, so your progress lives in this browser only. Sign in with Google to keep it safe, play on any device and get a free Sea Heart.'
     : 'Your progress is saved. Sign in with this account on any device to pick up where you left off.');
   // Signed in: who you are, with your Google photo (or your initial when there isn't one).
   $('accountProfile').hidden = a.guest;
@@ -851,11 +1160,16 @@ function renderAccount(message = '') {
       img.src = a.photo;
     }
   }
+  $('signupGift').innerHTML = `+${shellTag(SIGNUP_GIFT)}`;
   $('accountStatus').classList.toggle('ok', !!message);
   $('accountGuest').hidden = !a.guest || !$('accountConflict').hidden;
   $('signOutBtn').hidden = a.guest;
   $('signOutBtn').textContent = 'Sign out';
   $('accountError').hidden = true;
+}
+/** A sign-in message, plus the sign-up shell when this account hasn't had it yet (`given`: already paid). */
+function giftNote(text: string, given = false) {
+  return given || claimSignupGift() ? `${text} Here’s a free Sea Heart for signing up.` : text;
 }
 function showConflict(on: boolean) {
   $('accountConflict').hidden = !on;
@@ -883,6 +1197,9 @@ function setBusy(on: boolean, btn?: HTMLElement) {
 /** Affordable or newly unlocked, and not looked at yet. */
 function isNewDiver(s: Skin, rank: number) {
   if (suits.owns(s.id) && !s.rank) return false;
+  // Another character's outfits only count once you have that character.
+  const c = charOf(s);
+  if (s.id !== c.base && !charOwned(c)) return false;
   const available = s.rank ? !rankLocked(s, rank) : canAfford(s, coins.balance);
   return available && !seen.has(`diver:${s.id}`);
 }

@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "icons": "pwa-assets-generator --preset minimal-2023 public/icon.svg",
+    "icons": "pwa-assets-generator",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-fewerlabs --config ../firebase/firebase.json"
   },
   "dependencies": {

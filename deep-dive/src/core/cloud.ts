@@ -8,6 +8,7 @@
  * Firestore layout (rules in ../firebase/firestore.rules):
  *   players/{uid}/saves/{game}          { data: { key: value }, updatedAt }   cloud backup
  *   leaderboards/{game}/scores/{uid}    { name, best, updatedAt }             one row per player
+ *   leaderboards/{game}/days/{day}/scores/{uid}                               the same, per Daily Dive
  */
 import type { Auth, AuthCredential, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore/lite';
@@ -25,7 +26,7 @@ const useEmulators = env.VITE_FIREBASE_EMULATORS === 'true';
 
 const SAVED_AT = 'cloud:savedAt';
 /** Keys that stay on this device: settings and the sync's own bookkeeping. */
-const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', SAVED_AT]);
+const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', SAVED_AT]);
 const PUSH_DELAY = 2000;
 const NAME_MAX = 16;
 
@@ -107,11 +108,26 @@ function snapshot() {
   return data;
 }
 
-/** Write a cloud save into localStorage without triggering another push. */
+/** Records that only ever go up (best depths): a cloud save never lowers them, whichever is newer. */
+const KEEP_HIGHEST = /^best/;
+
+/**
+ * Write a cloud save into localStorage without triggering another push. Returns true when this
+ * device had a higher record the cloud didn't (so it should be pushed back up).
+ */
 function apply(data: Record<string, unknown>) {
+  let higher = false;
   try {
-    for (const [k, v] of Object.entries(data)) if (!LOCAL_ONLY.has(k)) localStorage.setItem(PREFIX + k, JSON.stringify(v));
+    for (const [k, v] of Object.entries(data)) {
+      if (LOCAL_ONLY.has(k)) continue;
+      if (KEEP_HIGHEST.test(k) && typeof v === 'number') {
+        const mine = Number(JSON.parse(localStorage.getItem(PREFIX + k) ?? '0'));
+        if (mine > v) { higher = true; continue; }
+      }
+      localStorage.setItem(PREFIX + k, JSON.stringify(v));
+    }
   } catch { /* storage unavailable */ }
+  return higher;
 }
 
 const warn = (what: string, e: unknown) => console.warn(`[cloud] ${what} failed`, e);
@@ -150,10 +166,11 @@ async function merge(f: Fb, force = false) {
   const localAt = store.get(SAVED_AT, 0);
   merged = true;
   if (remote && (force || remote.updatedAt > localAt)) {
-    apply(remote.data);
-    store.set(SAVED_AT, remote.updatedAt);
+    const higher = apply(remote.data);
+    store.set(SAVED_AT, higher ? Date.now() : remote.updatedAt);
     dirty = false;
     restoreListeners.forEach(fn => fn());
+    if (higher) await push(); // this device kept a better record: send it up
   } else if (!remote || localAt > remote.updatedAt || dirty) {
     if (!localAt) store.set(SAVED_AT, Date.now());
     await push();
@@ -172,7 +189,10 @@ async function push() {
   }
 }
 
-function scores(f: Fb) { return f.fs.collection(f.db, 'leaderboards', NAMESPACE, 'scores'); }
+/** The all-time board, or one day's board (`day` as YYYY-MM-DD) for a daily challenge. */
+function scores(f: Fb, day?: string) {
+  return day ? f.fs.collection(f.db, 'leaderboards', NAMESPACE, 'days', day, 'scores') : f.fs.collection(f.db, 'leaderboards', NAMESPACE, 'scores');
+}
 
 /** Clear this device's saved progress (settings stay). */
 function wipeLocal() {
@@ -321,12 +341,25 @@ export const cloud = {
     }
   },
 
-  /** The top divers, best first. Null when offline or the cloud is off. */
-  async top(n = 20): Promise<Score[] | null> {
+  /** Post a depth to one day's board (a daily challenge); like the all-time board, it only goes up. */
+  async submitDay(day: string, best: number) {
+    const f = await starting;
+    if (!f || best <= 0) return false;
+    try {
+      await f.fs.setDoc(f.fs.doc(scores(f, day), f.uid), { name: this.name, best: Math.floor(best), updatedAt: f.fs.serverTimestamp() });
+      return true;
+    } catch (e) {
+      warn('daily score', e);
+      return false;
+    }
+  },
+
+  /** The top divers, best first (all time, or on one `day`'s board). Null when offline or the cloud is off. */
+  async top(n = 20, day?: string): Promise<Score[] | null> {
     const f = await starting;
     if (!f) return null;
     try {
-      const q = f.fs.query(scores(f), f.fs.orderBy('best', 'desc'), f.fs.limit(n));
+      const q = f.fs.query(scores(f, day), f.fs.orderBy('best', 'desc'), f.fs.limit(n));
       return (await f.fs.getDocs(q)).docs.map(d => ({ name: String(d.get('name')), best: Number(d.get('best')), me: d.id === f.uid }));
     } catch (e) {
       warn('leaderboard', e);
@@ -334,12 +367,12 @@ export const cloud = {
     }
   },
 
-  /** 1-based global rank for a depth (ties share a rank). */
-  async rank(best: number): Promise<number | null> {
+  /** 1-based global rank for a depth (ties share a rank), all time or on one `day`'s board. */
+  async rank(best: number, day?: string): Promise<number | null> {
     const f = await starting;
     if (!f || best <= 0) return null;
     try {
-      const snap = await f.fs.getCount(f.fs.query(scores(f), f.fs.where('best', '>', best)));
+      const snap = await f.fs.getCount(f.fs.query(scores(f, day), f.fs.where('best', '>', best)));
       return snap.data().count + 1;
     } catch (e) {
       warn('rank', e);

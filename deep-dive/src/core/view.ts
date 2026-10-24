@@ -48,6 +48,9 @@ export function createGame(config: Omit<Phaser.Types.Core.GameConfig, 'scale' | 
   addEventListener('resize', onResize);
   addEventListener('orientationchange', onResize);
   window.visualViewport?.addEventListener('resize', onResize);
+  // Phones can fire the events above before the rotated layout settles, leaving the canvas at
+  // the old size (an unpainted strip). Watching the container itself always catches the final size.
+  new ResizeObserver(onResize).observe(parent);
   return game;
 }
 

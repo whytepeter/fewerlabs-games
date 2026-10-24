@@ -3,6 +3,7 @@ rules_version = '2';
 // Fewer Labs Games. Players sign in anonymously; see deep-dive/src/core/cloud.ts.
 //   players/{uid}/saves/{game}         a player's cloud backup, private to them
 //   leaderboards/{game}/scores/{uid}   one public row per player, best can only go up
+//   leaderboards/{game}/days/{day}/scores/{uid}   the same, for one day's daily challenge
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedInAs(uid) {
@@ -28,6 +29,14 @@ service cloud.firestore {
     match /players/{uid}/saves/{game} {
       allow read, delete: if signedInAs(uid);
       allow create, update: if signedInAs(uid) && knownGame(game) && validSave();
+    }
+
+    // A daily challenge's board: one per UTC day, the same rules as the all-time board.
+    match /leaderboards/{game}/days/{day}/scores/{uid} {
+      allow read: if knownGame(game);
+      allow create: if signedInAs(uid) && knownGame(game) && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && validScore();
+      allow update: if signedInAs(uid) && knownGame(game) && validScore()
+        && request.resource.data.best >= resource.data.best;
     }
 
     match /leaderboards/{game}/scores/{uid} {

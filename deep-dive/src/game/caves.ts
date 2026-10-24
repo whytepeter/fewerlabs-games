@@ -1,7 +1,8 @@
 import { store } from '../core/settings';
 import type { Song } from '../core/music';
 import type { Biome } from './biomes';
-import { DEEP_SONG, FROST_SONG, KELP_SONG } from './song';
+import { DEEP_SONG, FROST_SONG, KELP_SONG, LINER_SONG, PIRATE_SONG } from './song';
+import { FROST_AMBIENCE, KELP_AMBIENCE, LINER_AMBIENCE, PIRATE_AMBIENCE, REEF_AMBIENCE, type Soundscape } from './ambient';
 
 /**
  * Caves you can dive in. Each one has its own depth zones (colours and names), trench shape,
@@ -9,8 +10,11 @@ import { DEEP_SONG, FROST_SONG, KELP_SONG } from './song';
  * opens once you reach a depth in the cave before it. Bests are kept per cave.
  */
 
-export type CaveId = 'reef' | 'kelp' | 'frost';
+export type CaveId = 'reef' | 'kelp' | 'frost' | 'pirate' | 'titanic';
 export type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
+
+/** How a cave's sharp walls look, glow in the dark, and what the message says when they get you. */
+export interface SpikeLook { fill: number; shine: number; glow: number; hit: string }
 
 /** Trench shape: the gap narrows from `start` to `end` (fractions of the view height) over `over` metres. */
 export interface CaveShape { start: number; end: number; over: number; wave: number; wave2: number }
@@ -44,6 +48,18 @@ export interface CaveDef {
   kelp?: { from: number; gap: [number, number] };
   /** Icicles on the ceiling that shake loose and fall as you come near: from this depth, this far apart (world px). */
   icicles?: { from: number; gap: [number, number] };
+  /** Cannons on wrecked hulls that aim at you and fire once as you come near: from this depth, this far apart (world px). */
+  cannons?: { from: number; gap: [number, number] };
+  /** Anchors swinging on chains from the ceiling: from this depth, this far apart (world px). */
+  anchors?: { from: number; gap: [number, number] };
+  /** Broken boiler pipes on the walls that burst scalding steam on a beat: from this depth, this far apart (world px). */
+  vents?: { from: number; gap: [number, number] };
+  /** Sections of deck that tear loose from the ceiling and swing down as you come near: from this depth, this far apart (world px). */
+  decks?: { from: number; gap: [number, number] };
+  /** Wreckage drawn along the walls (scenery only). */
+  decor?: 'ship' | 'liner';
+  /** Sharp walls that aren't coral or ice. */
+  spikeLook?: SpikeLook;
   /** Slippery steering: how fast you drift to a stop (normal 2.6) and how hard steering pushes (normal 1). */
   glide?: { drag: number; steer: number };
   /** How fast air runs out compared with the Reef Trench. */
@@ -55,6 +71,7 @@ export interface CaveDef {
   plantsUntil: number;
   coral: number;
   song: Song;
+  ambience: Soundscape;
 }
 
 export const CAVES: CaveDef[] = [
@@ -81,6 +98,7 @@ export const CAVES: CaveDef[] = [
     plantsUntil: 220,
     coral: 0.4,
     song: DEEP_SONG,
+    ambience: REEF_AMBIENCE,
   },
   {
     id: 'kelp',
@@ -106,6 +124,7 @@ export const CAVES: CaveDef[] = [
     plantsUntil: Infinity,
     coral: 0.18,
     song: KELP_SONG,
+    ambience: KELP_AMBIENCE,
   },
   {
     id: 'frost',
@@ -135,6 +154,67 @@ export const CAVES: CaveDef[] = [
     plantsUntil: 40,
     coral: 0,
     song: FROST_SONG,
+    ambience: FROST_AMBIENCE,
+  },
+  {
+    id: 'pirate',
+    name: 'Pirate Shipwreck',
+    blurb: 'A graveyard of pirate ships. Dodge cannon fire and swinging anchors. Coins ×1.75.',
+    unlock: { cave: 'frost', depth: 1200 },
+    biomes: [
+      { at: 0,   name: "Smugglers' Cove",    top: 0x3fc6d8, bot: 0x16839a, rock: 0x8a6440, dark: 0,    vent: 0 },
+      { at: 170, name: 'Ship Graveyard',     top: 0x228aa8, bot: 0x0f4f72, rock: 0x6e4b30, dark: 0.32, vent: 0 },
+      { at: 420, name: 'Cannon Row',         top: 0x175a7c, bot: 0x0a2e4c, rock: 0x5a3c2a, dark: 0.56, vent: 0 },
+      { at: 780, name: "Davy Jones' Locker", top: 0x14284a, bot: 0x08122a, rock: 0x45302a, dark: 0.72, vent: 0 },
+    ],
+    shape: { start: 0.85, end: 0.55, over: 1500, wave: 0.16, wave2: 0.07 },
+    creatures: { jelly: 0, eel: 160, angler: 300, mine: 480 },
+    crowdFrom: 620,
+    pace: { gap: [440, 225], over: 1200 },
+    pay: 1.75,
+    spikeFrom: 180,
+    spikes: 0.8,
+    spikeLook: { fill: 0xc98a4b, shine: 0xf6d6a8, glow: 0xffa64d, hit: 'Spiked on splintered wood' },
+    pearlGap: [460, 800],
+    cannons: { from: 30, gap: [900, 1500] },
+    anchors: { from: 90, gap: [1100, 1800] },
+    decor: 'ship',
+    tip: 'Cannons aim at you: keep moving when the fuse fizzes',
+    raysUntil: 240,
+    plantsUntil: 120,
+    coral: 0.3,
+    song: PIRATE_SONG,
+    ambience: PIRATE_AMBIENCE,
+  },
+  {
+    id: 'titanic',
+    name: 'Titanic Wreck',
+    blurb: 'A great liner lost in the cold and dark. Mind the steam and falling decks. Coins ×2.',
+    unlock: { cave: 'pirate', depth: 1300 },
+    biomes: [
+      { at: 0,   name: 'Promenade Deck',  top: 0x2b5f8a, bot: 0x143a5e, rock: 0x45566a, dark: 0.3,  vent: 0 },
+      { at: 160, name: 'Grand Staircase', top: 0x1d4468, bot: 0x0e2742, rock: 0x3e4c60, dark: 0.5,  vent: 0 },
+      { at: 420, name: 'Boiler Rooms',    top: 0x2c2733, bot: 0x120f18, rock: 0x4a3c3a, dark: 0.66, vent: 0.35 },
+      { at: 780, name: 'The Lost Hold',   top: 0x10203a, bot: 0x060b16, rock: 0x2c374a, dark: 0.8,  vent: 0 },
+    ],
+    shape: { start: 0.82, end: 0.54, over: 1400, wave: 0.1, wave2: 0.04 },
+    creatures: { jelly: 0, angler: 120, eel: 280, mine: 450 },
+    crowdFrom: 600,
+    pace: { gap: [430, 215], over: 1100 },
+    pay: 2,
+    spikeFrom: 140,
+    spikes: 0.9,
+    spikeLook: { fill: 0x9fb3c4, shine: 0xeef5fb, glow: 0x8fd0ff, hit: 'Cut on torn steel' },
+    pearlGap: [480, 820],
+    vents: { from: 40, gap: [800, 1300] },
+    decks: { from: 120, gap: [1100, 1700] },
+    decor: 'liner',
+    tip: 'Cold and dark: watch for steam bursts and decks giving way',
+    raysUntil: 60,
+    plantsUntil: 30,
+    coral: 0,
+    song: LINER_SONG,
+    ambience: LINER_AMBIENCE,
   },
 ];
 

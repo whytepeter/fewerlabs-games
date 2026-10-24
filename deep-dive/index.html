@@ -42,6 +42,14 @@
       </div>
     </header>
 
+    <button class="special-btn" id="specialBtn" type="button" aria-label="Special move" hidden>
+      <svg class="special-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" class="sp-track"/><circle cx="32" cy="32" r="28" class="sp-fill" id="specialFill"/></svg>
+      <img id="specialImg" alt="">
+      <span class="special-name" id="specialName"></span>
+      <span class="special-hint">Double-tap</span>
+    </button>
+    <div class="booster-bar" id="boosterBar" hidden></div>
+
     <div id="banner" class="banner" aria-live="polite"><small id="bannerLabel">Entering</small><span id="bannerText"></span></div>
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
@@ -60,11 +68,19 @@
             <span class="rank-text"><small>Rank</small><span class="rank-pips" id="rankPips"></span></span>
           </button>
           <div class="title-bar-right">
-            <div class="k-shells" id="shellCount" title="Golden Shells: spend them to keep diving"></div>
+            <div class="k-shells" id="shellCount" title="Sea Hearts: spend them to keep diving or on divers"></div>
             <div class="k-coins" data-coins></div>
             <button class="k-icon-btn k-icon-btn--sm k-btn--purple" id="settingsBtn" type="button" aria-label="Settings"><i data-icon="gear"></i></button>
           </div>
         </div>
+        <!-- Menus as a quiet icon rail beside the diver (left edge in both orientations). -->
+        <nav class="tiles" aria-label="Menu">
+          <button class="tile" id="diversBtn" type="button"><span class="tile-ico tile-ico--yellow"><i data-icon="diver"></i></span><span>Divers</span><em class="tile-dot" id="diversDot" hidden>New</em></button>
+          <button class="tile" id="missionsBtn" type="button"><span class="tile-ico tile-ico--green"><i data-icon="star"></i></span><span>Missions</span><em class="tile-count" id="missionsCount">0/3</em></button>
+          <button class="tile" id="shopBtn" type="button"><span class="tile-ico tile-ico--pink"><i data-icon="bag"></i></span><span>Shop</span><em class="tile-dot" id="shopDot" hidden>!</em></button>
+          <button class="tile" id="boardBtn" type="button" hidden><span class="tile-ico tile-ico--blue"><i data-icon="trophy"></i></span><span>Top divers</span></button>
+          <button class="tile" id="treasuresBtn" type="button"><span class="tile-ico tile-ico--purple"><i data-icon="pearl"></i></span><span>Treasures</span><em class="tile-count" id="treasuresCount">0/7</em></button>
+        </nav>
         <div class="title-hero">
           <h1 class="k-logo" id="logo">Deep Dive</h1>
           <p class="title-tag k-outline">How deep can you go?</p>
@@ -72,36 +88,35 @@
             <span class="showcase-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
             <img id="showcaseImg" alt="">
             <span class="showcase-pedestal" aria-hidden="true"></span>
-            <span class="showcase-name"><b id="showcaseName">Sunny</b><small>Change diver</small></span>
+            <span class="showcase-name"><b id="showcaseName">Sunny</b><span class="showcase-special"><i data-icon="star"></i><span id="showcaseSpecial">Second Wind</span></span><i data-icon="next"></i></span>
           </button>
         </div>
-        <div class="title-bottom">
+        <!-- Today's goal, then where to dive, then Dive: the thumb's corner. -->
+        <div class="title-dock">
           <div class="howto" id="howto">
             <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Touch</b><span id="howHoldText">top / bottom to steer</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
             <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b>3 lives</b><span>dodge critters</span></div>
           </div>
           <button class="title-quests" id="titleQuests" type="button" aria-label="Missions">
-            <span class="tq-head"><b>Missions</b><small id="tqSet"></small></span>
-            <span class="tq-reward" id="tqReward"></span>
+            <span class="tq-head"><b>Next mission</b><small id="tqSet"></small></span>
             <span class="tq-list" id="tqList"></span>
+            <span class="tq-hunt hunt" id="tqHunt"></span>
           </button>
           <div class="title-row">
             <button class="cave-chip" id="caveChip" type="button" aria-label="Choose a cave">
               <span class="cave-swatch" id="caveSwatch"></span>
-              <span class="cave-chip-text"><small>Cave</small><b id="caveName">Reef Trench</b></span>
+              <span class="cave-chip-text"><b id="caveName">Reef Trench</b><small class="best-badge" title="Your best in this cave"><i data-icon="trophy"></i>Best <b><span id="titleBest">0</span> m</b></small></span>
               <em class="tile-dot" id="caveDot" hidden>New</em>
               <i data-icon="next"></i>
             </button>
-            <div class="best-badge"><i data-icon="trophy"></i><span><small>Best</small><b><span id="titleBest">0</span> m</b></span></div>
+            <button class="daily-btn" id="dailyBtn" type="button" aria-label="Daily Dive">
+              <span class="daily-ico"><i data-icon="calendar"></i></span>
+              <span class="daily-text"><b>Daily</b><small id="dailyInfo">New!</small></span>
+              <em class="tile-dot" id="dailyDot" hidden>!</em>
+            </button>
           </div>
           <button class="k-btn k-btn--lg dive-btn" id="playBtn"><i data-icon="play"></i>Dive</button>
-          <nav class="tiles" aria-label="Menu">
-            <button class="tile" id="diversBtn" type="button"><span class="tile-ico tile-ico--yellow"><i data-icon="diver"></i></span><span>Divers</span><em class="tile-dot" id="diversDot" hidden>New</em></button>
-            <button class="tile" id="missionsBtn" type="button"><span class="tile-ico tile-ico--green"><i data-icon="star"></i></span><span>Missions</span><em class="tile-count" id="missionsCount">0/3</em></button>
-            <button class="tile" id="shopBtn" type="button"><span class="tile-ico tile-ico--pink"><i data-icon="bag"></i></span><span>Shop</span><em class="tile-dot" id="shopDot" hidden>!</em></button>
-            <button class="tile" id="boardBtn" type="button" hidden><span class="tile-ico tile-ico--blue"><i data-icon="trophy"></i></span><span>Top divers</span></button>
-          </nav>
         </div>
       </div>
     </section>
@@ -109,17 +124,24 @@
     <section id="divers" class="k-screen" hidden>
       <div class="k-panel divers-panel">
         <div class="k-ribbon">Divers</div>
+        <div class="char-tabs" id="charTabs" role="radiogroup" aria-label="Characters"></div>
         <div class="diver-stage">
-          <button class="k-icon-btn k-icon-btn--sm" id="diverPrev" type="button" aria-label="Previous diver"><i data-icon="prev"></i></button>
+          <button class="k-icon-btn k-icon-btn--sm" id="diverPrev" type="button" aria-label="Previous character"><i data-icon="prev"></i></button>
           <img id="diverImg" alt="">
-          <button class="k-icon-btn k-icon-btn--sm" id="diverNext" type="button" aria-label="Next diver"><i data-icon="next"></i></button>
+          <button class="k-icon-btn k-icon-btn--sm" id="diverNext" type="button" aria-label="Next character"><i data-icon="next"></i></button>
         </div>
         <h2 id="diverName"></h2>
         <p class="diver-bio" id="diverBio"></p>
+        <p class="diver-special" id="diverSpecial"></p>
         <p class="diver-perk" id="diverPerk"></p>
-        <button class="k-btn k-btn--block" id="diverAction" type="button"></button>
         <p class="need-more" id="diverNeed" hidden></p>
-        <div class="diver-grid" id="diverGrid" role="radiogroup" aria-label="Divers"></div>
+        <button class="k-btn k-btn--block" id="diverAction" type="button"></button>
+        <div class="diver-side">
+          <h3 class="diver-head">Outfits</h3>
+          <div class="diver-grid" id="diverGrid" role="radiogroup" aria-label="Outfits"></div>
+          <h3 class="diver-head">Gadgets <small id="loadoutCount"></small></h3>
+          <div class="loadout" id="loadout"></div>
+        </div>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
       </div>
     </section>
@@ -131,8 +153,10 @@
           <span class="rank-num rank-num--big" id="rankBig">1</span>
           <div class="rank-head-text"><b id="rankTitle">Rank 1</b><span id="rankBonus"></span></div>
         </div>
+        <div class="today" id="todayCard"></div>
         <p class="rank-next" id="rankNext"></p>
         <ul class="k-missions" id="missionList"></ul>
+        <div class="hunt hunt-card" id="huntCard"></div>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
       </div>
     </section>
@@ -145,6 +169,15 @@
       </div>
     </section>
 
+    <section id="treasures" class="k-screen" hidden>
+      <div class="k-panel treasures-panel">
+        <div class="k-ribbon">Treasures</div>
+        <p class="treasure-count" id="treasureCount"></p>
+        <ul class="treasure-list" id="treasureList"></ul>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block back-btn" type="button" data-back><i data-icon="home"></i>Back</button>
+      </div>
+    </section>
+
     <section id="shop" class="k-screen" hidden>
       <div class="k-panel shop-panel">
         <div class="k-ribbon">Shop</div>
@@ -152,7 +185,8 @@
         <div class="tabs" role="tablist" aria-label="Shop">
           <button class="tab" role="tab" type="button" data-tab="upgrades" aria-selected="true">Upgrades</button>
           <button class="tab" role="tab" type="button" data-tab="gadgets" aria-selected="false">Gadgets</button>
-          <button class="tab" role="tab" type="button" data-tab="shells" aria-selected="false">Shells</button>
+          <button class="tab" role="tab" type="button" data-tab="boosters" aria-selected="false">Boosters</button>
+          <button class="tab" role="tab" type="button" data-tab="shells" aria-selected="false">Sea Hearts</button>
         </div>
         <p class="gadget-info" id="gadgetInfo" hidden></p>
         <ul class="shop-list" id="shopList"></ul>
@@ -166,6 +200,26 @@
         <h2>Turn your phone sideways</h2>
         <p>Deep Dive plays best in landscape. You can still dive upright if you like.</p>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="rotateOk" type="button">Play upright</button>
+      </div>
+    </div>
+
+    <div class="rotate-hint age-gate" id="ageGate" hidden>
+      <div class="k-panel age-panel" role="dialog" aria-modal="true" aria-labelledby="ageTitle">
+        <h2 id="ageTitle">How old are you?</h2>
+        <p>So we can keep Deep Dive right for you.</p>
+        <output class="age-value" id="ageValue" for="ageRange">Slide to choose</output>
+        <input class="age-range" id="ageRange" type="range" min="4" max="99" step="1" value="4" aria-label="Your age">
+        <div class="age-ends" aria-hidden="true"><span>4</span><span>99+</span></div>
+        <button class="k-btn k-btn--block" id="ageOk" type="button" disabled>Accept</button>
+      </div>
+    </div>
+
+    <div class="rotate-hint streak-pop" id="streakPop" hidden>
+      <div class="k-panel streak-panel" role="dialog" aria-modal="true" aria-labelledby="streakTitle">
+        <div class="k-ribbon" id="streakTitle">Daily gift</div>
+        <p class="streak-sub" id="streakSub">Come back every day for a bigger gift. Day 7 is a Sea Heart!</p>
+        <ol class="streak-days" id="streakDays"></ol>
+        <button class="k-btn k-btn--block" id="streakClaim" type="button"><i data-icon="gift"></i>Claim</button>
       </div>
     </div>
 
@@ -208,6 +262,10 @@
           <button class="k-icon-btn k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
           <button class="k-icon-btn k-btn--yellow" id="fsBtn" aria-label="Full screen" hidden><i data-icon="fullscreen"></i></button>
         </div>
+        <label class="dev-toggle" id="devToggle" hidden>
+          <span><b>Dev mode</b><small>No lost lives or air, nothing sent to the leaderboards. For testing.</small></span>
+          <input type="checkbox" id="devMode" role="switch">
+        </label>
         <div class="k-install" id="install" hidden>
           <button class="k-btn k-btn--sm k-btn--block" id="installBtn" type="button" hidden><i data-icon="depth"></i>Install the game</button>
           <p class="k-install-hint" id="installHint" hidden>Play full screen and offline: tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
@@ -223,6 +281,7 @@
             <button class="k-btn k-btn--white k-btn--block google-btn" id="googleBtn" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.6 12.3c0-.8-.1-1.5-.2-2.3H12v4.3h6a5.1 5.1 0 0 1-2.2 3.4v2.8h3.6c2-1.9 3.2-4.7 3.2-8.2z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.7l-3.6-2.8c-1 .7-2.3 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2v2.9A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14a6.6 6.6 0 0 1 0-4.2V7H2a11 11 0 0 0 0 9.9z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A11 11 0 0 0 2 7l3.7 2.9C6.6 7.3 9.1 5.4 12 5.4z"/></svg>
               Sign in with Google
+              <span class="gift-tag" id="signupGift"></span>
             </button>
           </div>
           <div id="accountConflict" hidden>
@@ -258,6 +317,10 @@
     <section id="board" class="k-screen" hidden>
       <div class="k-panel board-panel">
         <div class="k-ribbon">Top divers</div>
+        <div class="tabs" role="tablist" aria-label="Leaderboard">
+          <button class="tab" role="tab" type="button" data-board="all" aria-selected="true">All time</button>
+          <button class="tab" role="tab" type="button" data-board="today" aria-selected="false">Today's Daily Dive</button>
+        </div>
         <p class="board-status" id="boardStatus"></p>
         <ol class="board-list" id="boardList"></ol>
         <form class="board-name" id="nameForm">
@@ -280,16 +343,17 @@
             <div class="k-big-num"><span id="overDepth">0</span><small>m</small></div>
             <div class="over-reason" id="overReason"></div>
             <div class="over-close" id="overClose" hidden></div>
-            <div class="k-tag" id="overBest" hidden>NEW RECORD!</div>
             <div class="k-earned" id="overEarned" hidden></div>
             <div class="over-chests" id="overChests" hidden></div>
             <div class="over-rankup" id="overRankUp" hidden></div>
             <div class="over-rankup over-cave" id="overCave" hidden></div>
             <div class="over-rank" id="overRank" hidden></div>
-            <button class="save-nudge" id="saveNudge" type="button" hidden>Don't lose this record: <b>save your progress</b></button>
+            <button class="save-nudge" id="saveNudge" type="button" hidden>Don't lose this record: <b>save your progress</b> and get a free Sea Heart</button>
           </div>
           <div class="over-side">
             <ul class="k-missions" id="overMissions"></ul>
+            <div class="hunt over-hunt" id="overHunt" hidden></div>
+            <div class="over-today" id="overToday" hidden></div>
             <div class="k-row over-buttons">
               <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
               <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>

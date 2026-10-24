@@ -7,14 +7,22 @@ import { store } from '../core/settings';
 import { mixNum, TEX_SCALE } from '../core/tex';
 import { biomeIndex, palette, type Palette } from '../game/biomes';
 import { cave } from '../game/cave';
-import { Ambient } from '../game/ambient';
-import { bestKey, CAVES, currentCave, isUnlocked, selectCave, type CaveDef, type CaveId, type Kind } from '../game/caves';
-import { DIVER_PERK, getDiver, migrateDivers, rankLocked, SKINS, skinIndex, suits, type DiverPerk } from '../game/skins';
+import { Ambient, chime } from '../game/ambient';
+import { rollTreasure, treasureLog, type Treasure } from '../game/treasures';
+import { bestKey, CAVES, currentCave, isUnlocked, selectCave, type CaveDef, type CaveId, type Kind, type SpikeLook } from '../game/caves';
+import { DIVER_PERK, getDiver, grantEarned, migrateDivers, rankLocked, SKINS, skinIndex, suits, type DiverPerk } from '../game/skins';
+import { lifetime } from '../game/lifetime';
 import { bubbleAir, lifelineChance, magnetTime, shieldTime, upgrades } from '../game/upgrades';
 import { AIR_SAVER, CHARM_WINDOW, gadgets, HEAD_START_SHIELD, HEAD_START_TURBO, LUCKY_CLAM, PEARL_PULL_RANGE, type GadgetId } from '../game/gadgets';
 import { deepMissions } from '../game/missions';
 import { openChests } from '../game/chests';
 import { saveCost, shells } from '../game/shells';
+import { DOUBLE_TAP, PUFF_RANGE, SPECIAL_PEARLS, SPECIAL_START, specialOf, STEADY_RATE } from '../game/specials';
+import { BOOSTER_UNTIL, BOOSTER_WINDOW, boosterById, boosters, MEGA_TURBO, type BoosterId } from '../game/boosters';
+import { hunt } from '../game/hunt';
+import { daily as dailyRun, dailyMissions } from '../game/daily';
+import { mulberry32 } from '../core/rng';
+import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud } from '../core/cloud';
 import { embed } from '../core/embed';
@@ -71,9 +79,18 @@ const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can app
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 40; // Turbo: a few seconds of untouchable top speed, in every cave
 const ICICLE_LATE = 0.45;     // share of icicles still falling as you pass under them
-/** Treasure is rare: a chest every 1000–1800 m from 250 m, a floating Golden Shell every 3–4.5 km from 600 m. */
-const CHEST_FROM = 250, CHEST_GAP: [number, number] = [10000, 18000];
-const SHELL_FROM = 600, SHELL_GAP: [number, number] = [30000, 45000];
+/**
+ * Spacing (m) of power-ups and treasure, as [at least, then on average this much more, at most] (see
+ * `gap`): sometimes two arrive close together, sometimes there's a long wait, so no dive feels like
+ * the last. Treasure stays rare: a chest every ~1.3 km, a floating Sea Heart every ~3.5 km.
+ */
+type Gap = [number, number, number];
+/** The course's random streams, one per spawner. */
+const STREAMS = ['obs', 'air', 'pearl', 'perk', 'shell', 'chest', 'kelp', 'ice', 'wreck'] as const;
+type Stream = (typeof STREAMS)[number];
+const PERK_FIRST: Gap = [80, 40, 160], PERK_GAP: Gap = [150, 130, 520];
+const CHEST_FIRST: Gap = [250, 500, 1300], CHEST_GAP: Gap = [450, 950, 2600];
+const SHELL_FIRST: Gap = [1700, 700, 3000], SHELL_GAP: Gap = [2000, 1700, 6000];
 const CALM = 70;               // metres of fewer creatures after each new zone (a breather before the next climb)
 const KELP_SLOW = 0.55, KELP_HOLD = 0.35;   // tangled in kelp: forward speed, and how long it lingers after you're out
 const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.3;  // seconds an icicle shakes before it drops, how fast it falls, and how much of it buries in the floor
@@ -87,7 +104,7 @@ const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bu
 /** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
 const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
 const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', chest: 'chest', shell: 'shell', shield: 'pk-shield', magnet: 'pk-magnet', lifeline: 'pk-life', turbo: 'pk-turbo' };
-const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffc2e6, chest: 0xffd23f, shell: 0xffe27a, shield: 0x5fb4ff, magnet: 0xff8fa8, lifeline: 0xffd23f, turbo: 0xff9f43 };
+const PICKUP_GLOW: Record<Pickup['type'], number> = { air: 0x96e6ff, pearl: 0xffc2e6, chest: 0xffd23f, shell: 0x5ff0ff, shield: 0x5fb4ff, magnet: 0xff8fa8, lifeline: 0xffd23f, turbo: 0xff9f43 };
 
 export class GameScene extends Phaser.Scene {
   private state: State = 'title';
@@ -125,6 +142,17 @@ export class GameScene extends Phaser.Scene {
   private perk?: DiverPerk;
   private eelGuard = false;
   private slowT = 0;
+  private slowRate = SLOWMO_RATE;
+  /** The worn diver's special move: its meter (0..1, filled by pearls) and how long it still runs. */
+  private special = specialOf('classic');
+  private charge = 0;
+  private specialT = 0;
+  private runSpecials = 0;
+  private lastTap = 0;
+  /** Boosters: the chips are up for the first few seconds; each kind can be fired once a dive. */
+  private boosterOpen = false;
+  private usedBoosters = new Set<BoosterId>();
+  private doubler = false;
   private combo = 0;
   private comboT = 0;
   /** Best depth when this dive started: the marker you're chasing. */
@@ -139,8 +167,20 @@ export class GameScene extends Phaser.Scene {
   private runAnglers = 0;
   private runEels = 0;
   private cleanDepth = -1; // depth when the first life was lost (-1 = none lost yet)
-  /** Course randomness (what spawns where); kept separate from visual randomness. */
+  /**
+   * Course randomness (what spawns where), kept apart from visual randomness. `rng` is whichever
+   * stream is rolling right now: each spawner has its own (`streams`), and the exact height of a
+   * pickup comes from `place` (it dodges creatures that move with you). Seeded for a Daily Dive,
+   * so the trench is the same for everyone whatever they do in it.
+   */
   private rng: () => number = Math.random;
+  private streams = Object.fromEntries(STREAMS.map(k => [k, Math.random])) as Record<Stream, () => number>;
+  private place: () => number = Math.random;
+  /** Diving today's Daily Dive (seeded; spawn timers then count distance, not time). */
+  private daily = false;
+  private moved = 0;
+  /** How far past its timer this frame went when a creature or kelp spawns (Daily Dive only). */
+  private lag = 0;
   private diverY = 0;
   private vy = 0;
   private runT = 0;
@@ -240,16 +280,22 @@ export class GameScene extends Phaser.Scene {
     const track = (e: PointerEvent) => {
       if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
       if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
+      // A quick double-tap anywhere fires the diver's special (steering taps are held, not tapped twice).
+      if (e.type === 'pointerdown' && this.state === 'play') {
+        if (e.timeStamp - this.lastTap < DOUBLE_TAP) { this.lastTap = 0; this.fireSpecial(); } else this.lastTap = e.timeStamp;
+      }
       if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     };
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
     addEventListener('blur', () => this.touches.clear());
     kb.on('keydown-ESC', () => this.togglePause());
     kb.on('keydown-P', () => this.togglePause());
+    kb.on('keydown-E', () => this.fireSpecial());
+    kb.on('keydown-SHIFT', () => this.fireSpecial());
     // Space / Enter dive from the menus, but never while typing a name or reading the leaderboard.
     const keyStart = () => {
-      if (ui.typing() || ui.isOpen('board')) return;
-      if (this.state === 'title' || this.state === 'over') this.startRun();
+      if (ui.typing() || ui.isOpen('board') || ui.askingAge()) return;
+      if (this.state === 'title' || this.state === 'over') this.startRun(this.state === 'over' && this.daily);
     };
     kb.on('keydown-SPACE', keyStart);
     kb.on('keydown-ENTER', keyStart);
@@ -264,12 +310,16 @@ export class GameScene extends Phaser.Scene {
 
     ui.init({
       play: () => this.startRun(),
+      daily: () => this.startRun(true),
+      again: () => this.startRun(this.daily),
       pause: () => this.pause(),
       resume: () => this.resume(),
-      restart: () => this.startRun(),
+      restart: () => this.startRun(this.daily),
       menu: () => this.toTitle(),
       skin: id => this.setSkin(id),
       cave: id => this.setCave(id),
+      special: () => this.fireSpecial(),
+      booster: id => this.useBooster(id),
       typing: on => {
         // Let the name field receive Space and the arrow keys.
         const kb = this.input.keyboard!;
@@ -309,6 +359,10 @@ export class GameScene extends Phaser.Scene {
   /** Course random number in [a, b). */
   private cr(a: number, b: number) { return a + this.rng() * (b - a); }
   private cpick<T>(a: T[]) { return a[(this.rng() * a.length) | 0]; }
+  /** Distance (px) to the next spawn of a `Gap`: a minimum plus a random wait that's usually short, now and then long, capped. */
+  private gap([min, mean, max]: Gap) { return Math.min(max, min - Math.log(1 - this.rng()) * mean) * 10; }
+  /** Run `fn` with `this.rng` swapped for another stream. */
+  private withRng<T>(r: () => number, fn: () => T) { const keep = this.rng; this.rng = r; try { return fn(); } finally { this.rng = keep; } }
 
   /** Wear a diver, buying it first if needed. False when it costs too much or needs a higher rank. */
   private setSkin(id: string) {
@@ -335,6 +389,8 @@ export class GameScene extends Phaser.Scene {
 
   private toTitle() {
     this.clearWorld();
+    // Back from a Daily Dive: the title is about your own cave again.
+    if (this.daily) { this.daily = false; this.def = currentCave(); this.best = store.get(bestKey(this.def.id), 0); }
     this.ambient.stop();
     sfx.resume();
     music.play(this.def.song, 0.3);
@@ -348,12 +404,23 @@ export class GameScene extends Phaser.Scene {
     ui.showTitle(this.skin);
   }
 
-  private startRun() {
+  /** Start a dive: in the selected cave, or today's Daily Dive (`daily`: seeded, in the day's cave). */
+  private startRun(daily = false) {
     sfx.unlock();
     sfx.resume();
     this.clearWorld();
-    this.def = currentCave();
-    this.best = store.get(bestKey(this.def.id), 0);
+    this.daily = daily;
+    for (const k of STREAMS) this.streams[k] = daily ? mulberry32(dailyRun.seed(k)) : Math.random;
+    this.place = daily ? mulberry32(dailyRun.seed('place')) : Math.random;
+    this.rng = Math.random;
+    if (daily) {
+      this.def = dailyRun.cave;
+      this.best = dailyRun.best;
+    } else {
+      this.def = currentCave();
+      this.best = store.get(bestKey(this.def.id), 0);
+    }
+    this.moved = 0;
     this.dist = 0;
     this.speed = 200;
     this.oxy = 100;
@@ -371,6 +438,15 @@ export class GameScene extends Phaser.Scene {
     this.eelGuard = this.perk === 'eelguard';
     this.lifeline = false;
     this.slowT = 0;
+    this.slowRate = SLOWMO_RATE;
+    this.special = specialOf(this.skin);
+    this.charge = SPECIAL_START;
+    this.specialT = 0;
+    this.runSpecials = 0;
+    this.lastTap = 0;
+    this.usedBoosters.clear();
+    this.doubler = false;
+    this.boosterOpen = boosters.held().length > 0;
     this.combo = 0;
     this.comboT = 0;
     this.runBest = this.best;
@@ -391,20 +467,21 @@ export class GameScene extends Phaser.Scene {
     this.nextObs = 520;
     this.nextAir = 320;
     this.nextPearls = 700;
-    this.nextPerk = this.cr(900, 1400);
+    const s = this.streams;
+    this.nextPerk = this.withRng(s.perk, () => this.gap(PERK_FIRST));
     this.perkCount = 0;
     this.calmUntil = 0;
-    this.nextChest = CHEST_FROM * 10 + this.cr(2000, 6000);
-    this.nextShell = SHELL_FROM * 10 + this.cr(6000, 14000);
+    this.nextChest = this.withRng(s.chest, () => this.gap(CHEST_FIRST));
+    this.nextShell = this.withRng(s.shell, () => this.gap(SHELL_FIRST));
     this.turboT = 0;
     this.turboMax = TURBO_TIME;
     this.kickoff = false;
     this.runChests = 0;
     this.saves = 0;
-    this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.cr(200, 500) : Infinity;
+    this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.withRng(s.kelp, () => this.cr(200, 500)) : Infinity;
     this.tangle = 0;
     this.tangles = 0;
-    this.nextIcicle = this.def.icicles ? this.def.icicles.from * 10 + this.cr(200, 500) : Infinity;
+    this.nextIcicle = this.def.icicles ? this.def.icicles.from * 10 + this.withRng(s.ice, () => this.cr(200, 500)) : Infinity;
     this.beepT = 0;
     this.diver.setVisible(true).setAlpha(1).setRotation(0);
     this.state = 'play';
@@ -417,6 +494,8 @@ export class GameScene extends Phaser.Scene {
     ui.setPerk(null, 0);
     ui.setLifeline(false);
     ui.setRank(null);
+    ui.setSpecial(this.skin, this.special, this.charge, false);
+    ui.setBoosters(this.boosterOpen ? boosters.held() : null);
     ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
     this.guideUsed = 0;
@@ -424,7 +503,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gear.has('headstart')) {
       this.kickoff = true;
       this.turboT = this.turboMax = HEAD_START_TURBO;
-      this.nextPerk = this.cr(2200, 3400); // you've had your Turbo; the next power-up comes later
+      this.nextPerk += PERK_GAP[0] * 10; // you've had your Turbo; the next power-up comes later (no extra roll, see `streams`)
       this.perkCount = 1;
       this.cameras.main.flash(180, 255, 190, 110);
       this.time.delayedCall(300, () => { if (this.state === 'play') ui.damage('Head Start!', true); });
@@ -434,7 +513,8 @@ export class GameScene extends Phaser.Scene {
       store.set(`tip:${this.def.id}`, true);
       this.time.delayedCall(1200, () => { if (this.state === 'play') ui.hint(this.def.tip!, 4500); });
     }
-    this.ambient.start();
+    this.ambient.start(this.def.ambience);
+    this.resetWreck();
     music.play(this.def.song, 0.45);
     sfx.tone(330, 0.25, { vol: 0.08, slideTo: 520 });
   }
@@ -483,6 +563,7 @@ export class GameScene extends Phaser.Scene {
     this.items = [];
     this.kelps = [];
     this.icicles = [];
+    this.clearWreck();
     this.exhaust.killAll();
     this.pops.killAll();
     this.sparks.killAll();
@@ -494,7 +575,7 @@ export class GameScene extends Phaser.Scene {
     const raw = Math.min(0.033, deltaMs / 1000);
     // The lifeline save plays out in slow motion for a moment.
     if (this.state === 'play') this.slowT = Math.max(0, this.slowT - raw);
-    const dt = this.slowT > 0 ? raw * SLOWMO_RATE : raw;
+    const dt = this.slowT > 0 ? raw * this.slowRate : raw;
     this.clock += dt;
 
     if (this.state === 'play') this.step(dt);
@@ -553,7 +634,8 @@ export class GameScene extends Phaser.Scene {
 
     const depth = this.dist / 10;
     this.speed = 200 + Math.min(200, depth * 0.14);
-    this.dist += this.speed * (this.turboT > 0 ? TURBO_SPEED : this.tangle > 0 ? (this.perk === 'kelp' ? DIVER_PERK.kelpSlow : KELP_SLOW) : 1) * dt;
+    this.moved = this.speed * (this.turboT > 0 ? TURBO_SPEED : this.tangle > 0 ? (this.perk === 'kelp' ? DIVER_PERK.kelpSlow : KELP_SLOW) : 1) * dt;
+    this.dist += this.moved;
     ui.setDepth(Math.floor(depth));
     this.chaseBest(depth);
     this.ambient.setDepth(depth);
@@ -575,6 +657,8 @@ export class GameScene extends Phaser.Scene {
       }
     }
     if (this.comboT > 0) { this.comboT = Math.max(0, this.comboT - dt); if (!this.comboT) this.combo = 0; }
+    if (this.specialT > 0) { this.specialT = Math.max(0, this.specialT - dt); if (!this.specialT) ui.setSpecial(this.skin, this.special, this.charge, false); }
+    if (this.boosterOpen && (this.runT > BOOSTER_WINDOW || depth > BOOSTER_UNTIL)) { this.boosterOpen = false; ui.setBoosters(null); }
     ui.setPerk(this.turboT ? 'turbo' : this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null,
       this.turboT ? this.turboT / this.turboMax : this.shieldT ? this.shieldT / this.shieldTime : this.magnetT / this.magnetTime);
 
@@ -609,7 +693,8 @@ export class GameScene extends Phaser.Scene {
       this.animate(o, dt);
       if (o.dead) continue;
       const ahead = o.x - this.dist;
-      if (o.kind === 'jelly' && dark > 0.3 && ahead > 0 && ahead < 240) {
+      if (this.frozen(o)) { /* Lumi's Flash: stunned where they are */ }
+      else if (o.kind === 'jelly' && dark > 0.3 && ahead > 0 && ahead < 240) {
         // Jellies drift towards your headlamp in the dark.
         o.y0 += clamp(this.diverY - o.y0, -1, 1) * 26 * dark * dt;
       } else if (o.kind === 'angler') {
@@ -645,6 +730,7 @@ export class GameScene extends Phaser.Scene {
     this.collect(dt, leftEdge);
     this.kelpCheck(leftEdge);
     this.icicleCheck(leftEdge, dt);
+    if (this.state === 'play') this.wreckCheck(dt, leftEdge);
     if (this.state !== 'play') return;
 
     // Plain walls just nudge you back; sharp stretches cost a life.
@@ -655,7 +741,8 @@ export class GameScene extends Phaser.Scene {
     else if (this.diverY + DIVER_R > botEdge) this.hitWall(botEdge - DIVER_R, -1, spikeBot);
     if (this.state !== 'play') return;
     if (this.oxy <= 0) {
-      if (this.lifeline) this.rescue();
+      if (dev.on) this.oxy = 100; // dev mode: the tank never runs dry
+      else if (this.lifeline) this.rescue();
       else { this.oxy = 0; this.die('Ran out of air'); }
     }
   }
@@ -692,50 +779,53 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawning(depth: number, dt: number) {
-    const step = this.speed * dt;
-    if ((this.nextObs -= step) <= 0) {
+    // Daily Dive: timers count the distance actually swum, so a Turbo can't shift the trench.
+    const step = this.daily ? this.moved : this.speed * dt;
+    // Each spawner rolls from its own stream (see `streams`), so their order in a frame never matters.
+    // `lag` is how far past its timer this frame went: a Daily Dive spawns at the exact spot and starts the next timer from there.
+    const using = (k: Stream, timer: number, fn: () => void) => { this.lag = this.daily ? -timer : 0; this.withRng(this.streams[k], fn); };
+    if ((this.nextObs -= step) <= 0) using('obs', this.nextObs, () => {
       this.spawnObstacle(depth);
       // Sawtooth pacing: the cave closes in with depth, breathes in and out every ~450 m, and eases off after a new zone.
       const { gap, over } = this.def.pace;
       const wave = 1 + 0.2 * Math.sin((depth / 450) * TAU);
       const calm = depth < this.calmUntil ? 1.7 : 1;
-      this.nextObs = lerp(gap[0], gap[1], clamp(depth / over, 0, 1)) * wave * calm * this.cr(0.75, 1.25);
-    }
-    if ((this.nextAir -= step) <= 0) {
+      this.nextObs = lerp(gap[0], gap[1], clamp(depth / over, 0, 1)) * wave * calm * this.cr(0.75, 1.25) - this.lag;
+    });
+    if ((this.nextAir -= step) <= 0) using('air', this.nextAir, () => {
       this.spawnRow('air', 3, 34);
-      this.nextAir = this.cr(420, 620) + depth * 0.08;
-    }
-    if ((this.nextPearls -= step) <= 0) {
+      this.nextAir = this.cr(420, 620) + depth * 0.08 - this.lag;
+    });
+    if ((this.nextPearls -= step) <= 0) using('pearl', this.nextPearls, () => {
       this.spawnRow('pearl', 5 + ((this.rng() * 4) | 0), 26);
-      this.nextPearls = this.cr(...this.def.pearlGap);
-    }
-    if ((this.nextPerk -= step) <= 0) {
+      this.nextPearls = this.cr(...this.def.pearlGap) - this.lag;
+    });
+    if ((this.nextPerk -= step) <= 0) using('perk', this.nextPerk, () => {
       // The first power-up of every dive, in every cave, is a Turbo. After that the lifeline is
-      // rare and never offered while you still hold one.
-      const r = this.rng();
-      const lc = this.lifelineChance;
+      // rare and never offered while you still hold one (the others are then picked evenly).
       const rest: Perk[] = depth > TURBO_FROM ? ['shield', 'magnet', 'turbo'] : ['shield', 'magnet'];
-      const perk = this.perkCount++ === 0 && depth > TURBO_FROM ? 'turbo'
-        : r < lc && !this.lifeline && depth > LIFELINE_FROM ? 'lifeline' : rest[Math.min(rest.length - 1, Math.floor(((r - lc) / (1 - lc)) * rest.length))];
+      // Both rolls are always made, so what you hold never shifts the power-ups that come after.
+      const canLife = !this.lifeline && depth > LIFELINE_FROM, r = this.rng(), alt = this.cpick(rest);
+      const perk = this.perkCount++ === 0 && depth > TURBO_FROM ? 'turbo' : canLife && r < this.lifelineChance ? 'lifeline' : alt;
       this.spawnRow(perk, 1, 0);
-      this.nextPerk = this.cr(2200, 3400);
-    }
-    if (depth > SHELL_FROM && (this.nextShell -= step) <= 0) {
+      this.nextPerk = this.gap(PERK_GAP) - this.lag;
+    });
+    if ((this.nextShell -= step) <= 0) using('shell', this.nextShell, () => {
       this.spawnRow('shell', 1, 0, true);
-      this.nextShell = this.cr(...SHELL_GAP);
-    }
-    if ((this.nextChest -= step) <= 0) {
+      this.nextShell = this.gap(SHELL_GAP) - this.lag;
+    });
+    if ((this.nextChest -= step) <= 0) using('chest', this.nextChest, () => {
       this.spawnRow('chest', 1, 0, true);
-      this.nextChest = this.cr(...CHEST_GAP);
-    }
-    if (this.def.kelp && (this.nextKelp -= step) <= 0) {
+      this.nextChest = this.gap(CHEST_GAP) - this.lag;
+    });
+    if (this.def.kelp && (this.nextKelp -= step) <= 0) using('kelp', this.nextKelp, () => {
       this.spawnKelp();
-      this.nextKelp = this.cr(...this.def.kelp.gap);
-    }
-    if (this.def.icicles && (this.nextIcicle -= step) <= 0) {
+      this.nextKelp = this.cr(...this.def.kelp!.gap) - this.lag;
+    });
+    if (this.def.icicles && (this.nextIcicle -= step) <= 0) using('ice', this.nextIcicle, () => {
       this.spawnIcicles(depth);
-      this.nextIcicle = this.cr(...this.def.icicles.gap);
-    }
+      this.nextIcicle = this.cr(...this.def.icicles!.gap) - this.lag;
+    });
   }
 
   private hitWall(y: number, dir: 1 | -1, sharp: boolean) {
@@ -754,7 +844,7 @@ export class GameScene extends Phaser.Scene {
     if (sharp) {
       this.vy = dir * 220;
       this.sparks.explode(8, this.dist, y - dir * DIVER_R);
-      this.loseLife(this.def.iceSpikes ? 'Spiked on sharp ice' : 'Spiked on sharp coral');
+      this.loseLife(this.spikeLook().hit);
       return;
     }
     this.vy = dir * WALL_BOUNCE;
@@ -795,6 +885,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private hitCreature(o: Obstacle) {
+    if (this.using('phase')) return; // Ghost drifts straight through
     if (this.turboT > 0) { // Turbo bowls straight through
       o.dead = true;
       this.sparks.explode(12, o.x, o.y);
@@ -826,6 +917,7 @@ export class GameScene extends Phaser.Scene {
   /** Take a hit: the shield absorbs it, otherwise lose a life (and the dive on the last one). */
   private loseLife(reason: string) {
     if (this.invuln > 0 || this.turboT > 0) return;
+    if (dev.on) { this.invuln = HIT_INVULN; ui.damage('Dev mode: no damage', true); return; }
     if (this.shieldT > 0) { this.useShield(); this.invuln = 0.8; return; }
     if (this.lifeline) { this.rescue(); return; }
     if (this.cleanDepth < 0) this.cleanDepth = Math.floor(this.dist / 10);
@@ -857,6 +949,7 @@ export class GameScene extends Phaser.Scene {
     this.invuln = 2.2;
     this.oxy = Math.max(this.oxy, 45);
     this.slowT = SLOWMO_TIME;
+    this.slowRate = SLOWMO_RATE;
     this.vy = clamp(this.caveMid(this.dist) - this.diverY, -1, 1) * 260;
     this.pops.explode(22, this.dist, this.diverY);
     this.sparks.explode(16, this.dist, this.diverY);
@@ -864,6 +957,72 @@ export class GameScene extends Phaser.Scene {
     sfx.tone(523, 0.2, { vol: 0.09 }); sfx.tone(784, 0.25, { vol: 0.08, delay: 0.1 }); sfx.tone(1046, 0.5, { vol: 0.08, delay: 0.2 });
     buzz([20, 40, 60]);
     ui.damage('Lifeline saved you!', true);
+  }
+
+  // ---------- Diver specials and boosters
+
+  /** Is the worn diver's special `id` running right now? */
+  private using(id: string) { return this.specialT > 0 && this.special.id === id; }
+
+  /** Lumi's Flash: creatures on screen are stunned (they stay put, and still sting). */
+  private frozen(o: Obstacle) { return this.using('flash') && o.x - this.dist < this.W; }
+
+  private addCharge(n: number) {
+    const was = this.charge;
+    this.charge = Math.min(1, this.charge + n);
+    if (this.charge === was) return;
+    ui.setSpecial(this.skin, this.special, this.charge, this.specialT > 0);
+    if (this.charge >= 1 && was < 1) {
+      sfx.tone(784, 0.12, { type: 'triangle', vol: 0.06 }); sfx.tone(1175, 0.2, { type: 'triangle', vol: 0.06, delay: 0.08 });
+      buzz(12);
+      // The first time ever, say how to use it.
+      if (!store.get('specialTip', false)) { store.set('specialTip', true); ui.hint(`${this.special.name} is ready: double-tap to use it`, 4500); }
+    }
+  }
+
+  /** Double-tap (or the button, or E): fire the diver's special when the meter is full. */
+  private fireSpecial() {
+    if (this.state !== 'play' || this.charge < 1 || this.specialT > 0) return;
+    const s = this.special;
+    this.charge = 0;
+    this.specialT = s.time;
+    this.runSpecials++;
+    if (s.id === 'wind') { this.oxy = 100; this.shieldT = Math.max(this.shieldT, s.time); }
+    else if (s.id === 'dash') { this.turboT = this.turboMax = Math.max(this.turboT, s.time); }
+    else if (s.id === 'bloom') { this.withRng(Math.random, () => this.spawnRowAt('pearl', 14, 26)); this.magnetT = Math.max(this.magnetT, s.time); }
+    else if (s.id === 'puff') {
+      for (const o of this.obs) {
+        if (o.dead || Math.hypot(o.x - this.dist, o.y - this.diverY) > PUFF_RANGE) continue;
+        o.dead = true;
+        this.sparks.explode(10, o.x, o.y);
+      }
+      this.invuln = Math.max(this.invuln, 0.6);
+      sfx.noise(0.25, 0.1, 900);
+    } else if (s.id === 'steady') { this.slowT = s.time; this.slowRate = STEADY_RATE; }
+    this.pops.explode(18, this.dist, this.diverY);
+    this.cameras.main.flash(200, 190, 240, 255);
+    sfx.tone(523, 0.12, { vol: 0.08 }); sfx.tone(784, 0.14, { vol: 0.08, delay: 0.06 }); sfx.tone(1046, 0.3, { vol: 0.07, delay: 0.12 });
+    buzz([12, 20, 12]);
+    ui.damage(`${s.name}!`, true);
+    ui.setSpecial(this.skin, s, 0, s.time > 0);
+  }
+
+  /** Tap a booster chip in the first seconds of a dive: spends one from your stack. */
+  private useBooster(id: BoosterId) {
+    if (this.state !== 'play' || !this.boosterOpen || this.usedBoosters.has(id) || !boosters.use(id)) return false;
+    this.usedBoosters.add(id);
+    if (id === 'megaturbo') {
+      this.kickoff = true; // a short shield to land safely, as with the Head Start gadget
+      this.turboT = this.turboMax = Math.max(this.turboT, MEGA_TURBO);
+      this.perkCount = Math.max(this.perkCount, 1);
+      this.cameras.main.flash(180, 255, 190, 110);
+    } else if (id === 'doubler') this.doubler = true;
+    else this.addCharge(1);
+    sfx.tone(660, 0.1, { vol: 0.08, slideTo: 990 });
+    buzz(12);
+    ui.damage(`${boosterById(id).name}!`, true);
+    ui.setBoosters(boosters.held().filter(b => !this.usedBoosters.has(b.id)));
+    return true;
   }
 
   private perkEnded() { if (!this.shieldT && !this.magnetT) ui.setPerk(null, 0); }
@@ -900,15 +1059,17 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: this.diver, scaleX: TEX_SCALE * 1.18, scaleY: TEX_SCALE * 0.86, duration: 90, yoyo: true, ease: 'Quad.easeOut' });
     } else if (p.type === 'pearl') {
       const lucky = this.gear.has('luckyclam') && Math.random() < LUCKY_CLAM;
-      this.runPearls += lucky ? 2 : 1;
-      if (lucky) this.sparks.explode(6, p.x, p.y);
+      const n = (lucky ? 2 : 1) * (this.using('gold') ? 2 : 1); // Royal's Gold Rush doubles them
+      this.runPearls += n;
+      if (n > 1) this.sparks.explode(6, p.x, p.y);
       ui.setPearls(this.runPearls);
+      this.addCharge(n / SPECIAL_PEARLS);
       sfx.tone(1180 + (this.runPearls % 5) * 120, 0.08, { type: 'triangle', vol: 0.06 });
       this.sparks.explode(3, p.x, p.y);
     } else if (p.type === 'chest') {
       this.takeChest(p);
     } else if (p.type === 'shell') {
-      this.findShell(p.x, p.y, 'Golden Shell!');
+      this.findShell(p.x, p.y, 'Sea Heart!');
     } else {
       this.runPerks++;
       this.givePerk(p.type);
@@ -926,7 +1087,7 @@ export class GameScene extends Phaser.Scene {
     else { this.lifeline = true; ui.setLifeline(true); }
   }
 
-  /** A Golden Shell for the collection: spent on "Save me" when a dive would end. */
+  /** A Sea Heart for the collection: spent on "Save me" or on divers. */
   private findShell(x: number, y: number, text: string) {
     shells.add(1);
     ui.damage(`${text} (${shells.count})`, true);
@@ -967,7 +1128,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnObstacle(depth: number) {
-    const wx = this.dist - this.diverX() + this.W + 80;
+    const wx = this.dist - this.diverX() + this.W + 80 - this.lag;
     const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
     // Each cave lets creatures in at its own depths; deep down every kind is doubled up.
     const kinds: Kind[] = [];
@@ -997,7 +1158,7 @@ export class GameScene extends Phaser.Scene {
 
   /** A clump of kelp just off-screen, from the floor or the ceiling, always leaving a way past. */
   private spawnKelp() {
-    const wx = this.dist - this.diverX() + this.W + 80;
+    const wx = this.dist - this.diverX() + this.W + 80 - this.lag;
     const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
     this.kelps.push({
       x: wx, side: this.rng() < 0.6 ? 1 : 0, len: (b - t) * this.cr(0.38, 0.56),
@@ -1100,11 +1261,588 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ---------- Wreck caves: cannons and anchors (Pirate Shipwreck), steam vents and falling decks (Titanic Wreck); rare treasures in every cave
+
+  private nextCannon = Infinity;
+  private cannons: Cannon[] = [];
+  private balls: Ball[] = [];
+  private nextAnchor = Infinity;
+  private anchors: Anchor[] = [];
+  private nextVent = Infinity;
+  private vents: Vent[] = [];
+  private nextDeck = Infinity;
+  /** World x of the last wreck hazard placed (see `wreckSpot`). */
+  private lastWreckX = -Infinity;
+  private decks: Deck[] = [];
+  private treasureAt = Infinity;           // world x where this dive's treasure turns up (Infinity: not this dive)
+  private treasureDef: Treasure | null = null;
+  private treasure: TreasureItem | null = null;
+
+  /** A new dive: the first of each hazard comes a little after its starting depth, and the treasure is rolled for. */
+  private resetWreck() {
+    const d = this.def, first = (h?: { from: number }) => (h ? h.from * 10 + this.withRng(this.streams.wreck, () => this.cr(200, 500)) : Infinity);
+    this.nextCannon = first(d.cannons);
+    this.nextAnchor = first(d.anchors);
+    this.nextVent = first(d.vents);
+    this.nextDeck = first(d.decks);
+    this.lastWreckX = -Infinity;
+    // Plain Math.random, not the course's random streams: treasure isn't part of the course.
+    const roll = rollTreasure(d.id);
+    this.treasureDef = roll?.t ?? null;
+    this.treasureAt = roll ? roll.depth * 10 : Infinity;
+  }
+
+  private clearWreck() {
+    this.cannons = []; this.balls = []; this.anchors = []; this.vents = []; this.decks = [];
+    if (this.treasure) { this.treasure.sprite.destroy(); this.treasure.glow.destroy(); this.treasure = null; }
+  }
+
+  /** Spawn and run this cave's wreck hazards and this dive's treasure; any hazard can end the dive. */
+  private wreckCheck(dt: number, leftEdge: number) {
+    // Wreck hazards roll from their own course stream and, in a Daily Dive, count distance (see `spawning`).
+    const d = this.def, step = this.daily ? this.moved : this.speed * dt;
+    const at = (timer: number) => { this.lag = this.daily ? -timer : 0; return true; }; // spawn where the timer ran out
+    // Hazards due in the same frame go in the order they came due, so the frame rate never decides which gets the spot.
+    const due: { timer: number; run: () => void }[] = [];
+    if (d.cannons && (this.nextCannon -= step) <= 0) due.push({ timer: this.nextCannon, run: () => { this.nextCannon = (this.spawnCannon() ? this.cr(...d.cannons!.gap) : 200) - this.lag; } });
+    if (d.anchors && (this.nextAnchor -= step) <= 0) due.push({ timer: this.nextAnchor, run: () => { this.nextAnchor = (this.spawnAnchor() ? this.cr(...d.anchors!.gap) : 200) - this.lag; } });
+    if (d.vents && (this.nextVent -= step) <= 0) due.push({ timer: this.nextVent, run: () => { this.nextVent = (this.spawnVent() ? this.cr(...d.vents!.gap) : 200) - this.lag; } });
+    if (d.decks && (this.nextDeck -= step) <= 0) due.push({ timer: this.nextDeck, run: () => { this.nextDeck = (this.spawnDeck() ? this.cr(...d.decks!.gap) : 200) - this.lag; } });
+    this.withRng(this.streams.wreck, () => due.sort((a, b) => a.timer - b.timer).forEach(h => { at(h.timer); h.run(); }));
+    if (this.dist - this.diverX() + this.W > this.treasureAt) this.spawnTreasure();
+    this.cannonCheck(dt, leftEdge);
+    if (this.state === 'play') this.anchorCheck(leftEdge);
+    if (this.state === 'play') this.ventCheck(leftEdge);
+    if (this.state === 'play') this.deckCheck(dt, leftEdge);
+    if (this.state === 'play') this.treasureCheck(dt, leftEdge);
+  }
+
+  /** Where the next wreck hazard goes (just off-screen), or null if the last one is still too close. */
+  private wreckSpot() {
+    // Measured from where the last hazard was placed (not the live ones, which can vanish on a timer),
+    // so the spacing is the same however fast you go: a Daily Dive stays the same for everyone.
+    const wx = this.dist - this.diverX() + this.W + 80 - this.lag;
+    if (Math.abs(wx - this.lastWreckX) < WRECK_SPACING) return null;
+    this.lastWreckX = wx;
+    return wx;
+  }
+
+  /** A side of the trench that isn't sharp at x (the floor more often). */
+  private plainSide(wx: number, floorChance: number): 0 | 1 {
+    const side: 0 | 1 = this.rng() < floorChance ? 1 : 0;
+    return this.spiky(wx, side) ? (side ? 0 : 1) : side;
+  }
+
+  /** Clearance from the diver to a thick segment (negative = touching). */
+  private segGap(ax: number, ay: number, bx: number, by: number, half: number) {
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    const t = l2 ? clamp(((this.dist - ax) * dx + (this.diverY - ay) * dy) / l2, 0, 1) : 0;
+    return Math.hypot(this.dist - ax - t * dx, this.diverY - ay - t * dy) - half - DIVER_R * 0.8;
+  }
+
+  /** A hazard was dodged with very little room: count it as a close call. */
+  private dodged(h: { x: number; gap?: number; passed?: boolean }) {
+    if (h.passed || h.x > this.dist - 40) return;
+    h.passed = true;
+    if (h.gap !== undefined && h.gap >= 0 && h.gap < CLOSE_CALL) this.closeCall();
+  }
+
+  private spawnCannon() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const side = this.plainSide(wx, 0.6);
+    this.cannons.push({ x: wx, side, aim: side ? -Math.PI * 0.8 : Math.PI * 0.8, fuse: 0, fired: false, kick: 0 });
+    return true;
+  }
+
+  /** The cannon's pivot, sitting on its carriage just off the wall. */
+  private cannonPivot(c: Cannon): [number, number] {
+    return [c.x, cave(c.x, this.H, this.cv, this.def.shape)[c.side] + (c.side ? -12 : 12)];
+  }
+
+  /** Cannons swing round to follow you, fizz their fuse as you come near, then fire one ball straight at you. */
+  private cannonCheck(dt: number, leftEdge: number) {
+    this.cannons = this.cannons.filter(c => c.x > leftEdge - 40);
+    for (const c of this.cannons) {
+      c.kick = Math.max(0, c.kick - dt * 3);
+      if (c.fired) continue;
+      const [px, py] = this.cannonPivot(c), ahead = c.x - this.dist;
+      const want = Math.atan2(this.diverY - py, this.dist - px);
+      const aim = c.side ? clamp(want, -Math.PI + 0.15, -0.35) : clamp(want, 0.35, Math.PI - 0.15);
+      c.aim += clamp(aim - c.aim, -2.5 * dt, 2.5 * dt);
+      if (!c.fuse && ahead < CANNON_FUSE_AT) {
+        c.fuse = CANNON_FUSE;
+        sfx.noise(CANNON_FUSE, 0.035, 5200, 0.7);
+      } else if (c.fuse > 0 && (c.fuse -= dt) <= 0) {
+        c.fired = true;
+        c.kick = 1;
+        // The ball flies straight at where you are now (on screen), so keep moving.
+        const mx = px + Math.cos(c.aim) * 26, my = py + Math.sin(c.aim) * 26;
+        const dx = this.dist - mx, dy = this.diverY - my, len = Math.hypot(dx, dy) || 1;
+        this.balls.push({ x: mx, y: my, vx: (dx / len) * BALL_CLOSE, vy: (dy / len) * BALL_CLOSE });
+        this.pops.explode(10, mx, my);
+        this.cameras.main.shake(90, 0.003);
+        sfx.noise(0.45, 0.16, 220, 0.8);
+        sfx.tone(110, 0.35, { type: 'sawtooth', vol: 0.07, slideTo: 42 });
+        buzz(12);
+      }
+    }
+    // Balls move relative to you (the view follows you), so on screen they fly straight along their aim.
+    const fwd = this.speed * (this.turboT > 0 ? TURBO_SPEED : 1);
+    this.balls = this.balls.filter(b => {
+      if (b.gone || b.x < leftEdge) return false;
+      b.x += (fwd + b.vx) * dt; b.y += b.vy * dt;
+      const [t, bot] = cave(b.x, this.H, this.cv, this.def.shape);
+      if (b.y < t + BALL_R * 0.5 || b.y > bot - BALL_R * 0.5) {
+        this.pops.explode(6, b.x, clamp(b.y, t, bot));
+        if (Math.abs(b.x - this.dist) < this.W) sfx.noise(0.15, 0.05, 400);
+        return false;
+      }
+      return true;
+    });
+    for (const b of this.balls) {
+      const gap = Math.hypot(b.x - this.dist, b.y - this.diverY) - BALL_R - DIVER_R * 0.8;
+      if (Math.abs(b.x - this.dist) < 60) b.gap = Math.min(b.gap ?? Infinity, gap);
+      if (gap < 0 && this.turboT > 0) { b.gone = true; this.sparks.explode(10, b.x, b.y); sfx.noise(0.2, 0.08, 900); continue; }
+      if (gap < 0 && this.invuln <= 0) {
+        b.gone = true;
+        this.sparks.explode(10, b.x, b.y);
+        sfx.noise(0.25, 0.1, 500);
+        this.vy = Math.sign(this.diverY - b.y || 1) * 260;
+        this.loseLife('Hit by a cannonball');
+        if (this.state !== 'play') return;
+        continue;
+      }
+      this.dodged(b);
+    }
+  }
+
+  private spawnAnchor() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    this.anchors.push({ x: wx, len: (b - t) * this.cr(0.46, 0.58), amp: this.cr(0.4, 0.62), period: this.cr(2.4, 3.2), ph: this.cr(0, TAU) });
+    return true;
+  }
+
+  /** An anchor's swing angle (0 = hanging straight down), its pivot on the ceiling, and the centre of its crown. */
+  private anchorAt(a: Anchor): { ang: number; px: number; py: number; cx: number; cy: number } {
+    const ang = a.amp * Math.sin((this.clock / a.period) * TAU + a.ph);
+    const px = a.x, py = cave(a.x, this.H, this.cv, this.def.shape)[0] - 4;
+    const r = a.len - ANCHOR_R * 0.6;
+    return { ang, px, py, cx: px + Math.sin(ang) * r, cy: py + Math.cos(ang) * r };
+  }
+
+  /** Anchors swing on their chains: the chain is harmless, the iron anchor isn't. Pass under it, or slip by when it swings away. */
+  private anchorCheck(leftEdge: number) {
+    this.anchors = this.anchors.filter(a => a.x + a.len > leftEdge);
+    for (const a of this.anchors) {
+      const { ang, px, py, cx, cy } = this.anchorAt(a);
+      // The crown and flukes, plus the shank up to the ring.
+      const sx = px + Math.sin(ang) * (a.len - 46), sy = py + Math.cos(ang) * (a.len - 46);
+      const gap = Math.min(Math.hypot(this.dist - cx, this.diverY - cy) - ANCHOR_R - DIVER_R * 0.8, this.segGap(sx, sy, cx, cy, 5));
+      if (Math.abs(a.x - this.dist) < a.len * 0.7 + 30) a.gap = Math.min(a.gap ?? Infinity, gap);
+      if (gap < 0 && this.invuln <= 0 && this.turboT <= 0) {
+        this.sparks.explode(8, this.dist, this.diverY);
+        sfx.tone(160, 0.25, { type: 'square', vol: 0.05, slideTo: 90 });
+        this.vy = Math.sign(this.diverY - cy || 1) * 280;
+        this.loseLife('Clonked by an anchor');
+        if (this.state !== 'play') return;
+      }
+      this.dodged(a);
+    }
+  }
+
+  private spawnVent() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    this.vents.push({ x: wx, side: this.plainSide(wx, 0.65), reach: (b - t) * this.cr(0.5, 0.62), ph: this.cr(0, VENT_CYCLE) });
+    return true;
+  }
+
+  /** How far a vent's steam reaches right now (0 between bursts), and whether it's about to burst. */
+  private ventAt(v: Vent): { reach: number; warn: boolean; base: number } {
+    const p = (this.clock + v.ph) % VENT_CYCLE, base = cave(v.x, this.H, this.cv, this.def.shape)[v.side];
+    const on = p < VENT_ON ? Math.min(1, p / 0.15, (VENT_ON - p) / 0.15) : 0;
+    return { reach: v.reach * on, warn: p > VENT_CYCLE - VENT_WARN, base };
+  }
+
+  /** Broken boiler pipes gurgle, then blast steam across most of the trench; get to the far side or arrive between bursts. */
+  private ventCheck(leftEdge: number) {
+    this.vents = this.vents.filter(v => v.x + VENT_W > leftEdge);
+    for (const v of this.vents) {
+      const { reach, base } = this.ventAt(v), p = (this.clock + v.ph) % VENT_CYCLE;
+      const near = Math.abs(v.x - this.dist) < this.W;
+      if (p < VENT_ON && !v.hissed) {
+        v.hissed = true;
+        if (near) sfx.noise(VENT_ON, 0.05, 4200, 0.5);
+      } else if (p >= VENT_ON) v.hissed = false;
+      const dx = Math.abs(this.dist - v.x) - VENT_W / 2;
+      const dy = v.side ? base - reach - this.diverY : this.diverY - (base + reach);
+      const gap = reach > 4 ? Math.max(dx, dy) - DIVER_R * 0.7 : Infinity;
+      if (Math.abs(v.x - this.dist) < 60 && reach > 4) v.gap = Math.min(v.gap ?? Infinity, gap);
+      if (gap < 0 && this.invuln <= 0 && this.turboT <= 0) {
+        this.pops.explode(10, this.dist, this.diverY);
+        this.vy = (v.side ? -1 : 1) * 260;
+        this.loseLife('Scalded by boiler steam');
+        if (this.state !== 'play') return;
+      }
+      this.dodged(v);
+    }
+  }
+
+  private spawnDeck() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape), dir: 1 | -1 = this.rng() < 0.6 ? -1 : 1, len = (b - t) * this.cr(0.5, 0.6);
+    // Lying just under the ceiling to start with.
+    const drop = cave(wx + dir * len, this.H, this.cv, this.def.shape)[0] - t;
+    this.decks.push({ x: wx, len, dir, ang: Math.max(0.04, Math.atan2(drop + 5, len)), vang: 0, shake: 0, falling: false });
+    return true;
+  }
+
+  /** A deck section's hinge on the ceiling and its free end. */
+  private deckAt(k: Deck): [number, number, number, number] {
+    const hy = cave(k.x, this.H, this.cv, this.def.shape)[0] - 2;
+    return [k.x, hy, k.x + k.dir * Math.cos(k.ang) * k.len, hy + Math.sin(k.ang) * k.len];
+  }
+
+  /** Deck sections creak, tear loose as you come near and swing down on their hinge, ending up hanging across the top of the trench. */
+  private deckCheck(dt: number, leftEdge: number) {
+    this.decks = this.decks.filter(k => k.x + k.len > leftEdge);
+    for (const k of this.decks) {
+      if (!k.falling && k.shake <= 0) {
+        const speed = this.speed * (this.turboT > 0 ? TURBO_SPEED : 1);
+        // Timed so it's down (still swaying) by the time you reach the nearest point of its swing.
+        if ((k.x - (k.dir < 0 ? k.len : 0) - this.dist) / speed < DECK_LEAD) {
+          k.shake = DECK_SHAKE;
+          sfx.tone(75, 0.7, { type: 'sawtooth', vol: 0.05, slideTo: 48 });
+          sfx.noise(0.3, 0.05, 700, 2);
+        }
+      }
+      if (k.shake > 0 && (k.shake -= dt) <= 0) { k.falling = true; sfx.noise(0.25, 0.08, 1500); }
+      if (k.falling) {
+        // A heavy pendulum in water: gravity pulls it down past straight, then it settles.
+        k.vang += ((DECK_G / k.len) * Math.cos(k.ang) - 2.4 * k.vang) * dt;
+        k.ang = Math.min(Math.PI / 2 + 0.55, k.ang + k.vang * dt);
+      }
+      const [hx, hy, ex, ey] = this.deckAt(k);
+      const gap = this.segGap(hx, hy, ex, ey, 6);
+      if (Math.abs(k.x - this.dist) < k.len + 30) k.gap = Math.min(k.gap ?? Infinity, gap);
+      if (gap < 0 && this.invuln <= 0 && this.turboT <= 0) {
+        this.sparks.explode(8, this.dist, this.diverY);
+        sfx.noise(0.3, 0.1, 350);
+        this.vy = 300;
+        this.loseLife('Crushed by a falling deck');
+        if (this.state !== 'play') return;
+      }
+      this.dodged(k);
+    }
+  }
+
+  /** This dive's treasure, just off-screen and tucked against a plain wall, announced with a glint and a banner. */
+  private spawnTreasure() {
+    const r = this.treasureDef!;
+    this.treasureAt = Infinity;
+    const wx = this.dist - this.diverX() + this.W + 60, [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    const y = this.wallY(wx, t, b);
+    this.treasure = {
+      x: wx, y, ph: 0,
+      sprite: this.add.image(wx, y, `tr-${r.id}`).setScale(TEX_SCALE).setDepth(11),
+      glow: this.glow(r.glow).setDepth(10.5),
+    };
+    ui.banner('Rare treasure ahead!', 'Something glints');
+    chime([1319, 1760, 2093]);
+  }
+
+  private treasureCheck(dt: number, leftEdge: number) {
+    const it = this.treasure;
+    if (!it) return;
+    it.ph += dt;
+    const hit = Math.hypot(it.x - this.dist, it.y - this.diverY) < DIVER_R + 16;
+    if (hit) this.findTreasure(it);
+    if (hit || it.x < leftEdge) { it.sprite.destroy(); it.glow.destroy(); this.treasure = null; }
+  }
+
+  /** The big moment: slow motion, a flash and burst in the treasure's colour, its own chime and a banner. */
+  private findTreasure(it: TreasureItem) {
+    const r = this.treasureDef!, first = treasureLog.add(r.id), n = first ? r.first : r.again, big = !!r.legendary;
+    shells.add(n);
+    ui.banner(r.name, big && first ? 'Legendary find!' : first ? 'New treasure!' : 'Found it again!');
+    ui.damage(`+${n} Sea Heart${n > 1 ? 's' : ''}! (${shells.count})`, true);
+    this.slowT = SLOWMO_TIME * (big ? 1.8 : 1.2);
+    this.invuln = Math.max(this.invuln, 1.2);
+    this.cameras.main.flash(big ? 700 : 450, r.glow >> 16, (r.glow >> 8) & 255, r.glow & 255);
+    const burst = this.add.particles(0, 0, 'star', {
+      lifespan: { min: 700, max: 1400 }, speed: { min: 50, max: big ? 300 : 220 }, scale: { start: TEX_SCALE * 1.6, end: 0 },
+      rotate: { min: 0, max: 360 }, alpha: { start: 1, end: 0 }, tint: [r.glow, 0xffffff, mixNum(r.glow, 0xffffff, 0.5)], emitting: false,
+    }).setDepth(12);
+    burst.explode(big ? 56 : first ? 34 : 20, it.x, it.y);
+    const ring = this.add.image(it.x, it.y, 'glow').setTint(r.glow).setBlendMode(Phaser.BlendModes.ADD).setDepth(12).setDisplaySize(40, 40);
+    this.tweens.add({ targets: ring, displayWidth: big ? 640 : 380, displayHeight: big ? 640 : 380, alpha: 0, duration: big ? 1300 : 900, ease: 'Cubic.easeOut', onComplete: () => ring.destroy() });
+    this.time.delayedCall(1600, () => burst.destroy());
+    chime(big ? [659, 831, 988, 1245, 1319] : [587, 740, 880, 1175], big || first);
+    buzz(big ? [20, 40, 20, 40, 80] : [15, 30, 15]);
+  }
+
+  /** Wreckage along the walls: scenery only, muted towards the rock colour so it never reads as a hazard. */
+  private drawDecor(g: Phaser.GameObjects.Graphics, x0: number, W: number, H: number, T: number, rock: number) {
+    const kind = this.def.decor;
+    if (!kind) return;
+    const mute = (c: number) => mixNum(c, rock, 0.3), line = (w: number, c: number, pts: Point[]) => {
+      g.lineStyle(w + 3.5, OUTLINE, 1); g.strokePoints(pts); g.lineStyle(w, c, 1); g.strokePoints(pts);
+    };
+    // The walls themselves: planked hull for the pirate ships, riveted steel plates for the liner.
+    const seam = mixNum(rock, OUTLINE, 0.4);
+    if (kind === 'ship') {
+      for (const off of [12, 24]) {
+        g.lineStyle(2, seam, 1);
+        g.strokePoints(this.topEdge.map(p => ({ x: p.x, y: p.y - off })));
+        g.strokePoints(this.botEdge.map(p => ({ x: p.x, y: p.y + off })));
+      }
+    } else {
+      g.fillStyle(mixNum(rock, 0xffffff, 0.28), 1);
+      this.topEdge.forEach(p => { if ((Math.round(p.x / 12) & 1) === 0) g.fillCircle(p.x, p.y - 9, 1.6); });
+      this.botEdge.forEach(p => { if ((Math.round(p.x / 12) & 1) === 0) g.fillCircle(p.x, p.y + 9, 1.6); });
+      g.lineStyle(2, seam, 1);
+      for (let sx = Math.ceil((x0 - 20) / 96) * 96; sx < x0 + W + 20; sx += 96) {
+        const [t, b] = cave(sx, H, this.cv, this.def.shape);
+        g.lineBetween(sx, t - 4, sx, t - 40); g.lineBetween(sx, b + 4, sx, b + 40);
+      }
+    }
+    const SEG = 210;
+    for (let k = Math.floor((x0 - 160) / SEG); k * SEG < x0 + W + 160; k++) {
+      if (hash(k * 1.7 + 11) < 0.3) continue;
+      const side: 0 | 1 = hash(k * 3.1 + 7) < 0.66 ? 1 : 0, wx = k * SEG + hash(k + 2.3) * 80;
+      if (this.spiky(wx, side)) continue;
+      const base = cave(wx, H, this.cv, this.def.shape)[side], up = side ? -1 : 1, pick = hash(k * 5.3 + 1);
+      if (kind === 'ship') this.shipDecor(g, wx, base, up, pick, T, mute, line);
+      else this.linerDecor(g, wx, base, up, pick, mute, line);
+    }
+  }
+
+  private shipDecor(g: Phaser.GameObjects.Graphics, wx: number, base: number, up: number, pick: number, T: number, mute: (c: number) => number, line: (w: number, c: number, pts: Point[]) => void) {
+    const wood = mute(0x9a6235), dark = mute(0x6e4224);
+    if (up > 0) {
+      // Overhead: broken planks hanging from a hull above, or a frayed rope.
+      if (pick < 0.55) {
+        for (let i = 0; i < 3; i++) {
+          const x = wx + i * 13, len = 30 + hash(wx + i) * 26, lean = (hash(wx * 2 + i) - 0.5) * 0.5;
+          g.save(); g.translateCanvas(x, base - 4); g.rotateCanvas(lean);
+          g.fillStyle(i % 2 ? dark : wood, 1); g.fillRect(-5, 0, 10, len);
+          g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(-5, 0, 10, len);
+          g.fillStyle(OUTLINE, 1); g.fillTriangle(-5, len, 0, len - 6, 5, len); // splintered end
+          g.restore();
+        }
+      } else {
+        const pts: Point[] = [];
+        for (let j = 0; j <= 6; j++) pts.push({ x: wx + Math.sin(T * 1.2 + j * 0.7 + wx) * j * 1.2, y: base - 2 + j * 9 });
+        line(2.6, mute(0xd8b878), pts);
+      }
+      return;
+    }
+    if (pick < 0.3) {
+      // Hull ribs poking out of the sand.
+      for (let i = 0; i < 4; i++) {
+        const x = wx + i * 13, h = 30 + i * 4;
+        line(4.5, wood, [{ x, y: base + 4 }, { x: x - 4, y: base - h * 0.6 }, { x: x - 11, y: base - h }]);
+      }
+    } else if (pick < 0.55) {
+      // A broken mast, leaning, with a tattered sail.
+      const top = { x: wx + 24, y: base - 78 };
+      line(6, wood, [{ x: wx, y: base + 4 }, top]);
+      line(3.5, wood, [{ x: wx + 8, y: base - 48 }, { x: wx + 38, y: base - 44 }]);
+      const sail = [{ x: wx + 11, y: base - 46 }, { x: wx + 36, y: base - 43 }, { x: wx + 34, y: base - 22 }, { x: wx + 28, y: base - 26 }, { x: wx + 24, y: base - 18 }, { x: wx + 18, y: base - 24 }, { x: wx + 12, y: base - 20 }];
+      g.fillStyle(mute(0xefe1c0), 0.9); g.fillPoints(sail, true);
+      g.lineStyle(2, OUTLINE, 1); g.strokePoints(sail, true);
+    } else if (pick < 0.78) {
+      // Barrels, one tipped over.
+      for (const [dx, w, h] of [[0, 18, 24], [22, 24, 17]] as const) {
+        g.fillStyle(wood, 1); g.fillRoundedRect(wx + dx - w / 2, base - h + 3, w, h, 6);
+        g.lineStyle(2.4, OUTLINE, 1); g.strokeRoundedRect(wx + dx - w / 2, base - h + 3, w, h, 6);
+        g.lineStyle(2, mute(0x5d6670), 1);
+        if (w < h) { g.lineBetween(wx + dx - w / 2 + 1, base - h + 9, wx + dx + w / 2 - 1, base - h + 9); g.lineBetween(wx + dx - w / 2 + 1, base - 3, wx + dx + w / 2 - 1, base - 3); }
+        else { g.lineBetween(wx + dx - w / 2 + 6, base - h + 4, wx + dx - w / 2 + 6, base + 2); g.lineBetween(wx + dx + w / 2 - 6, base - h + 4, wx + dx + w / 2 - 6, base + 2); }
+      }
+    } else {
+      // A spill of gold coins.
+      const coins = [[0, 0], [9, 1], [18, 0], [5, -6], [14, -6], [10, -12], [24, 2], [-7, 2]];
+      for (const [dx, dy] of coins) {
+        g.fillStyle(0xf0b81e, 1); g.fillEllipse(wx + dx, base - 4 + dy, 9, 7);
+        g.lineStyle(1.8, OUTLINE, 1); g.strokeEllipse(wx + dx, base - 4 + dy, 9, 7);
+      }
+      g.fillStyle(0xfff3b0, 1); g.fillCircle(wx + 8, base - 17, 1.4 + Math.max(0, Math.sin(T * 3 + wx)) * 1.2);
+    }
+  }
+
+  private linerDecor(g: Phaser.GameObjects.Graphics, wx: number, base: number, up: number, pick: number, mute: (c: number) => number, line: (w: number, c: number, pts: Point[]) => void) {
+    const steel = mute(0x2e3a4a), white = mute(0xc9d3dc);
+    if (up > 0 || pick < 0.3) {
+      // Deck railing (hanging upside down overhead).
+      const y = base + up * 18;
+      for (let i = 0; i <= 6; i++) line(2, white, [{ x: wx + i * 12, y: base + up * 2 }, { x: wx + i * 12, y }]);
+      line(2.6, white, [{ x: wx - 2, y }, { x: wx + 74, y }]);
+      line(2, white, [{ x: wx, y: base + up * 10 }, { x: wx + 72, y: base + up * 10 }]);
+      return;
+    }
+    if (pick < 0.55) {
+      // A slab of hull with a row of portholes.
+      g.fillStyle(steel, 1); g.fillRoundedRect(wx - 6, base - 26, 92, 32, 5);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokeRoundedRect(wx - 6, base - 26, 92, 32, 5);
+      for (let i = 0; i < 3; i++) {
+        const cx = wx + 10 + i * 28;
+        g.fillStyle(mute(0xc9a24d), 1); g.fillCircle(cx, base - 11, 7.5);
+        g.fillStyle(0x7fc8e8, 0.55); g.fillCircle(cx, base - 11, 5);
+        g.lineStyle(1.8, OUTLINE, 1); g.strokeCircle(cx, base - 11, 7.5);
+      }
+    } else if (pick < 0.8) {
+      // A piece of the grand staircase, with its curled banister.
+      const steps: Point[] = [{ x: wx, y: base + 4 }];
+      for (let i = 0; i < 5; i++) { steps.push({ x: wx + i * 11, y: base - i * 8 }); steps.push({ x: wx + (i + 1) * 11, y: base - i * 8 }); }
+      steps.push({ x: wx + 55, y: base + 4 });
+      g.fillStyle(mute(0x7a4e2e), 1); g.fillPoints(steps, true);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(steps, true);
+      for (let i = 0; i < 5; i++) line(1.6, white, [{ x: wx + i * 11 + 5, y: base - i * 8 }, { x: wx + i * 11 + 5, y: base - i * 8 - 18 }]);
+      line(3.2, mute(0x8a5a32), [{ x: wx - 4, y: base - 16 }, { x: wx + 5, y: base - 19 }, { x: wx + 50, y: base - 54 }]);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokeCircle(wx - 5, base - 12, 4);
+    } else {
+      // A fallen funnel: buff with a black top.
+      g.save(); g.translateCanvas(wx + 20, base - 8); g.rotateCanvas(-0.35);
+      g.fillStyle(mute(0xd9a04a), 1); g.fillRect(-34, -13, 58, 26);
+      g.fillStyle(mute(0x1d1f26), 1); g.fillRect(24, -13, 14, 26);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(-34, -13, 72, 26);
+      g.lineStyle(2, OUTLINE, 0.6); g.lineBetween(-10, -13, -10, 13);
+      g.restore();
+    }
+  }
+
+  /** Cannons, cannonballs, anchors, steam and decks, plus their glow in the dark (so they can be seen coming). */
+  private drawWreck(g: Phaser.GameObjects.Graphics, x0: number, W: number, T: number, dark: number) {
+    const on = (x: number, m = 120) => x > x0 - m && x < x0 + W + m, glow = this.edges, ga = Math.max(0.35, dark);
+    for (const c of this.cannons) {
+      if (!on(c.x)) continue;
+      const [px, py] = this.cannonPivot(c), wall = c.side ? 1 : -1;
+      // Carriage on the wall, then the barrel turned towards its aim.
+      g.fillStyle(0x7a4a26, 1); g.fillRect(px - 15, c.side ? py - 2 : py - 12, 30, 14);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(px - 15, c.side ? py - 2 : py - 12, 30, 14);
+      for (const wxo of [-9, 9]) { g.fillStyle(0x5a3a22, 1); g.fillCircle(px + wxo, py + wall * 10, 5); g.lineStyle(2, OUTLINE, 1); g.strokeCircle(px + wxo, py + wall * 10, 5); }
+      const back = -c.kick * 7;
+      g.save(); g.translateCanvas(px, py); g.rotateCanvas(c.aim);
+      g.fillStyle(0x3b4252, 1); g.fillPoints([{ x: back - 9, y: -8 }, { x: back + 26, y: -5.5 }, { x: back + 26, y: 5.5 }, { x: back - 9, y: 8 }], true);
+      g.lineStyle(2.6, OUTLINE, 1); g.strokePoints([{ x: back - 9, y: -8 }, { x: back + 26, y: -5.5 }, { x: back + 26, y: 5.5 }, { x: back - 9, y: 8 }], true);
+      g.fillStyle(0x4c5568, 1); g.fillRect(back + 22, -7.5, 6, 15); g.lineStyle(2, OUTLINE, 1); g.strokeRect(back + 22, -7.5, 6, 15);
+      g.fillStyle(0x3b4252, 1); g.fillCircle(back - 11, 0, 4); g.lineStyle(2, OUTLINE, 1); g.strokeCircle(back - 11, 0, 4);
+      g.fillStyle(0x8a95a8, 1); g.fillRect(back - 4, -6, 22, 2.4);
+      g.restore();
+      if (c.fuse > 0) {
+        const fx = px + Math.cos(c.aim) * -13, fy = py + Math.sin(c.aim) * -13, f = 2 + Math.random() * 2.5;
+        g.fillStyle(0xffd23f, 1); g.fillCircle(fx, fy, f); g.fillStyle(0xffffff, 1); g.fillCircle(fx, fy, f * 0.45);
+        glow.fillStyle(0xff9f43, 0.6 * ga); glow.fillCircle(fx, fy, 9 + Math.random() * 4);
+      }
+    }
+    for (const b of this.balls) {
+      if (!on(b.x)) continue;
+      const len = Math.hypot(b.vx, b.vy) || 1;
+      for (let i = 3; i >= 1; i--) { g.fillStyle(0xc9d2dc, 0.18 * (4 - i)); g.fillCircle(b.x - (b.vx / len) * i * 10, b.y - (b.vy / len) * i * 10, 5 + i); }
+      g.fillStyle(0x2b2f38, 1); g.fillCircle(b.x, b.y, BALL_R);
+      g.lineStyle(2.6, OUTLINE, 1); g.strokeCircle(b.x, b.y, BALL_R);
+      g.fillStyle(0x8a95a8, 1); g.fillCircle(b.x - 3, b.y - 3, 2.4);
+      glow.lineStyle(5, 0xffa64d, 0.45 * ga); glow.strokeCircle(b.x, b.y, BALL_R + 3);
+    }
+    for (const a of this.anchors) {
+      if (!on(a.x, a.len)) continue;
+      const { ang, px, py, cx, cy } = this.anchorAt(a), L = a.len;
+      // A beam stuck in the ceiling to hang from.
+      g.fillStyle(0x6e4224, 1); g.fillRect(px - 20, py - 6, 40, 9); g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(px - 20, py - 6, 40, 9);
+      g.save(); g.translateCanvas(px, py); g.rotateCanvas(-ang);
+      for (let y = 4; y < L - 50; y += 9) {
+        g.lineStyle(2, OUTLINE, 1); g.fillStyle(0x9aa8b8, 1);
+        if ((y / 9) & 1) { g.fillRect(-1.5, y - 4, 3, 9); g.strokeRect(-1.5, y - 4, 3, 9); }
+        else { g.fillEllipse(0, y, 6, 10); g.strokeEllipse(0, y, 6, 10); }
+      }
+      const iron = 0x5d6b7a, ring = L - 50;
+      g.lineStyle(7, OUTLINE, 1); g.strokeCircle(0, ring, 5.5); g.lineStyle(3.5, iron, 1); g.strokeCircle(0, ring, 5.5);
+      g.lineStyle(11, OUTLINE, 1); g.lineBetween(0, ring + 5, 0, L); g.lineStyle(6.5, iron, 1); g.lineBetween(0, ring + 5, 0, L);
+      g.fillStyle(iron, 1); g.fillRect(-15, ring + 9, 30, 6); g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(-15, ring + 9, 30, 6);
+      g.lineStyle(11, OUTLINE, 1); g.beginPath(); g.arc(0, L - 20, 19, 0.2, Math.PI - 0.2); g.strokePath();
+      g.lineStyle(6.5, iron, 1); g.beginPath(); g.arc(0, L - 20, 19, 0.2, Math.PI - 0.2); g.strokePath();
+      for (const s of [-1, 1]) {
+        const fx = s * 19 * Math.cos(0.2), fy = L - 20 + 19 * Math.sin(0.2), fl = [{ x: fx - s * 6, y: fy + 2 }, { x: fx + s * 4, y: fy - 11 }, { x: fx + s * 5, y: fy + 4 }];
+        g.fillStyle(iron, 1); g.fillPoints(fl, true); g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(fl, true);
+      }
+      g.lineStyle(2, 0xb7c3cf, 1); g.lineBetween(-2, ring + 18, -2, L - 6);
+      g.restore();
+      glow.lineStyle(6, 0x9fd0ff, 0.28 * dark); glow.strokeCircle(cx, cy, ANCHOR_R + 2);
+    }
+    for (const v of this.vents) {
+      if (!on(v.x)) continue;
+      const { reach, warn, base } = this.ventAt(v), d = v.side ? -1 : 1;
+      // The broken pipe: a stub with a flange.
+      g.fillStyle(0x6b5d55, 1); g.fillRect(v.x - 9, d > 0 ? base - 6 : base - 10, 18, 16);
+      g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(v.x - 9, d > 0 ? base - 6 : base - 10, 18, 16);
+      g.fillStyle(0x8a7a70, 1); g.fillRect(v.x - 13, base + d * 9 - 3, 26, 6); g.lineStyle(2.2, OUTLINE, 1); g.strokeRect(v.x - 13, base + d * 9 - 3, 26, 6);
+      const mouth = base + d * 12;
+      if (warn) {
+        glow.fillStyle(0xff7a3c, 0.5 * ga * (0.6 + Math.sin(T * 30) * 0.4)); glow.fillCircle(v.x, mouth, 9);
+        for (let i = 0; i < 3; i++) {
+          const k = (T * 2.2 + i / 3) % 1;
+          g.fillStyle(0xe8eef5, 0.6 * (1 - k)); g.fillCircle(v.x + Math.sin(T * 7 + i) * 4, mouth + d * k * 26, 3 + k * 3);
+        }
+      }
+      if (reach > 4) {
+        const n = Math.max(2, Math.ceil(reach / 14));
+        for (const pass of [0, 1]) {
+          for (let i = 0; i <= n; i++) {
+            const f = i / n, y = mouth + d * (reach - 12) * f, r = 11 + f * 7 + Math.sin(T * 13 + i * 1.7) * 2;
+            const x = v.x + Math.sin(T * 9 + i) * 3;
+            if (pass) { g.fillStyle(i % 2 ? 0xf6f9ff : 0xe3ebf4, 0.95); g.fillCircle(x, y, r); }
+            else { g.fillStyle(OUTLINE, 0.7); g.fillCircle(x, y, r + 2.2); }
+          }
+        }
+        glow.lineStyle(VENT_W, 0xe6f2ff, 0.18 * ga); glow.lineBetween(v.x, mouth, v.x, mouth + d * reach);
+      }
+    }
+    for (const k of this.decks) {
+      if (!on(k.x, k.len)) continue;
+      const [hx, hy, ex, ey] = this.deckAt(k), jit = k.shake > 0 ? Math.sin(T * 60) * 1.5 : 0;
+      g.save(); g.translateCanvas(hx, hy + jit); g.rotateCanvas(Math.atan2(ey - hy, ex - hx));
+      const L = k.len;
+      g.fillStyle(0x6f8496, 1); g.fillRect(0, -6, L, 12);
+      g.lineStyle(2.6, OUTLINE, 1); g.strokeRect(0, -6, L, 12);
+      g.fillStyle(0x8c6a4a, 1); g.fillRect(2, -6, L - 4, 4); // the wooden deck boards on top
+      g.fillStyle(0x2e3a4a, 1);
+      for (let x = 8; x < L - 4; x += 14) g.fillCircle(x, 2.5, 1.5);
+      g.lineStyle(1.8, 0xc9d3dc, 1);
+      for (let x = 6; x < L; x += 16) g.lineBetween(x, -6, x, -16);
+      g.lineStyle(2.4, 0xc9d3dc, 1); g.lineBetween(2, -16, L - 2, -16);
+      g.fillStyle(0x2e3a4a, 1); g.fillCircle(0, 0, 5); g.lineStyle(2, OUTLINE, 1); g.strokeCircle(0, 0, 5);
+      g.restore();
+      glow.lineStyle(7, 0xffd2a0, 0.24 * dark); glow.lineBetween(hx, hy, ex, ey);
+    }
+    // The treasure: a big glow above the darkness, pulsing, so it can be spotted from far away.
+    const it = this.treasure;
+    if (it) {
+      const y = it.y + Math.sin(it.ph * 2.5) * 4;
+      it.sprite.setPosition(it.x, y).setRotation(Math.sin(it.ph * 1.8) * 0.12).setScale(TEX_SCALE * (1 + Math.sin(it.ph * 4) * 0.06));
+      it.glow.setPosition(it.x, y).setDisplaySize(130, 130).setAlpha(0.6 + Math.sin(it.ph * 4) * 0.25);
+    }
+  }
+
+  /** How sharp walls look in this cave: coral, ice, or the cave's own (splintered wood, torn steel). */
+  private spikeLook(): SpikeLook {
+    return this.def.spikeLook ?? (this.def.iceSpikes ? ICE_SPIKES : CORAL_SPIKES);
+  }
+
   /**
    * A short arc of pickups somewhere inside the trench just off-screen, at a random height clear of
    * creatures. `daring` (treasure) tucks it close to a plain wall, so grabbing it takes a bit of nerve.
    */
   private spawnRow(type: Pickup['type'], n: number, gap: number, daring = false) {
+    this.withRng(this.place, () => this.spawnRowAt(type, n, gap, daring));
+  }
+  /** spawnRow with whatever `this.rng` is now (Pearl Bloom's pearls use visual randomness: they're not part of the course). */
+  private spawnRowAt(type: Pickup['type'], n: number, gap: number, daring = false) {
     const wx = this.dist - this.diverX() + this.W + 60 + (daring ? this.cr(0, 160) : 0);
     const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
     const y = daring ? this.wallY(wx, t, b) : this.openY(wx, t + 40, b - 40, n * gap), arc = n > 3 ? this.cr(-30, 30) : 0;
@@ -1143,7 +1881,7 @@ export class GameScene extends Phaser.Scene {
     return this.add.image(0, 0, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setAlpha(0);
   }
 
-  /** Out of lives (or air): offer a "Save me" for Golden Shells, Subway Surfers style, before ending the dive. */
+  /** Out of lives (or air): offer a "Save me" for Sea Hearts, Subway Surfers style, before ending the dive. */
   private die(reason: string) {
     const cost = saveCost(this.saves);
     if (shells.count < cost) { this.endDive(reason); return; }
@@ -1164,6 +1902,7 @@ export class GameScene extends Phaser.Scene {
       this.oxy = Math.max(this.oxy, 60);
       this.invuln = 2.5;
       this.slowT = SLOWMO_TIME;
+      this.slowRate = SLOWMO_RATE;
       this.diverY = this.caveMid(this.dist);
       this.vy = 0;
       this.pops.explode(22, this.dist, this.diverY);
@@ -1187,17 +1926,31 @@ export class GameScene extends Phaser.Scene {
     this.shieldRing.setVisible(false);
     this.lifeRing.setVisible(false);
     ui.setLifeline(false);
+    this.specialT = 0;
+    this.boosterOpen = false;
+    ui.setBoosters(null);
 
     const depth = Math.floor(this.dist / 10);
     const prevBest = this.runBest;
-    const key = bestKey(this.def.id), locked = CAVES.filter(c => !isUnlocked(c));
-    // Read the saved best, not the in-memory one: a cloud restore may have raised it mid-dive.
-    this.best = Math.max(this.best, store.get(key, 0));
-    const isBest = depth > this.best;
-    if (isBest) { this.best = depth; store.set(key, depth); }
-    const opened = locked.find(isUnlocked) ?? null;
+    let isBest = false, opened: CaveDef | null = null, dailyBonus = 0;
+    if (dev.on) {
+      // Dev mode: a test dive records no best (it would reach the boards on the next sync).
+    } else if (this.daily) {
+      // The Daily Dive has its own best and board, and doesn't count towards cave bests or unlocks.
+      const d = dailyRun.finish(depth);
+      isBest = d.isBest; dailyBonus = d.bonus;
+      this.best = dailyRun.best;
+      if (!dev.on) void this.postDaily(depth); // dev-mode dives stay off the boards
+    } else {
+      const key = bestKey(this.def.id), locked = CAVES.filter(c => !isUnlocked(c));
+      // Read the saved best, not the in-memory one: a cloud restore may have raised it mid-dive.
+      this.best = Math.max(this.best, store.get(key, 0));
+      isBest = depth > this.best;
+      if (isBest) { this.best = depth; store.set(key, depth); }
+      opened = locked.find(isUnlocked) ?? null;
+    }
     // The leaderboard and the store's scores are for the Reef Trench (one board per cave comes later).
-    if (this.def.id === 'reef') {
+    if (!dev.on && !this.daily && this.def.id === 'reef') {
       void this.postScore(depth, isBest);
       embed.score(depth, this.best);
       if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
@@ -1205,17 +1958,24 @@ export class GameScene extends Phaser.Scene {
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus * this.def.pay * (this.perk === 'coins' ? DIVER_PERK.coins : 1); // harder caves (and Royal) pay more
-    const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus); // ~25–45 for a good dive at x1
-    const closeCoins = Math.round(this.runBonus * bonus);
+    const twice = this.doubler ? 2 : 1; // the Coin Doubler booster
+    const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus) * twice; // ~25–45 for a good dive at x1
+    const closeCoins = Math.round(this.runBonus * bonus) * twice;
     coins.add(runCoins + closeCoins);
     const coinsBefore = coins.balance;
-    const { results, rankUp } = deepMissions.report({
+    const stats = {
       depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks, closeCalls: this.runClose,
       cleanDepth: this.cleanDepth < 0 ? depth : this.cleanDepth,
-      anglers: this.runAnglers, eels: this.runEels,
-    });
+      anglers: this.runAnglers, eels: this.runEels, specials: this.runSpecials,
+      dives: 1, daily: this.daily ? 1 : 0,
+    };
+    const { results, rankUp } = deepMissions.report(stats);
+    const today = dailyMissions.report(stats);
+    lifetime.add({ eels: this.runEels, anglers: this.runAnglers, pearls: this.runPearls, dives: 1, metres: depth, closeCalls: this.runClose, specials: this.runSpecials });
+    const newDivers = grantEarned().map(s => s.name);
     const missionCoins = coins.balance - coinsBefore;
     const chests = openChests(this.runChests);
+    const huntBefore = hunt.pearls, huntWon = hunt.add(this.runPearls);
 
     ui.lowO2(false);
     ui.hint(null);
@@ -1225,9 +1985,19 @@ export class GameScene extends Phaser.Scene {
       ui.showOver({
         depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
         close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null, chests,
-        earned: [{ label: `Dive ×${bonus.toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }],
+        hunt: { before: huntBefore, won: huntWon }, daily: this.daily, today, newDivers,
+        earned: [{ label: `Dive ×${(bonus * twice).toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily Dive', n: dailyBonus }],
       });
     });
+  }
+
+  /** Post a Daily Dive to the day's board, then show where it ranks today. */
+  private async postDaily(depth: number) {
+    if (!cloud.enabled) return;
+    const day = dailyRun.day;
+    await cloud.submitDay(day, dailyRun.best);
+    const rank = await cloud.rank(depth, day);
+    if (rank && this.state === 'over') ui.setRank(rank, false, true);
   }
 
   /** Send a new best to the leaderboard, then show where this dive ranks worldwide. */
@@ -1319,7 +2089,7 @@ export class GameScene extends Phaser.Scene {
     g.strokePoints(this.botEdge);
 
     // Sharp coral (or ice) along dangerous stretches of wall.
-    const ice = !!this.def.iceSpikes;
+    const look = this.spikeLook();
     this.spikeRuns.length = 0;
     for (let seg = Math.floor((x0 - 40) / SPIKE_SEG); seg * SPIKE_SEG < x0 + W + 40; seg++) {
       for (const side of [0, 1] as const) {
@@ -1329,9 +2099,9 @@ export class GameScene extends Phaser.Scene {
         for (let wx = a; wx <= b; wx += 15) {
           const base = cave(wx, H, this.cv, this.def.shape)[side] - dir * 2;
           const tri = [{ x: wx - 7.5, y: base }, { x: wx, y: base + dir * SPIKE_H }, { x: wx + 7.5, y: base }];
-          g.fillStyle(ice ? 0xa8e6ff : 0xff6b8a, 1); g.fillPoints(tri, true);
+          g.fillStyle(look.fill, 1); g.fillPoints(tri, true);
           g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(tri, true);
-          g.fillStyle(ice ? 0xf2fdff : 0xffd0da, 1); g.fillTriangle(wx - 2, base + dir * 3, wx, base + dir * (SPIKE_H - 4), wx + 1, base + dir * 3);
+          g.fillStyle(look.shine, 1); g.fillTriangle(wx - 2, base + dir * 3, wx, base + dir * (SPIKE_H - 4), wx + 1, base + dir * 3);
           run.push({ x: wx, y: base + dir * SPIKE_H * 0.5 });
         }
         this.spikeRuns.push(run);
@@ -1359,6 +2129,7 @@ export class GameScene extends Phaser.Scene {
         g.lineStyle(4.5, 0x3ad06b, reef); g.strokePoints(pts);
       }
     }
+    this.drawDecor(g, x0, W, H, T, pal.rock);
     // A flag on the trench floor at your best depth (its glowing line across the trench is drawn below).
     const bestX = this.runBest * 10, bestOn = this.runBest > 0 && bestX > x0 - 40 && bestX < x0 + W + 40;
     if (bestOn) {
@@ -1446,7 +2217,7 @@ export class GameScene extends Phaser.Scene {
 
     const tilt = this.state === 'over' ? 0.9 : clamp(this.vy / 700, -0.45, 0.45);
     this.diver.setPosition(this.dist, this.diverY).setRotation(this.state === 'play' || this.state === 'paused' ? tilt : this.diver.rotation);
-    if (this.state === 'play') this.diver.setAlpha(this.invuln > 0 && Math.sin(this.clock * 40) > 0 ? 0.35 : 1);
+    if (this.state === 'play') this.diver.setAlpha(this.using('phase') ? 0.45 + Math.sin(this.clock * 8) * 0.1 : this.invuln > 0 && Math.sin(this.clock * 40) > 0 ? 0.35 : 1);
     this.shieldRing.setVisible(this.shieldT > 0 && this.state !== 'over')
       .setPosition(this.dist, this.diverY)
       .setScale(TEX_SCALE * (1 + Math.sin(T * 6) * 0.04))
@@ -1461,7 +2232,7 @@ export class GameScene extends Phaser.Scene {
     const lx = px + 30, ly = this.diverY;
     if (dark > 0.01) {
       const span = LIGHT_SPAN * (this.perk === 'light' && this.state !== 'title' ? DIVER_PERK.light : 1); // Lumi's light reaches further
-      this.lightMask.setVisible(true).setPosition(lx, ly).setDisplaySize(span, span).setAlpha(dark);
+      this.lightMask.setVisible(true).setPosition(lx, ly).setDisplaySize(span, span).setAlpha(dark * (this.using('flash') ? 0.15 : 1)); // Lumi's Flash lights the whole trench
       this.cone.setVisible(this.state !== 'over').setPosition(px + 14, ly).setAlpha(0.14 * dark);
     } else {
       this.lightMask.setVisible(false);
@@ -1474,7 +2245,7 @@ export class GameScene extends Phaser.Scene {
       this.edges.strokePoints(this.topEdge);
       this.edges.strokePoints(this.botEdge);
       // Sharp coral glows red in the dark so it can always be seen coming.
-      this.edges.lineStyle(9, ice ? 0x7fe3ff : 0xff4d6d, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
+      this.edges.lineStyle(9, look.glow, (0.55 + Math.sin(T * 4) * 0.15) * Math.max(0.5, dark));
       for (const run of this.spikeRuns) if (run.length > 1) this.edges.strokePoints(run);
     }
     // Kelp glows faintly green in the dark so it can be seen coming.
@@ -1496,6 +2267,7 @@ export class GameScene extends Phaser.Scene {
         this.edges.strokePoints([{ x: c.x - c.w / 2, y: base }, { x: c.x, y: tip }, { x: c.x + c.w / 2, y: base }], true);
       }
     }
+    this.drawWreck(g, x0, W, T, dark);
     // Your best depth: a dashed gold line across the trench, bright enough to see in the dark.
     if (bestOn) {
       const [t, b] = cave(bestX, H, this.cv, this.def.shape), a = this.bestPassed ? 0.25 : 0.6 + Math.sin(T * 5) * 0.2;
@@ -1506,3 +2278,30 @@ export class GameScene extends Phaser.Scene {
     }
   }
 }
+
+// ---------- Wreck caves
+
+const CORAL_SPIKES: SpikeLook = { fill: 0xff6b8a, shine: 0xffd0da, glow: 0xff4d6d, hit: 'Spiked on sharp coral' };
+const ICE_SPIKES: SpikeLook = { fill: 0xa8e6ff, shine: 0xf2fdff, glow: 0x7fe3ff, hit: 'Spiked on sharp ice' };
+/** Room kept between one wreck hazard and the next (world px). */
+const WRECK_SPACING = 300;
+/** Cannons light their fuse this far ahead of you (world px), fire after CANNON_FUSE seconds, and the ball closes on you at BALL_CLOSE px/s. */
+const CANNON_FUSE_AT = 560, CANNON_FUSE = 0.6, BALL_CLOSE = 560, BALL_R = 9;
+const ANCHOR_R = 17;
+/** Steam vents: a burst lasts VENT_ON of every VENT_CYCLE seconds, with VENT_WARN seconds of gurgling first. */
+const VENT_CYCLE = 2.8, VENT_ON = 1.0, VENT_WARN = 0.6, VENT_W = 30;
+/** Decks start shaking DECK_LEAD seconds before you reach them, drop DECK_SHAKE seconds later, and swing down this hard. */
+const DECK_LEAD = 1.4, DECK_SHAKE = 0.35, DECK_G = 1600;
+
+/** A cannon on a broken hull, on the floor (side 1) or the ceiling (side 0). It tracks you, then fires once. */
+interface Cannon { x: number; side: 0 | 1; aim: number; fuse: number; fired: boolean; kick: number }
+/** A cannonball; its velocity is relative to you, so on screen it flies straight at where you were. */
+interface Ball { x: number; y: number; vx: number; vy: number; gap?: number; passed?: boolean; gone?: boolean }
+/** An anchor swinging on a chain from the ceiling. */
+interface Anchor { x: number; len: number; amp: number; period: number; ph: number; gap?: number; passed?: boolean }
+/** A broken boiler pipe on a wall, bursting steam on a fixed beat. */
+interface Vent { x: number; side: 0 | 1; reach: number; ph: number; hissed?: boolean; gap?: number; passed?: boolean }
+/** A section of deck hinged to the ceiling; `ang` is 0 lying flat along it, PI/2 hanging straight down. */
+interface Deck { x: number; len: number; dir: 1 | -1; ang: number; vang: number; shake: number; falling: boolean; gap?: number; passed?: boolean }
+/** This dive's treasure, floating near a wall. */
+interface TreasureItem { x: number; y: number; ph: number; sprite: Image; glow: Image }
