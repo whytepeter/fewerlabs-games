@@ -41,7 +41,8 @@ let o2Low = false;
 let lowShown = false;
 let shownPerk: string | null = null;
 let toastTimer = 0;
-let hintTimer = 0;
+let hintTimer = 0, tipTimer = 0;
+let guidePressed = 0;
 let onSkin: (id: string) => boolean = () => false;
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
@@ -158,7 +159,9 @@ export const ui = {
       // Touch the side you want to move toward: left/right in portrait (the dive runs down the screen), top/bottom in landscape.
       $('howHold').textContent = 'Touch';
       $('howHoldText').textContent = portrait() ? 'left / right to steer' : 'top / bottom to steer';
-      $('hintText').textContent = portrait() ? 'Touch left or right to steer' : 'Touch the top to swim up, the bottom to go down';
+      // First-dive guide: in portrait the "up" half is on the right (the world is turned 90°).
+      $('guideUp').textContent = portrait() ? 'Tap here to steer right' : 'Tap here to swim up';
+      $('guideDown').textContent = portrait() ? 'Tap here to steer left' : 'Tap here to go down';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
@@ -178,7 +181,7 @@ export const ui = {
 
   hud(visible: boolean) {
     $('hud').hidden = !visible;
-    if (!visible) { this.lowO2(false); this.hint(false); }
+    if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); clearTimeout(tipTimer); }
   },
 
   showTitle(best: number, skin: string) {
@@ -226,24 +229,25 @@ export const ui = {
 
   /** Settings > Your progress: link the guest to Google or email, switch accounts, sign out. */
   initAccount() {
-    const run = async (fn: () => Promise<LinkResult>) => {
-      setBusy(true);
+    const run = async (fn: () => Promise<LinkResult>, btn: HTMLElement) => {
+      setBusy(true, btn);
       const r = await fn();
       setBusy(false);
       if (r === 'linked') { cheer(true); renderAccount('Saved! Your progress now follows your account.'); }
       else if (r === 'exists') showConflict(true);
       else if (r !== 'redirect') accountError(r.error);
     };
-    onTap('googleBtn', () => void run(() => cloud.linkGoogle()));
+    onTap('googleBtn', () => void run(() => cloud.linkGoogle(), $('googleBtn')));
     onTap('emailBtn', () => { $('emailForm').hidden = !$('emailForm').hidden; if (!$('emailForm').hidden) $('emailInput').focus(); });
     $('emailForm').addEventListener('submit', e => {
       e.preventDefault();
-      const mode = ((e as SubmitEvent).submitter as HTMLButtonElement | null)?.dataset.mode === 'signin' ? 'signin' : 'create';
+      const submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null;
+      const mode = submitter?.dataset.mode === 'signin' ? 'signin' : 'create';
       const email = ($('emailInput') as HTMLInputElement).value, pass = ($('passInput') as HTMLInputElement).value;
-      void run(() => cloud.linkEmail(email, pass, mode));
+      void run(() => cloud.linkEmail(email, pass, mode), submitter ?? $('emailForm'));
     });
     onTap('useAccountBtn', () => void (async () => {
-      setBusy(true);
+      setBusy(true, $('useAccountBtn'));
       const r = await cloud.useExisting();
       setBusy(false);
       if (r === true) { showConflict(false); cheer(true); renderAccount('Welcome back! Your saved progress is loaded.'); }
@@ -548,10 +552,44 @@ export const ui = {
     el.classList.add('show');
   },
 
-  hint(on: boolean) {
-    $('hint').hidden = !on;
+  /** A short tip in the pill at the bottom of the screen; null hides it. */
+  hint(text: string | null, ms = 4000) {
     clearTimeout(hintTimer);
-    if (on) hintTimer = window.setTimeout(() => { $('hint').hidden = true; }, 6000); // don't linger over play
+    $('hint').hidden = !text;
+    if (!text) return;
+    $('hintText').textContent = text;
+    hintTimer = window.setTimeout(() => { $('hint').hidden = true; }, ms); // don't linger over play
+  },
+
+  /** First-dive guide: the screen split into its two steering halves, labelled. */
+  guide(on: boolean) {
+    $('guide').hidden = !on;
+    guidePressed = 0;
+    if (on) $('guide').querySelectorAll('.guide-zone').forEach(z => z.classList.remove('used', 'active'));
+  },
+  /** The half being pressed lights up and gets a tick once used: +1 up, -1 down, 0 none. */
+  guidePress(dir: number) {
+    if (dir === guidePressed || $('guide').hidden) return;
+    guidePressed = dir;
+    $('guide').querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
+      const mine = (z.dataset.dir === 'up' ? 1 : -1) === dir;
+      z.classList.toggle('active', mine);
+      if (mine) z.classList.add('used');
+    });
+  },
+  /** Both halves used: let the ticks show for a moment, then hand over to the tips. */
+  guideDone() {
+    clearTimeout(tipTimer);
+    tipTimer = window.setTimeout(() => {
+      this.guide(false);
+      if (!$('hud').hidden) this.tips();
+    }, 700);
+  },
+  /** After the guide: what else to know, one tip at a time. */
+  tips() {
+    this.hint('Grab bubbles to refill your air');
+    clearTimeout(tipTimer);
+    tipTimer = window.setTimeout(() => this.hint('Dodge critters: you have 3 lives'), 4300);
   },
 };
 
@@ -607,9 +645,16 @@ function accountError(text: string) {
   el.hidden = false;
   buzz(30);
 }
-function setBusy(on: boolean) {
+/** Lock the account buttons while a sign-in runs; the one that started it shows a spinner. */
+function setBusy(on: boolean, btn?: HTMLElement) {
   $('account').querySelectorAll('button').forEach(b => { (b as HTMLButtonElement).disabled = on; });
   $('account').classList.toggle('busy', on);
+  $('account').querySelectorAll('.k-spinner').forEach(s => s.remove());
+  $('account').querySelectorAll('.loading').forEach(b => b.classList.remove('loading'));
+  if (on && btn?.classList.contains('k-btn')) {
+    btn.classList.add('loading');
+    btn.insertAdjacentHTML('beforeend', '<span class="k-spinner" aria-label="Working"></span>');
+  }
 }
 
 /** Affordable or newly unlocked, and not looked at yet. */

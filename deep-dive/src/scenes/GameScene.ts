@@ -125,7 +125,7 @@ export class GameScene extends Phaser.Scene {
   private biome = 0;
   private beepT = 0;
   private exhaustT = 0;
-  private heldFor = 0;
+  private guideUsed = 0;         // first-dive guide: bit 1 = swam up, bit 2 = swam down
   private learned = store.get('learned', false);
   private best = store.get('best', 0);
   private bestZone = store.get('bestZone', 0);
@@ -352,7 +352,8 @@ export class GameScene extends Phaser.Scene {
     ui.setLifeline(false);
     ui.setRank(null);
     ui.banner(BIOMES[0].name);
-    ui.hint(!this.learned);
+    ui.guide(!this.learned);
+    this.guideUsed = 0;
     this.ambient.start();
     music.play(DEEP_SONG, 0.45);
     sfx.tone(330, 0.25, { vol: 0.08, slideTo: 520 });
@@ -444,9 +445,13 @@ export class GameScene extends Phaser.Scene {
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
+    // First dive: the guide stays until both halves have been used (or a while has passed).
+    if (!this.learned) {
+      ui.guidePress(steer);
+      if (steer) this.guideUsed |= steer > 0 ? 1 : 2;
+      if (this.guideUsed === 3 || this.runT > 20) { this.learned = true; store.set('learned', true); ui.guideDone(); }
+    }
     if (hold) {
-      this.heldFor += dt;
-      if (!this.learned && this.heldFor > 1.2) { this.learned = true; store.set('learned', true); ui.hint(false); }
       this.exhaustT -= dt;
       if (this.exhaustT <= 0) {
         this.exhaustT = 0.05;
@@ -867,7 +872,8 @@ export class GameScene extends Phaser.Scene {
     const missionCoins = coins.balance - coinsBefore;
 
     ui.lowO2(false);
-    ui.hint(false);
+    ui.hint(null);
+    ui.guide(false);
     this.time.delayedCall(800, () => {
       if (this.state !== 'over') return;
       ui.showOver({

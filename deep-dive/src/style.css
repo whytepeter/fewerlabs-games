@@ -595,7 +595,8 @@ body {
 .email-form .k-row > .k-btn { flex: 1; font-size: 15px; padding: 0 10px 3px; }
 .account-warn { font-size: 14px; font-weight: 600; color: var(--k-ink); margin: 0 0 8px; }
 .account-error { margin: 0; font-size: 14px; font-weight: 700; color: #c22a4b; }
-.account.busy { opacity: .7; pointer-events: none; }
+.account.busy { pointer-events: none; }
+.account.busy .k-btn:not(.loading), .account.busy input { opacity: .55; }
 .save-nudge {
   appearance: none; cursor: pointer; font: inherit; margin-top: 8px; width: 100%;
   padding: 6px 10px; border-radius: 12px; border: 2.5px dashed #3aa8ff; background: #e8f5ff;
@@ -651,4 +652,63 @@ body {
   /* Settings: the sign-in buttons side by side. */
   #accountGuest { grid-template-columns: 1fr 1fr; }
   #accountGuest > .email-form { grid-column: 1 / -1; }
+}
+
+/* ---------- Coins look like coins: gold amounts on a dark pill, and the icon sits above the
+   buttons' white gloss so it never looks washed out. */
+.k-coins { color: #ffd23f; }
+.k-btn .k-coin { position: relative; z-index: 1; }
+.price-chip { position: relative; z-index: 1; background: rgba(22, 35, 59, .72); color: #ffd23f; }
+.k-btn.short .price-chip { background: rgba(194, 42, 75, .8); color: #fff; }
+
+/* ---------- Sign-in buttons: a spinner while they work */
+.k-spinner {
+  width: 1em; height: 1em; flex: none; border-radius: 50%;
+  border: 3px solid rgba(22, 35, 59, .2); border-top-color: var(--k-outline);
+  animation: k-spin .8s linear infinite;
+}
+@keyframes k-spin { to { transform: rotate(360deg); } }
+
+/* ---------- First-dive guide: the two steering halves, labelled. Touches pass straight through. */
+.guide {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  display: grid; grid-template-rows: 1fr 1fr;
+  font-family: var(--k-font); animation: k-fade .4s ease both;
+}
+.guide[hidden] { display: none; }
+.guide-zone {
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, .05); transition: background .2s;
+}
+.guide-zone[data-dir="up"] { border-bottom: 2px dashed rgba(255, 255, 255, .35); }
+.guide-zone.active { background: rgba(255, 255, 255, .14); }
+.guide-tag {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 18px 9px 12px; border-radius: 999px;
+  background: rgba(22, 35, 59, .78); border: 3px solid var(--k-outline);
+  box-shadow: 0 4px 0 rgba(22, 35, 59, .6);
+  color: #fff; font-size: 17px; font-weight: 700; white-space: nowrap;
+  animation: guide-bob 1.6s ease-in-out infinite;
+}
+.guide-zone[data-dir="down"] .guide-tag { animation-direction: reverse; }
+/* A chevron pointing the way: up/down in landscape, right/left in portrait. */
+.guide-arrow {
+  width: 12px; height: 12px; margin: 4px 2px 0;
+  border: solid #ffd23f; border-width: 4px 0 0 4px; transform: rotate(45deg);
+}
+.guide-zone[data-dir="down"] .guide-arrow { transform: rotate(225deg); margin: 0 2px 4px; }
+.guide-zone.used .guide-tag { background: #1e8f45; }
+.guide-zone.used[data-dir] .guide-arrow {
+  width: 8px; height: 14px; margin: 0 4px 4px; border-width: 0 4px 4px 0; border-color: #fff; transform: rotate(45deg);
+}
+@keyframes guide-bob { 50% { transform: translateY(-5px); } }
+
+@media (orientation: portrait) {
+  .guide { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
+  .guide-zone[data-dir="up"] { order: 2; border-bottom: 0; border-left: 2px dashed rgba(255, 255, 255, .35); }
+  .guide-arrow { transform: rotate(135deg); margin: 0 4px 0 0; }
+  .guide-zone[data-dir="down"] .guide-arrow { transform: rotate(-45deg); margin: 0 0 0 4px; }
+  .guide-zone[data-dir="up"] .guide-tag { flex-direction: row-reverse; }
+  .guide-tag { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; }
+  @keyframes guide-bob { 50% { transform: translateX(4px); } }
 }
