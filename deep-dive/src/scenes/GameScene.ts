@@ -39,8 +39,11 @@ interface Obstacle {
 }
 /** A clump of kelp growing from the floor (side 1) or ceiling (side 0): slows you down, never hurts. */
 interface Kelp { x: number; side: 0 | 1; len: number; w: number; ph: number; strands: number }
-/** An icicle on the ceiling: shakes loose when you come within `trigger` px, then falls and shatters on the floor. */
-interface Icicle { x: number; len: number; w: number; trigger: number; shake: number; drop: number; vy: number; falling: boolean; gap?: number; passed?: boolean; gone?: boolean }
+/**
+ * An icicle on the ceiling: shakes loose in time to land `lead` seconds before you reach it, then
+ * sticks in the floor as a stub you swim over. Timing it by your speed means it never drops onto you.
+ */
+interface Icicle { x: number; len: number; w: number; lead: number; shake: number; drop: number; vy: number; falling: boolean; stuck?: boolean; gap?: number; passed?: boolean; gone?: boolean }
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | 'chest' | 'shell' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
 
@@ -69,7 +72,7 @@ const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 150; // Turbo: a few secon
 const CHEST_FROM = 120;        // metres before treasure chests can appear
 const SHELL_FROM = 300;        // metres before a Golden Shell can float by (they're rare)
 const KELP_SLOW = 0.55, KELP_HOLD = 0.35;   // tangled in kelp: forward speed, and how long it lingers after you're out
-const ICICLE_SHAKE = 0.3, ICICLE_G = 1100;  // seconds an icicle shakes before it drops, and how fast it falls
+const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.5;  // seconds an icicle shakes before it drops, how fast it falls, and how much of it buries in the floor
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
@@ -980,19 +983,24 @@ export class GameScene extends Phaser.Scene {
 
   /** One to three icicles just off-screen, each shaking loose at its own distance so they fall in a ragged line. */
   private spawnIcicles(depth: number) {
-    let wx = this.dist - this.diverX() + this.W + 80;
+    // Far enough ahead that even at top speed it has time to shake, fall and land before you get there.
+    let wx = this.dist + Math.max(this.W + 80 - this.diverX(), this.speed * (this.turboT > 0 ? TURBO_SPEED : 1) * 1.8);
     const n = 1 + (this.rng() < 0.35 ? 1 : 0) + (depth > 300 && this.rng() < 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       this.icicles.push({
-        x: wx, len: this.cr(30, 52), w: this.cr(16, 24), trigger: this.cr(170, 320),
+        x: wx, len: this.cr(30, 52), w: this.cr(16, 24), lead: this.cr(0.25, 0.5),
         shake: 0, drop: 0, vy: 0, falling: false,
       });
       wx += this.cr(40, 70);
     }
   }
 
-  /** Where an icicle is: its base on (or below) the ceiling, and its tip. */
+  /** Where an icicle is: its base on (or below) the ceiling, and its tip. Once it lands, its tip is buried in the floor. */
   private icicleAt(c: Icicle): [number, number] {
+    if (c.stuck) {
+      const tip = cave(c.x, this.H, this.cv, this.def.shape)[1] + c.len * ICICLE_SINK;
+      return [tip - c.len, tip];
+    }
     const base = cave(c.x, this.H, this.cv, this.def.shape)[0] - 2 + c.drop;
     return [base, base + c.len];
   }
@@ -1002,21 +1010,29 @@ export class GameScene extends Phaser.Scene {
     this.icicles = this.icicles.filter(c => !c.gone && c.x + c.w > leftEdge);
     for (const c of this.icicles) {
       const ahead = c.x - this.dist;
-      if (!c.falling && c.shake <= 0 && ahead < c.trigger) {
-        c.shake = ICICLE_SHAKE;
-        if (ahead > -40) sfx.tone(rand(1500, 1900), 0.12, { type: 'triangle', vol: 0.03, slideTo: 1200 });
+      if (!c.falling && c.shake <= 0) {
+        // Shake loose once the time until you reach it is down to shake + fall + lead.
+        const [, tip0] = this.icicleAt(c), floor = cave(c.x, this.H, this.cv, this.def.shape)[1];
+        const fall = Math.sqrt((2 * Math.max(0, floor - tip0)) / ICICLE_G);
+        const reach = (ahead - c.w / 2 - DIVER_R) / (this.speed * (this.turboT > 0 ? TURBO_SPEED : 1));
+        if (reach < ICICLE_SHAKE + fall + c.lead) {
+          c.shake = ICICLE_SHAKE;
+          if (ahead < this.W) sfx.tone(rand(1500, 1900), 0.12, { type: 'triangle', vol: 0.03, slideTo: 1200 });
+        }
       }
       if (c.shake > 0) { c.shake -= dt; if (c.shake <= 0) c.falling = true; }
-      if (c.falling) { c.vy += ICICLE_G * dt; c.drop += c.vy * dt; }
-      const [base, tip] = this.icicleAt(c);
-      if (tip >= cave(c.x, this.H, this.cv, this.def.shape)[1]) {
-        c.gone = true;
-        if (Math.abs(ahead) < this.W) {
-          this.pops.explode(8, c.x, tip);
-          sfx.noise(0.18, 0.05, 3000);
+      if (c.falling && !c.stuck) {
+        c.vy += ICICLE_G * dt; c.drop += c.vy * dt;
+        const floor = cave(c.x, this.H, this.cv, this.def.shape)[1];
+        if (this.icicleAt(c)[1] >= floor) {
+          c.stuck = true;
+          if (Math.abs(ahead) < this.W) {
+            this.pops.explode(8, c.x, floor);
+            sfx.noise(0.18, 0.05, 3000);
+          }
         }
-        continue;
       }
+      const [base, tip] = this.icicleAt(c);
       // Room between the diver and the icicle (a narrowing spike from base to tip).
       const dx = Math.abs(this.dist - c.x), y = this.diverY, r = DIVER_R * 0.8;
       const gap = y > tip ? Math.hypot(dx, y - tip) - r
@@ -1028,7 +1044,7 @@ export class GameScene extends Phaser.Scene {
         this.pops.explode(10, c.x, Math.min(tip, y));
         sfx.noise(0.2, 0.08, 2500);
         this.vy = Math.min(this.vy, 0) - 160;
-        this.loseLife('Hit by a falling icicle');
+        this.loseLife(c.stuck ? 'Spiked on an icicle' : 'Hit by a falling icicle');
         if (this.state !== 'play') return;
         continue;
       }
