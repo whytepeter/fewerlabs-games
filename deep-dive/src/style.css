@@ -864,3 +864,21 @@ body {
 .saveme-have { margin: -4px 0 0; font-size: 14px; font-weight: 600; color: var(--k-ink-soft); }
 .saveme-have .shell-ico { width: 16px; height: 15px; vertical-align: -3px; }
 .shell-chip { color: #ffe27a; }
+
+/* Treasure chests on the game-over screen: shut and wobbling until tapped. */
+.over-chests { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+.over-chests-hint { flex-basis: 100%; margin: 0; font-size: 13px; font-weight: 700; color: var(--k-ink-soft); }
+.over-chest {
+  display: grid; place-items: center; min-width: 76px; height: 58px; padding: 4px 10px; border: 0; border-radius: 14px;
+  background: #fff2c2; box-shadow: inset 0 0 0 2px #ffc43d; color: var(--k-ink); font: inherit; cursor: pointer;
+  animation: chest-wiggle 1.8s ease-in-out infinite;
+}
+.over-chest img { width: 46px; height: auto; }
+.over-chest.opening { animation: chest-shake .38s linear; }
+.over-chest.open { cursor: default; animation: chest-pop .3s ease-out; }
+.over-chest-prize { display: flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 800; white-space: nowrap; }
+.over-chest-prize .k-coin { width: 22px; height: 22px; }
+@keyframes chest-wiggle { 0%, 70%, 100% { transform: none; } 78% { transform: rotate(-6deg); } 86% { transform: rotate(6deg); } 94% { transform: rotate(-3deg); } }
+@keyframes chest-shake { 25% { transform: translateX(-3px) rotate(-5deg); } 50% { transform: translateX(3px) rotate(5deg) scale(1.06); } 75% { transform: translateX(-2px) rotate(-3deg); } }
+@keyframes chest-pop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .over-chest { animation: none !important; } }

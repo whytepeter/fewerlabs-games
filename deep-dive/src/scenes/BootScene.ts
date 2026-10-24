@@ -37,6 +37,7 @@ export class BootScene extends Phaser.Scene {
     for (const key of ['pk-shield', 'pk-magnet', 'pk-life', 'pk-turbo', 'gd-airsaver', 'gd-headstart', 'gd-pearlpull', 'gd-coralguard', 'gd-luckyclam', 'gd-charm']) this.portrait(key, 32, 32);
     this.portrait('air', 32, 32);
     this.portrait('shell', 30, 28);
+    this.portrait('chest', 36, 32);
 
     this.scene.start('game');
   }

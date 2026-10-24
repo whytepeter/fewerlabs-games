@@ -12,6 +12,7 @@ import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets
 import { cloud, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
 import { shells } from './game/shells';
+import type { ChestPrize } from './game/chests';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -108,6 +109,35 @@ const onTap = (id: string, fn: () => void) =>
   $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
 const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
+/** Shut treasure chests on the game-over screen; tapping one shakes it open to show its prize. */
+function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
+  el.hidden = !prizes.length;
+  el.innerHTML = `<p class="over-chests-hint">${prizes.length > 1 ? 'Tap your chests to open them' : 'Tap your chest to open it'}</p>`;
+  prizes.forEach((prize, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'over-chest';
+    b.style.animationDelay = `${i * 0.15}s`;
+    b.setAttribute('aria-label', 'Open treasure chest');
+    b.innerHTML = `<img src="${portraits.chest ?? ''}" alt="">`;
+    b.addEventListener('click', () => {
+      if (b.classList.contains('opening') || b.classList.contains('open')) return;
+      sfx.unlock(); buzz(10);
+      b.classList.add('opening');
+      sfx.tone(330, 0.08, { type: 'triangle', vol: 0.05 }); sfx.tone(392, 0.08, { type: 'triangle', vol: 0.05, delay: 0.12 });
+      window.setTimeout(() => {
+        b.classList.replace('opening', 'open');
+        b.removeAttribute('aria-label');
+        b.innerHTML = prize.kind === 'shell'
+          ? `<span class="over-chest-prize"><img class="shell-ico" src="${portraits.shell ?? ''}" alt="">Golden Shell!</span>`
+          : `<span class="over-chest-prize">${coinIcon()}+${prize.n}</span>`;
+        sfx.tone(659, 0.15, { vol: 0.08 }); sfx.tone(880, 0.15, { vol: 0.08, delay: 0.08 }); sfx.tone(1318, 0.4, { vol: 0.08, delay: 0.16 });
+        buzz([15, 25, 15]);
+      }, 380);
+    });
+    el.append(b);
+  });
+}
 const drawShells = () => { const el = document.getElementById('shellCount'); if (el) el.innerHTML = shellTag(shells.count); };
 function nope(el: HTMLElement) {
   buzz(30);
@@ -586,6 +616,8 @@ export const ui = {
     close: string; results: MissionResult[]; earned: { label: string; n: number }[]; rankUp: RankUp | null;
     /** A cave this dive opened, if any. */
     opened: string | null;
+    /** Treasure chests found this dive (already paid out), shut until tapped. */
+    chests: ChestPrize[];
   }) {
     diveEnded = true;
     store.set('divesDone', store.get('divesDone', 0) + 1);
@@ -598,6 +630,7 @@ export const ui = {
     $('overClose').hidden = !o.close;
     $('overClose').textContent = o.close;
     renderEarned($('overEarned'), o.earned);
+    renderChests($('overChests'), o.chests);
     renderMissions($('overMissions'), [], o.results);
     // A new record is the moment guests care most about losing progress (Subway Surfers asks here too).
     $('saveNudge').hidden = !(cloud.enabled && cloud.account.guest && o.isBest && o.depth >= 150);

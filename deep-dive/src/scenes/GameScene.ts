@@ -13,6 +13,7 @@ import { rankLocked, SKINS, skinIndex, suits } from '../game/skins';
 import { bubbleAir, lifelineChance, magnetTime, shieldTime, upgrades } from '../game/upgrades';
 import { AIR_SAVER, CHARM_WINDOW, gadgets, HEAD_START, LUCKY_CLAM, PEARL_PULL_RANGE, type GadgetId } from '../game/gadgets';
 import { deepMissions } from '../game/missions';
+import { openChests } from '../game/chests';
 import { saveCost, shells } from '../game/shells';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud } from '../core/cloud';
@@ -40,10 +41,11 @@ interface Obstacle {
 /** A clump of kelp growing from the floor (side 1) or ceiling (side 0): slows you down, never hurts. */
 interface Kelp { x: number; side: 0 | 1; len: number; w: number; ph: number; strands: number }
 /**
- * An icicle on the ceiling: shakes loose in time to land `lead` seconds before you reach it, then
- * sticks in the floor as a stub you swim over. Timing it by your speed means it never drops onto you.
+ * An icicle on the ceiling. Most shake loose in time to land `lead` seconds before you reach it and
+ * stick in the floor as a stub you swim over. A `late` one is timed by your speed to still be falling
+ * as you pass and land `lead` seconds after you're clear: swim low and you slip under it.
  */
-interface Icicle { x: number; len: number; w: number; lead: number; shake: number; drop: number; vy: number; falling: boolean; stuck?: boolean; gap?: number; passed?: boolean; gone?: boolean }
+interface Icicle { x: number; len: number; w: number; lead: number; late: boolean; shake: number; drop: number; vy: number; falling: boolean; stuck?: boolean; gap?: number; passed?: boolean; gone?: boolean }
 /** Anything you swim into to collect: air bubbles, pearls and power-ups. */
 interface Pickup { type: 'air' | 'pearl' | 'chest' | 'shell' | Perk; x: number; y: number; ph: number; sprite: Image; glow: Image }
 
@@ -51,7 +53,6 @@ const TAU = Math.PI * 2;
 const clamp = Phaser.Math.Clamp;
 const lerp = Phaser.Math.Linear;
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
-const pick = <T>(a: T[]) => a[(Math.random() * a.length) | 0];
 const hash = (n: number) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };
 
 const DIVER_R = 13;
@@ -69,10 +70,11 @@ const COMBO_MAX = 5;           // a chained close call pays up to this many coin
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 150; // Turbo: a few seconds of untouchable top speed
+const ICICLE_LATE = 0.45;     // share of icicles still falling as you pass under them
 const CHEST_FROM = 120;        // metres before treasure chests can appear
 const SHELL_FROM = 300;        // metres before a Golden Shell can float by (they're rare)
 const KELP_SLOW = 0.55, KELP_HOLD = 0.35;   // tangled in kelp: forward speed, and how long it lingers after you're out
-const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.5;  // seconds an icicle shakes before it drops, how fast it falls, and how much of it buries in the floor
+const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.3;  // seconds an icicle shakes before it drops, how fast it falls, and how much of it buries in the floor
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
@@ -102,7 +104,7 @@ export class GameScene extends Phaser.Scene {
   private turboT = 0;
   private nextChest = 0;
   private nextShell = 0;
-  private runTreasure = 0; // coins found in chests this dive
+  private runChests = 0;   // treasure chests picked up this dive, opened on the game-over screen
   private saves = 0;       // times "Save me" was used this dive
   /** Power-up strengths for this dive, from the shop upgrades. */
   private shieldTime = shieldTime(0);
@@ -381,7 +383,7 @@ export class GameScene extends Phaser.Scene {
     this.nextChest = CHEST_FROM * 10 + this.cr(1500, 3000);
     this.nextShell = SHELL_FROM * 10 + this.cr(4000, 9000);
     this.turboT = 0;
-    this.runTreasure = 0;
+    this.runChests = 0;
     this.saves = 0;
     this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.cr(200, 500) : Infinity;
     this.tangle = 0;
@@ -853,7 +855,7 @@ export class GameScene extends Phaser.Scene {
       sfx.tone(1180 + (this.runPearls % 5) * 120, 0.08, { type: 'triangle', vol: 0.06 });
       this.sparks.explode(3, p.x, p.y);
     } else if (p.type === 'chest') {
-      this.openChest(p);
+      this.takeChest(p);
     } else if (p.type === 'shell') {
       this.findShell(p.x, p.y, 'Golden Shell!');
     } else {
@@ -882,22 +884,10 @@ export class GameScene extends Phaser.Scene {
     buzz([10, 20, 10]);
   }
 
-  /** A treasure chest: mostly coins, sometimes a power-up or lifeline, rarely a Golden Shell. */
-  private openChest(p: Pickup) {
-    const r = Math.random();
-    let text: string;
-    if (r < 0.08) { this.findShell(p.x, p.y, 'Treasure: a Golden Shell!'); return; }
-    if (r < 0.2 && !this.lifeline) { this.givePerk('lifeline'); text = 'Treasure: a lifeline!'; }
-    else if (r < 0.45) {
-      const perk = pick<Perk>(['shield', 'magnet', 'turbo']);
-      this.givePerk(perk);
-      text = `Treasure: ${perk === 'shield' ? 'a shield' : perk === 'magnet' ? 'a magnet' : 'Turbo'}!`;
-    } else {
-      const n = 10 + Math.round(Math.random() * Math.random() * 60); // usually 10–30, sometimes up to 70
-      this.runTreasure += n;
-      text = `Treasure! +${n} coins`;
-    }
-    ui.damage(text, true);
+  /** A treasure chest: kept shut until the dive ends, then opened on the game-over screen. */
+  private takeChest(p: Pickup) {
+    this.runChests++;
+    ui.damage(this.runChests > 1 ? `Treasure chest ×${this.runChests}!` : 'Treasure chest! Open it after the dive', true);
     this.sparks.explode(26, p.x, p.y);
     this.pops.explode(10, p.x, p.y);
     this.cameras.main.flash(180, 255, 214, 90);
@@ -988,9 +978,11 @@ export class GameScene extends Phaser.Scene {
     const n = 1 + (this.rng() < 0.35 ? 1 : 0) + (depth > 300 && this.rng() < 0.3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       this.icicles.push({
-        x: wx, len: this.cr(30, 52), w: this.cr(16, 24), lead: this.cr(0.25, 0.5),
-        shake: 0, drop: 0, vy: 0, falling: false,
+        x: wx, len: this.cr(30, 52), w: this.cr(16, 24), late: this.rng() < ICICLE_LATE,
+        lead: 0, shake: 0, drop: 0, vy: 0, falling: false,
       });
+      const c = this.icicles[this.icicles.length - 1];
+      c.lead = c.late ? this.cr(0.12, 0.25) : this.cr(0.25, 0.5);
       wx += this.cr(40, 70);
     }
   }
@@ -1011,11 +1003,13 @@ export class GameScene extends Phaser.Scene {
     for (const c of this.icicles) {
       const ahead = c.x - this.dist;
       if (!c.falling && c.shake <= 0) {
-        // Shake loose once the time until you reach it is down to shake + fall + lead.
+        // Shake loose once the time until you reach it is down to shake + fall + lead, or for a late
+        // one, shake + fall - (time to swim past it) - lead.
         const [, tip0] = this.icicleAt(c), floor = cave(c.x, this.H, this.cv, this.def.shape)[1];
         const fall = Math.sqrt((2 * Math.max(0, floor - tip0)) / ICICLE_G);
-        const reach = (ahead - c.w / 2 - DIVER_R) / (this.speed * (this.turboT > 0 ? TURBO_SPEED : 1));
-        if (reach < ICICLE_SHAKE + fall + c.lead) {
+        const speed = this.speed * (this.turboT > 0 ? TURBO_SPEED : 1);
+        const reach = (ahead - c.w / 2 - DIVER_R) / speed, cross = (c.w + DIVER_R * 2) / speed;
+        if (reach < ICICLE_SHAKE + fall + (c.late ? -cross - c.lead : c.lead)) {
           c.shake = ICICLE_SHAKE;
           if (ahead < this.W) sfx.tone(rand(1500, 1900), 0.12, { type: 'triangle', vol: 0.03, slideTo: 1200 });
         }
@@ -1139,7 +1133,7 @@ export class GameScene extends Phaser.Scene {
     const bonus = deepMissions.bonus;
     const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus); // ~25–45 for a good dive at x1
     const closeCoins = Math.round(this.runBonus * bonus);
-    coins.add(runCoins + closeCoins + this.runTreasure);
+    coins.add(runCoins + closeCoins);
     const coinsBefore = coins.balance;
     const { results, rankUp } = deepMissions.report({
       depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks, closeCalls: this.runClose,
@@ -1147,6 +1141,7 @@ export class GameScene extends Phaser.Scene {
       anglers: this.runAnglers, eels: this.runEels,
     });
     const missionCoins = coins.balance - coinsBefore;
+    const chests = openChests(this.runChests);
 
     ui.lowO2(false);
     ui.hint(null);
@@ -1155,8 +1150,8 @@ export class GameScene extends Phaser.Scene {
       if (this.state !== 'over') return;
       ui.showOver({
         depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
-        close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null,
-        earned: [{ label: `Dive ×${bonus.toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Treasure', n: this.runTreasure }, { label: 'Missions', n: missionCoins }],
+        close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null, chests,
+        earned: [{ label: `Dive ×${bonus.toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }],
       });
     });
   }
