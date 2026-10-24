@@ -160,9 +160,6 @@ body {
 .title-hero .k-logo { font-size: clamp(40px, 10vw, 74px); white-space: nowrap; }
 .title-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(460px, 100%); padding-bottom: 6px; }
 .title-bottom > .k-btn { min-width: 240px; }
-.title-best { display: flex; align-items: center; gap: 6px; font-size: 16px; }
-.title-best svg { width: 18px; height: 18px; fill: #ffd23f; filter: drop-shadow(0 2px 0 var(--k-outline)); }
-.title-best b { font-size: 19px; }
 
 .rank-badge {
   appearance: none; cursor: pointer; font: inherit; color: #fff;
@@ -793,4 +790,33 @@ body {
   .over-panel { width: min(720px, 100%); }
   .over-grid { grid-template-columns: 1fr 1fr; align-items: center; gap: 18px; }
   .over-side .k-missions { margin-top: 0; }
+}
+
+/* ---------- Title hub fits any phone: the diver shrinks to the room it has (instead of sliding
+   under the menu), and your best depth sits in a bold badge beside the cave. */
+.title-hero { container-type: size; width: 100%; height: 100%; justify-self: stretch; }
+.title-hero .showcase img { width: min(300px, 88cqw, max(80px, (100cqh - 175px) * 1.78)); }
+@container (max-height: 250px) { .title-tag { display: none; } }
+
+.title-row { display: flex; align-items: stretch; gap: 10px; width: 100%; }
+.title-row .cave-chip { flex: 1; min-width: 0; }
+.cave-chip-text b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.best-badge {
+  display: flex; align-items: center; gap: 8px; flex: none;
+  padding: 4px 14px 4px 8px; border-radius: 999px;
+  background: linear-gradient(180deg, #ffe58f, #ffc43d 55%, #f0a500);
+  border: 3px solid var(--k-outline); box-shadow: 0 4px 0 var(--k-outline);
+  color: #fff; text-align: left;
+}
+.best-badge svg { width: 26px; height: 26px; fill: #fff; filter: drop-shadow(0 2px 0 var(--k-outline)); flex: none; }
+.best-badge > span { display: grid; line-height: 1.05; }
+.best-badge small { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--k-ink); }
+.best-badge b { font-size: 22px; text-shadow: var(--k-text-outline); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* Phones that aren't extra tall: the missions card shows only what's left, on slim rows. */
+@media (orientation: portrait) and (max-height: 900px) {
+  .title-quests { gap: 6px; padding: 10px 14px 12px; }
+  .tq-row.done, .tq-body em { display: none; }
+  .tq-row { padding: 6px 10px; }
+  .tq-text { font-size: 14px; }
 }

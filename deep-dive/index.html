@@ -85,14 +85,16 @@
             <span class="tq-reward" id="tqReward"></span>
             <span class="tq-list" id="tqList"></span>
           </button>
-          <button class="cave-chip" id="caveChip" type="button" aria-label="Choose a cave">
-            <span class="cave-swatch" id="caveSwatch"></span>
-            <span class="cave-chip-text"><small>Cave</small><b id="caveName">Reef Trench</b></span>
-            <em class="tile-dot" id="caveDot" hidden>New</em>
-            <i data-icon="next"></i>
-          </button>
+          <div class="title-row">
+            <button class="cave-chip" id="caveChip" type="button" aria-label="Choose a cave">
+              <span class="cave-swatch" id="caveSwatch"></span>
+              <span class="cave-chip-text"><small>Cave</small><b id="caveName">Reef Trench</b></span>
+              <em class="tile-dot" id="caveDot" hidden>New</em>
+              <i data-icon="next"></i>
+            </button>
+            <div class="best-badge"><i data-icon="trophy"></i><span><small>Best</small><b><span id="titleBest">0</span> m</b></span></div>
+          </div>
           <button class="k-btn k-btn--lg dive-btn" id="playBtn"><i data-icon="play"></i>Dive</button>
-          <div class="title-best k-outline"><i data-icon="trophy"></i>Best <b id="titleBest">0</b> m</div>
           <nav class="tiles" aria-label="Menu">
             <button class="tile" id="diversBtn" type="button"><span class="tile-ico tile-ico--yellow"><i data-icon="diver"></i></span><span>Divers</span><em class="tile-dot" id="diversDot" hidden>New</em></button>
             <button class="tile" id="missionsBtn" type="button"><span class="tile-ico tile-ico--green"><i data-icon="star"></i></span><span>Missions</span><em class="tile-count" id="missionsCount">0/3</em></button>
