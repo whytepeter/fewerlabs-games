@@ -27,7 +27,7 @@ export const shells = {
  * Golden Shells for coins in the shop: a few a week, each dearer than the last, restocked every
  * Monday. Enough to save up for a diver or a "Save me", never enough to make shells common.
  */
-export const SHELL_PRICES = [3000, 5000, 8000]; // about 5, 8 and 13 good dives
+export const SHELL_PRICES = [1000, 3000, 5000];
 const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return todayKey(d); };
 
 export const shellShop = {
