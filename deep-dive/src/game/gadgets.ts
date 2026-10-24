@@ -11,7 +11,7 @@ export interface Gadget { id: GadgetId; name: string; text: string; price: numbe
 
 export const GADGETS: Gadget[] = [
   { id: 'airsaver',   name: 'Air Saver',      text: 'Your air lasts 20% longer.',                       price: 1000 },
-  { id: 'headstart',  name: 'Head Start',     text: 'Start every dive with a 6 s shield.',              price: 1300 },
+  { id: 'headstart',  name: 'Head Start',     text: 'Kick off every dive with a Turbo burst, then a short shield.', price: 1600 },
   { id: 'pearlpull',  name: 'Pearl Pull',     text: 'Pearls close by drift to you, no magnet needed.',  price: 1800 },
   { id: 'coralguard', name: 'Coral Guard',    text: 'The first sharp coral you hit each dive is free.', price: 2300 },
   { id: 'luckyclam',  name: 'Lucky Clam',     text: 'One pearl in four counts double.',                 price: 2900 },
@@ -19,7 +19,8 @@ export const GADGETS: Gadget[] = [
 ];
 
 export const AIR_SAVER = 0.8;          // oxygen drain multiplier
-export const HEAD_START = 6;           // seconds of shield at the start
+export const HEAD_START_TURBO = 6;     // seconds of Turbo at the start (about 250 m)
+export const HEAD_START_SHIELD = 4;    // seconds of shield once the Turbo runs out
 export const PEARL_PULL_RANGE = 85;
 export const LUCKY_CLAM = 0.25;
 export const CHARM_WINDOW = 6;         // seconds to chain close calls (normally 4)

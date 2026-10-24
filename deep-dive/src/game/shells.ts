@@ -1,3 +1,5 @@
+import { coins } from '../core/meta';
+import { todayKey } from '../core/rng';
 import { store } from '../core/settings';
 
 /**
@@ -19,6 +21,28 @@ export const shells = {
     return true;
   },
   onChange(fn: () => void) { listeners.add(fn); },
+};
+
+/**
+ * Golden Shells for coins in the shop: a few a week, each dearer than the last, restocked every
+ * Monday. Enough to save up for a diver or a "Save me", never enough to make shells common.
+ */
+export const SHELL_PRICES = [3000, 5000, 8000]; // about 5, 8 and 13 good dives
+const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return todayKey(d); };
+
+export const shellShop = {
+  /** Shells bought in the shop this week. */
+  get bought() { const w = store.get<{ week: string; n: number }>('shellWeek', { week: '', n: 0 }); return w.week === weekKey() ? w.n : 0; },
+  /** Coin price of the next shell, or null when this week's are sold out. */
+  get price(): number | null { return SHELL_PRICES[this.bought] ?? null; },
+  buy(): 'bought' | 'poor' | 'soldout' {
+    const price = this.price;
+    if (price === null) return 'soldout';
+    if (!coins.spend(price)) return 'poor';
+    store.set('shellWeek', { week: weekKey(), n: this.bought + 1 });
+    shells.add(1);
+    return 'bought';
+  },
 };
 
 /** Shells needed for the next "Save me" in a dive that has already used `saves`. */

@@ -260,7 +260,10 @@ body {
 .diver-stage img.for-sale { animation: k-float 2.4s ease-in-out infinite; }
 .diver-stage img.pop { animation: k-pop .35s cubic-bezier(.2, 1.4, .4, 1) both; }
 .divers-panel h2 { margin-top: 2px; }
-.diver-bio { margin: 2px 0 12px; font-size: 15px; min-height: 1.3em; }
+.diver-bio { margin: 2px 0 4px; font-size: 15px; min-height: 1.3em; }
+.diver-perk { display: table; margin: 0 auto 12px; padding: 3px 10px; border-radius: 999px; background: #e6f4ff; font-size: 13px; font-weight: 700; }
+.diver-thumb small .shell-ico { width: 13px; height: 12px; vertical-align: -2px; margin-right: 1px; }
+.need-more .shell-ico, .gadget-info .shell-ico { width: 15px; height: 14px; vertical-align: -3px; }
 .diver-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
 .diver-thumb {
   appearance: none; cursor: pointer; position: relative; font: inherit;
@@ -541,7 +544,7 @@ body {
 .diver-thumb.for-sale img { filter: saturate(.85); }
 
 /* ---------- Shop tabs and gadgets */
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; padding: 4px; border-radius: 16px; background: rgba(22, 35, 59, .08); }
+.tabs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; margin-bottom: 10px; padding: 4px; border-radius: 16px; background: rgba(22, 35, 59, .08); }
 .tab {
   appearance: none; cursor: pointer; font: inherit; font-weight: 700; font-size: 15px;
   padding: 7px 0 8px; border-radius: 12px; border: 0; background: none; color: var(--k-ink-soft);
@@ -645,13 +648,13 @@ body {
   /* Divers: the big preview and its button on the left, the diver grid on the right. */
   .divers-panel {
     display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; column-gap: 16px;
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr) auto; column-gap: 16px;
   }
   .divers-panel > :not(#diverGrid, .back-btn, .k-ribbon) { grid-column: 1; }
   .diver-stage img { width: min(190px, 100%); }
   .diver-bio { margin-bottom: 8px; }
   #diverGrid {
-    grid-column: 2; grid-row: 1 / 6; margin-top: 0; align-content: start;
+    grid-column: 2; grid-row: 1 / 7; margin-top: 0; align-content: start;
     contain: size; /* take the height the left column sets, then scroll */
   }
   .divers-panel > .back-btn { grid-column: 1 / -1; }

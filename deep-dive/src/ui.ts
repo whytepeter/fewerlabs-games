@@ -6,12 +6,12 @@ import { sfx } from './core/sfx';
 import { buzz } from './core/haptics';
 import { isTouch } from './core/view';
 import { hydrateIcons, icon, STAR_SVG, wobbleLetters } from './core/icons';
-import { portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './game/skins';
+import { canAfford, portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './game/skins';
 import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cloud, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
-import { shells } from './game/shells';
+import { SHELL_PRICES, shellShop, shells } from './game/shells';
 import type { ChestPrize } from './game/chests';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 
@@ -100,7 +100,7 @@ function caveArt(c: CaveDef) {
 }
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let shopTab: 'upgrades' | 'gadgets' = 'upgrades';
+let shopTab: 'upgrades' | 'gadgets' | 'shells' = 'upgrades';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
 
@@ -109,6 +109,8 @@ const onTap = (id: string, fn: () => void) =>
   $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
 const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
+/** A diver's price, in coins or Golden Shells. */
+const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
 /** Shut treasure chests on the game-over screen; tapping one shakes it open to show its prize. */
 function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
   el.hidden = !prizes.length;
@@ -445,6 +447,7 @@ export const ui = {
     img.classList.remove('pop'); void img.offsetWidth; img.classList.add('pop');
     $('diverName').textContent = s.name;
     $('diverBio').textContent = s.bio;
+    $('diverPerk').textContent = s.perkText;
     const btn = $('diverAction'), need = $('diverNeed');
     btn.className = 'k-btn k-btn--block';
     need.hidden = true;
@@ -454,13 +457,15 @@ export const ui = {
     } else if (s.id === wearing) { btn.innerHTML = 'Wearing'; btn.classList.add('k-btn--white'); }
     else if (suits.owns(s.id)) btn.textContent = 'Wear';
     else {
-      const short = s.price - coins.balance;
-      btn.innerHTML = `<span>Buy</span><span class="price-chip">${coinTag(s.price)}</span>`;
+      const short = s.price - (s.shells ? shells.count : coins.balance);
+      btn.innerHTML = `<span>Buy</span><span class="price-chip">${priceTag(s)}</span>`;
       btn.classList.add('k-btn--yellow', 'k-btn--lg');
       if (short > 0) {
         btn.classList.add('short');
         need.hidden = false;
-        need.innerHTML = `You need ${coinTag(short)} more. Dive and finish missions to earn coins.`;
+        need.innerHTML = s.shells
+          ? `You need ${shellTag(short)} more. Find Golden Shells in treasure chests, or buy them in the shop.`
+          : `You need ${coinTag(short)} more. Dive and finish missions to earn coins.`;
       }
     }
     this.diverGrid();
@@ -470,7 +475,7 @@ export const ui = {
     const rank = deepMissions.rank;
     $('diverGrid').innerHTML = SKINS.map((s, i) => {
       const locked = rankLocked(s, rank), owned = suits.owns(s.id) && !locked;
-      const tag = owned ? '' : locked ? `<small>${icon('lock')}${s.rank}</small>` : `<small>${coinTag(s.price)}</small>`;
+      const tag = owned ? '' : locked ? `<small>${icon('lock')}${s.rank}</small>` : `<small>${priceTag(s)}</small>`;
       return `<button type="button" class="diver-thumb${i === viewed ? ' on' : ''}${locked ? ' locked' : owned ? '' : ' for-sale'}${s.id === wearing ? ' worn' : ''}${isNewDiver(s, rank) ? ' new' : ''}"
         role="radio" aria-checked="${i === viewed}" aria-label="${s.name}" data-i="${i}"><img src="${portraits[`diver-${s.id}`] ?? ''}" alt="">${tag}</button>`;
     }).join('');
@@ -535,8 +540,9 @@ export const ui = {
 
   renderShop() {
     document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === shopTab)));
-    $('gadgetInfo').hidden = shopTab !== 'gadgets';
+    $('gadgetInfo').hidden = shopTab === 'upgrades';
     if (shopTab === 'gadgets') { this.renderGadgets(); return; }
+    if (shopTab === 'shells') { this.renderShells(); return; }
     const list = $('shopList');
     list.innerHTML = UPGRADES.map(u => {
       const l = upgrades.level(u.id), cost = upgrades.cost(u.id);
@@ -577,6 +583,24 @@ export const ui = {
       if (gadgets.toggle(b.dataset.eq as GadgetId, deepMissions.rank)) { cheer(false); this.renderGadgets(); }
       else { nope(b); this.renderGadgets('All slots are full. Unequip a gadget first.'); }
     }));
+  },
+
+  /** Golden Shells for coins: this week's few, each dearer than the last. */
+  renderShells() {
+    const bought = shellShop.bought;
+    $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
+    $('gadgetInfo').classList.remove('warn');
+    $('shopList').innerHTML = SHELL_PRICES.map((price, i) => {
+      const btn = i < bought ? '<span class="shop-max">Sold</span>'
+        : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
+        : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Golden Shell for ${price} coins">${coinTag(price)}</button>`;
+      return `<li class="shop-item${i < bought ? ' equipped' : ''}"><img src="${portraits.shell ?? ''}" alt="">
+        <div class="shop-body"><b>Golden Shell</b><span>${i === 0 ? 'This week’s first shell' : i === bought ? 'Another one, a little dearer' : i < bought ? 'Bought this week' : `Opens once you buy the ${SHELL_PRICES[i - 1].toLocaleString()}-coin shell`}</span></div>${btn}</li>`;
+    }).join('');
+    $('shopList').querySelector<HTMLButtonElement>('[data-shell]')?.addEventListener('click', e => {
+      const b = e.currentTarget as HTMLButtonElement;
+      if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
+    });
   },
 
   /**
@@ -859,7 +883,7 @@ function setBusy(on: boolean, btn?: HTMLElement) {
 /** Affordable or newly unlocked, and not looked at yet. */
 function isNewDiver(s: Skin, rank: number) {
   if (suits.owns(s.id) && !s.rank) return false;
-  const available = s.rank ? !rankLocked(s, rank) : coins.balance >= s.price;
+  const available = s.rank ? !rankLocked(s, rank) : canAfford(s, coins.balance);
   return available && !seen.has(`diver:${s.id}`);
 }
 function isNewUpgrade(id: (typeof UPGRADES)[number]['id']) {

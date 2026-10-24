@@ -56,6 +56,12 @@ export function shop(game: string, slot: string, items: ShopItem[]) {
       changed();
       return true;
     },
+    /** Own an item without paying coins (it was paid for some other way). */
+    grant(id: string) {
+      if (owned().has(id)) return;
+      persist.set(ownedKey, [...owned(), id]);
+      changed();
+    },
     /** Buy (if affordable) and equip. Returns 'owned' | 'bought' | 'poor'. */
     buy(id: string): 'owned' | 'bought' | 'poor' {
       const item = items.find(i => i.id === id);

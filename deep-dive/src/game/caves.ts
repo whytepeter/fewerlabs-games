@@ -26,6 +26,13 @@ export interface CaveDef {
   /** Each creature joins the mix from this depth (m); below `crowdFrom` every kind is doubled up. */
   creatures: Partial<Record<Kind, number>>;
   crowdFrom: number;
+  /**
+   * Room between creatures (world px): `gap[0]` at the surface, closing to `gap[1]` by `over` m. On top of
+   * that the spacing breathes in and out every few hundred metres, and each new zone opens with a calm stretch.
+   */
+  pace: { gap: [number, number]; over: number };
+  /** Coins for a dive here, compared with the Reef Trench: harder caves pay more. */
+  pay: number;
   /** Sharp coral: from this depth, and how often compared with the Reef Trench. */
   spikeFrom: number;
   spikes: number;
@@ -65,6 +72,8 @@ export const CAVES: CaveDef[] = [
     shape: { start: 0.84, end: 0.5, over: 1500, wave: 0.15, wave2: 0.06 },
     creatures: { jelly: 0, mine: 50, angler: 200, eel: 320 },
     crowdFrom: 450,
+    pace: { gap: [440, 220], over: 1300 },
+    pay: 1,
     spikeFrom: 160,
     spikes: 1,
     pearlGap: [520, 900],
@@ -76,7 +85,7 @@ export const CAVES: CaveDef[] = [
   {
     id: 'kelp',
     name: 'Kelp Forest',
-    blurb: 'A wide, wavy forest. Kelp slows you down: steer around it.',
+    blurb: 'A wide, wavy forest. Kelp slows you down: steer around it. Coins ×1.25.',
     unlock: { cave: 'reef', depth: 1000 },
     biomes: [
       { at: 0,   name: 'Kelp Shallows',  top: 0x47d9b0, bot: 0x137a66, rock: 0x2f7a52, dark: 0,    vent: 0 },
@@ -87,6 +96,8 @@ export const CAVES: CaveDef[] = [
     shape: { start: 0.88, end: 0.58, over: 1800, wave: 0.19, wave2: 0.08 },
     creatures: { jelly: 0, angler: 150, mine: 260, eel: 420 },
     crowdFrom: 550,
+    pace: { gap: [420, 210], over: 1200 },
+    pay: 1.25,
     spikeFrom: 250,
     spikes: 0.7,
     pearlGap: [400, 700],
@@ -99,7 +110,7 @@ export const CAVES: CaveDef[] = [
   {
     id: 'frost',
     name: 'Frozen Trench',
-    blurb: 'Slippery ice, falling icicles and cold air that runs out faster.',
+    blurb: 'Slippery ice, falling icicles and cold air that runs out faster. Coins ×1.5.',
     unlock: { cave: 'kelp', depth: 1200 },
     biomes: [
       { at: 0,   name: 'Frost Shelf',      top: 0xbfefff, bot: 0x5fb3db, rock: 0x2a5d8c, dark: 0,    vent: 0 },
@@ -110,6 +121,8 @@ export const CAVES: CaveDef[] = [
     shape: { start: 0.82, end: 0.52, over: 1500, wave: 0.13, wave2: 0.05 },
     creatures: { jelly: 0, mine: 80, eel: 220, angler: 380 },
     crowdFrom: 500,
+    pace: { gap: [400, 205], over: 1100 },
+    pay: 1.5,
     spikeFrom: 120,
     spikes: 1.1,
     iceSpikes: true,
