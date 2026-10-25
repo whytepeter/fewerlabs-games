@@ -31,37 +31,37 @@ export const TREASURES: Treasure[] = [
   {
     id: 'blackpearl', name: 'Black Pearl', cave: 'reef', glow: 0xc49cff,
     story: 'Dark as the deep and shining green-purple. One oyster in a million grows one.',
-    from: 300, to: 1100, chance: 30, first: 2, again: 1,
+    from: 250, to: 1000, chance: 25, first: 2, again: 1,
   },
   {
     id: 'bottle', name: 'Message in a Bottle', cave: 'kelp', glow: 0x8fffc0,
     story: 'Corked tight long ago. The note inside just says: "Keep diving."',
-    from: 200, to: 1000, chance: 30, first: 2, again: 1,
+    from: 200, to: 900, chance: 25, first: 2, again: 1,
   },
   {
     id: 'fossil', name: 'Frozen Fossil', cave: 'frost', glow: 0x9fe8ff,
     story: 'An ancient spiral shell, locked in blue ice since before the dinosaurs.',
-    from: 300, to: 1100, chance: 35, first: 2, again: 1,
+    from: 250, to: 1000, chance: 30, first: 2, again: 1,
   },
   {
     id: 'doubloon', name: 'Gold Doubloon', cave: 'pirate', glow: 0xffd23f,
     story: 'Old Spanish gold stamped with a cross. Where there was one, there were thousands.',
-    from: 200, to: 900, chance: 25, first: 2, again: 1,
+    from: 200, to: 800, chance: 20, first: 2, again: 1,
   },
   {
     id: 'compass', name: "Captain's Compass", cave: 'pirate', glow: 0xffc94d,
     story: 'It never points north. They say it points to whatever you want most.',
-    from: 500, to: 1300, chance: 45, first: 3, again: 1,
+    from: 450, to: 1200, chance: 38, first: 3, again: 1,
   },
   {
     id: 'watch', name: 'Pocket Watch', cave: 'titanic', glow: 0xd8e4f0,
     story: 'Silver and engraved, its hands stopped at twenty past two.',
-    from: 300, to: 1100, chance: 35, first: 3, again: 1,
+    from: 250, to: 1000, chance: 30, first: 3, again: 1,
   },
   {
     id: 'heart', name: 'Heart of the Sea', cave: 'titanic', glow: 0x5fb8ff, legendary: true,
     story: 'A great blue diamond on a silver chain, lost with the ship. The rarest thing in the deep.',
-    from: 700, to: 1500, chance: 80, first: 5, again: 2,
+    from: 650, to: 1400, chance: 70, first: 5, again: 2,
   },
 ];
 

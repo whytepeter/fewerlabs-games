@@ -24,6 +24,7 @@
       <div class="hud-left">
         <div class="k-pill" id="depthPill"><span class="k-pill-icon"><i data-icon="depth"></i></span><b id="depth">0</b><small>m</small></div>
         <div class="pearl-pill" id="pearlPill"><i data-icon="pearl"></i><b id="runPearls">0</b></div>
+        <div class="pearl-pill heart-pill" data-shells title="Sea Hearts"></div>
       </div>
       <div class="hud-mid">
         <div class="hud-o2">
@@ -68,7 +69,7 @@
             <span class="rank-text"><small>Rank</small><span class="rank-pips" id="rankPips"></span></span>
           </button>
           <div class="title-bar-right">
-            <div class="k-shells" id="shellCount" title="Sea Hearts: spend them to keep diving or on divers"></div>
+            <div class="k-shells" id="shellCount" data-shells title="Sea Hearts: spend them to keep diving or on divers"></div>
             <div class="k-coins" data-coins></div>
             <button class="k-icon-btn k-icon-btn--sm k-btn--purple" id="settingsBtn" type="button" aria-label="Settings"><i data-icon="gear"></i></button>
           </div>
@@ -125,6 +126,7 @@
     <section id="divers" class="k-screen" hidden>
       <div class="k-panel divers-panel">
         <div class="k-ribbon">Divers</div>
+        <div class="shop-wallet"><div class="k-shells" data-shells title="Sea Hearts"></div><div class="k-coins" data-coins></div></div>
         <div class="char-tabs" id="charTabs" role="radiogroup" aria-label="Characters"></div>
         <div class="diver-stage">
           <button class="k-icon-btn k-icon-btn--sm" id="diverPrev" type="button" aria-label="Previous character"><i data-icon="prev"></i></button>
@@ -182,7 +184,7 @@
     <section id="shop" class="k-screen" hidden>
       <div class="k-panel shop-panel">
         <div class="k-ribbon">Shop</div>
-        <div class="shop-wallet"><div class="k-coins" data-coins></div></div>
+        <div class="shop-wallet"><div class="k-shells" data-shells title="Sea Hearts"></div><div class="k-coins" data-coins></div></div>
         <div class="tabs" role="tablist" aria-label="Shop">
           <button class="tab" role="tab" type="button" data-tab="upgrades" aria-selected="true">Upgrades</button>
           <button class="tab" role="tab" type="button" data-tab="gadgets" aria-selected="false">Gadgets</button>
@@ -213,6 +215,15 @@
         <div class="age-ends" aria-hidden="true"><span>4</span><span>99+</span></div>
         <button class="k-btn k-btn--block" id="ageOk" type="button" disabled>Accept</button>
       </div>
+    </div>
+
+    <div class="rotate-hint age-gate" id="namePop" hidden>
+      <form class="k-panel age-panel" id="namePopForm" role="dialog" aria-modal="true" aria-labelledby="namePopTitle">
+        <h2 id="namePopTitle">What should we call you?</h2>
+        <p>Your name on the leaderboard. Skip the full name, a nickname is best.</p>
+        <input class="name-pop-input" id="namePopInput" maxlength="16" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="Your name">
+        <button class="k-btn k-btn--block" id="namePopOk" type="submit">Let&rsquo;s dive</button>
+      </form>
     </div>
 
     <div class="rotate-hint streak-pop" id="streakPop" hidden>

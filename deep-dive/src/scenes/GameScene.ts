@@ -24,7 +24,7 @@ import { daily as dailyRun, dailyMissions } from '../game/daily';
 import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
-import { cloud } from '../core/cloud';
+import { cloud, topBest } from '../core/cloud';
 import { embed } from '../core/embed';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
@@ -1931,7 +1931,7 @@ export class GameScene extends Phaser.Scene {
     ui.setBoosters(null);
 
     const depth = Math.floor(this.dist / 10);
-    const prevBest = this.runBest;
+    const prevBest = this.runBest, boardBest = topBest();
     let isBest = false, opened: CaveDef | null = null, dailyBonus = 0;
     if (dev.on) {
       // Dev mode: a test dive records no best (it would reach the boards on the next sync).
@@ -1949,11 +1949,11 @@ export class GameScene extends Phaser.Scene {
       if (isBest) { this.best = depth; store.set(key, depth); }
       opened = locked.find(isUnlocked) ?? null;
     }
-    // The leaderboard and the store's scores are for the Reef Trench (one board per cave comes later).
-    if (!dev.on && !this.daily && this.def.id === 'reef') {
-      void this.postScore(depth, isBest);
-      embed.score(depth, this.best);
-      if (this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
+    // The leaderboard takes your deepest dive in any cave.
+    if (!dev.on && !this.daily) {
+      void this.postScore(depth, depth > boardBest);
+      embed.score(depth, Math.max(boardBest, depth));
+      if (this.def.id === 'reef' && this.biome > this.bestZone) { this.bestZone = this.biome; store.set('bestZone', this.biome); }
     }
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.

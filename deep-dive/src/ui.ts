@@ -9,7 +9,7 @@ import { hydrateIcons, icon, STAR_SVG, wobbleLetters } from './core/icons';
 import { canAfford, CHARACTERS, charOf, charOwned, earnProgress, grantEarned, outfitsOf, portraits, rankLocked, SKINS, skinIndex, suits, type Skin } from './game/skins';
 import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
-import { cloud, type LinkResult } from './core/cloud';
+import { cleanName, cloud, topBest, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
 import { claimSignupGift, SHELL_PRICES, shellShop, shells, SIGNUP_GIFT } from './game/shells';
 import type { ChestPrize } from './game/chests';
@@ -161,10 +161,10 @@ const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
 /** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
-/** Shut treasure chests on the game-over screen; tapping one shakes it open to show its prize. */
+/** Treasure chests on the game-over screen: each shakes open on its own, one after another, to show its prize (a tap opens it sooner). */
 function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
   el.hidden = !prizes.length;
-  el.innerHTML = `<p class="over-chests-hint">${prizes.length > 1 ? 'Tap your chests to open them' : 'Tap your chest to open it'}</p>`;
+  el.innerHTML = `<p class="over-chests-hint">${prizes.length > 1 ? 'Treasure chests!' : 'Treasure chest!'}</p>`;
   prizes.forEach((prize, i) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -172,7 +172,7 @@ function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
     b.style.animationDelay = `${i * 0.15}s`;
     b.setAttribute('aria-label', 'Open treasure chest');
     b.innerHTML = `<img src="${portraits.chest ?? ''}" alt="">`;
-    b.addEventListener('click', () => {
+    const open = () => {
       if (b.classList.contains('opening') || b.classList.contains('open')) return;
       sfx.unlock(); buzz(10);
       b.classList.add('opening');
@@ -188,11 +188,15 @@ function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
         sfx.tone(659, 0.15, { vol: 0.08 }); sfx.tone(880, 0.15, { vol: 0.08, delay: 0.08 }); sfx.tone(1318, 0.4, { vol: 0.08, delay: 0.16 });
         buzz([15, 25, 15]);
       }, 380);
-    });
+    };
+    b.addEventListener('click', open);
+    // After the chests pop in; skipped if the player has already left the game-over screen.
+    window.setTimeout(() => { if (b.isConnected && !el.closest('[hidden]')) open(); }, 900 + i * 700);
     el.append(b);
   });
 }
-const drawShells = () => { const el = document.getElementById('shellCount'); if (el) el.innerHTML = shellTag(shells.count); };
+/** Every Sea Heart counter (home, HUD, shop, divers). */
+const drawShells = () => document.querySelectorAll<HTMLElement>('[data-shells]').forEach(el => { el.innerHTML = shellTag(shells.count); });
 function nope(el: HTMLElement) {
   buzz(30);
   sfx.tone(200, 0.15, { type: 'triangle', vol: 0.06 });
@@ -278,7 +282,7 @@ export const ui = {
       shopTab = b.dataset.tab as typeof shopTab;
       this.renderShop();
     }));
-    this.askAge(() => this.offerStreak(() => this.rotateHint()));
+    this.askAge(() => this.askName(() => this.offerStreak(() => this.rotateHint())));
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
@@ -515,8 +519,28 @@ export const ui = {
     el.hidden = false;
   },
 
-  /** The age popover is up (the game's keys stay quiet). */
-  askingAge() { return !$('ageGate').hidden || !$('streakPop').hidden; },
+  /**
+   * Right after the age: the name shown on the leaderboard, asked once. It starts on the made-up
+   * name, so Let's dive keeps that; an empty box keeps it too. Then `next`.
+   */
+  askName(next: () => void) {
+    if (store.get('nameAsked', false)) { next(); return; }
+    const el = $('namePop'), input = $('namePopInput') as HTMLInputElement;
+    input.value = cloud.name;
+    $('namePopForm').addEventListener('submit', e => {
+      e.preventDefault();
+      buzz(6);
+      input.blur();
+      store.set('nameAsked', true);
+      if (cleanName(input.value) && cleanName(input.value) !== cloud.name) void cloud.rename(input.value);
+      el.hidden = true;
+      next();
+    });
+    el.hidden = false;
+  },
+
+  /** A first-open popover is up (the game's keys stay quiet). */
+  askingAge() { return !$('ageGate').hidden || !$('namePop').hidden || !$('streakPop').hidden; },
 
   /** Once a day, on opening the game: the login streak's gift for today, then `next`. */
   offerStreak(next: () => void) {
@@ -1123,7 +1147,7 @@ async function openBoard(today = false) {
   status.textContent = 'Loading…';
   status.hidden = false;
   list.replaceChildren();
-  const day = today ? dailyRun.day : undefined, best = today ? dailyRun.best : store.get('best', 0);
+  const day = today ? dailyRun.day : undefined, best = today ? dailyRun.best : topBest();
   const [top, rank] = await Promise.all([cloud.top(20, day), cloud.rank(best, day)]);
   if (!top) { status.textContent = 'Can’t reach the leaderboard right now.'; return; }
   status.hidden = top.length > 0;

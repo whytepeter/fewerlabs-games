@@ -60,6 +60,8 @@ body {
   font-weight: 700; font-size: 16px; text-shadow: var(--k-text-outline);
 }
 .pearl-pill svg { width: 20px; height: 20px; fill: #fbeaff; filter: drop-shadow(0 1.5px 0 var(--k-outline)); }
+.heart-pill { gap: 0; color: #ffe27a; }
+.heart-pill .shell-ico { width: 20px; height: 19px; vertical-align: 0; }
 .pearl-pill.bump { animation: k-bump .3s cubic-bezier(.2, 1.6, .4, 1); }
 .hearts { display: flex; gap: 3px; }
 /* Lives are little diver helmets, drawn like the diver sprite. */
@@ -246,7 +248,7 @@ body {
 
 /* ---------- Shop (upgrades) */
 .shop-panel { width: min(460px, 100%); }
-.shop-wallet { display: flex; justify-content: center; margin: -6px 0 10px; }
+.shop-wallet { display: flex; justify-content: center; gap: 8px; margin: -6px 0 10px; }
 .shop-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .shop-item {
   display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
@@ -625,7 +627,8 @@ body.dev-mode::after {
   /* Shop and missions: two columns of rows; the coins sit in the card's corner. */
   .shop-list, #missionList { grid-template-columns: 1fr 1fr; align-content: start; }
   .shop-wallet { position: absolute; top: 8px; right: 14px; margin: 0; }
-  .shop-panel .tabs { margin-right: 120px; }
+  .shop-panel .tabs { margin-right: 220px; }
+  .divers-panel .shop-wallet { top: -12px; } /* level with the ribbon, clear of the character tabs */
 
   /* Taller sideways screens (tablets, desktops): the sheet ends where its content does. */
   @media (min-height: 521px) {
@@ -794,6 +797,8 @@ body.dev-mode::after {
 
 /* ---------- Age popover (first open) */
 .age-gate { z-index: 31; }
+.name-pop-input { width: 100%; min-height: 48px; margin: 4px 0; padding: 0 14px; border: 2.5px solid var(--k-outline); border-radius: 14px; background: #fff; color: var(--k-ink); font: inherit; font-size: 20px; font-weight: 700; text-align: center; }
+.name-pop-input:focus-visible { outline: 3px solid #3aa8ff; outline-offset: 2px; }
 .age-panel { width: min(340px, 100%); padding-top: 22px; text-align: center; display: grid; gap: 10px; justify-items: center; }
 .age-panel h2 { margin: 2px 0 0; font-size: 22px; }
 .age-panel p { margin: 0; font-size: 15px; color: var(--k-ink-soft); }

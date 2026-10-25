@@ -111,6 +111,21 @@ function snapshot() {
 /** Records that only ever go up (best depths): a cloud save never lowers them, whichever is newer. */
 const KEEP_HIGHEST = /^best/;
 
+/** The board takes a player's deepest dive in any cave: `best` (the first cave) or `best:<cave>`. */
+const BOARD_BEST = /^best(:.+)?$/;
+export function topBest() {
+  let top = 0;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(PREFIX) && BOARD_BEST.test(k.slice(PREFIX.length))) top = Math.max(top, store.get(k.slice(PREFIX.length), 0));
+    }
+  } catch {
+    // storage unavailable
+  }
+  return top;
+}
+
 /**
  * Write a cloud save into localStorage without triggering another push. Returns true when this
  * device had a higher record the cloud didn't (so it should be pushed back up).
@@ -300,7 +315,7 @@ export const cloud = {
       });
       document.addEventListener('visibilitychange', () => { if (document.hidden && dirty) void push(); });
       try { await merge(fb); } catch (e) { warn('restore', e); merged = true; }
-      const best = store.get('best', 0);
+      const best = topBest();
       if (best > 0) void this.submitBest(best);
       return fb;
     })();
@@ -322,7 +337,7 @@ export const cloud = {
     const n = cleanName(raw);
     if (!n) return null;
     store.set('playerName', n);
-    const best = Math.max(store.get('best', 0), submitted);
+    const best = Math.max(topBest(), submitted);
     if (best > 0) { submitted = 0; await this.submitBest(best); }
     return n;
   },
