@@ -88,9 +88,9 @@ export const treasureLog = {
   onChange(fn: () => void) { listeners.add(fn); },
 };
 
-/** This dive's treasure in a cave, if any: at most one, at a depth (m) inside its range. */
-export function rollTreasure(cave: CaveId, r: () => number = Math.random): { t: Treasure; depth: number } | null {
-  const hits = caveTreasures(cave).filter(t => r() < 1 / t.chance);
+/** This dive's treasure in a cave, if any: at most one, at a depth (m) inside its range. `odds` scales every chance (remote tuning). */
+export function rollTreasure(cave: CaveId, r: () => number = Math.random, odds = 1): { t: Treasure; depth: number } | null {
+  const hits = caveTreasures(cave).filter(t => r() < odds / t.chance);
   if (!hits.length) return null;
   const t = hits[(r() * hits.length) | 0];
   return { t, depth: t.from + r() * (t.to - t.from) };

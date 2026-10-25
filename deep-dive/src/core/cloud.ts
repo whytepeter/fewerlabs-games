@@ -9,6 +9,8 @@
  *   players/{uid}/saves/{game}          { data: { key: value }, updatedAt }   cloud backup
  *   leaderboards/{game}/scores/{uid}    { name, best, updatedAt }             one row per player
  *   leaderboards/{game}/days/{day}/scores/{uid}                               the same, per Daily Dive
+ *   config/{game}                       balance overrides, edited in the console (see game/tuning.ts)
+ *   analytics/{game}/events/{auto}      { name, uid, day, at, data }  play events (see core/analytics.ts)
  */
 import type { Auth, AuthCredential, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore/lite';
@@ -26,7 +28,7 @@ const useEmulators = env.VITE_FIREBASE_EMULATORS === 'true';
 
 const SAVED_AT = 'cloud:savedAt';
 /** Keys that stay on this device: settings and the sync's own bookkeeping. */
-const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', SAVED_AT]);
+const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', 'tuning', 'analyticsQueue', SAVED_AT]);
 const PUSH_DELAY = 2000;
 const NAME_MAX = 16;
 
@@ -392,6 +394,35 @@ export const cloud = {
     } catch (e) {
       warn('rank', e);
       return null;
+    }
+  },
+
+  /** This game's remote tuning (config/{game}): {} when there's none, null when offline or off. */
+  async config(): Promise<Record<string, unknown> | null> {
+    const f = await starting;
+    if (!f) return null;
+    try {
+      const snap = await f.fs.getDoc(f.fs.doc(f.db, 'config', NAMESPACE));
+      return snap.exists() ? snap.data() : {};
+    } catch (e) {
+      warn('config', e);
+      return null;
+    }
+  },
+
+  /** Send a batch of play events; false if it couldn't (the caller keeps them for later). */
+  async sendEvents(events: { name: string; day: string; data: Record<string, unknown> }[]) {
+    const f = await starting;
+    if (!f || !events.length) return false;
+    try {
+      const batch = f.fs.writeBatch(f.db);
+      const col = f.fs.collection(f.db, 'analytics', NAMESPACE, 'events');
+      events.forEach(e => batch.set(f.fs.doc(col), { ...e, uid: f.uid, at: f.fs.serverTimestamp() }));
+      await batch.commit();
+      return true;
+    } catch (e) {
+      warn('analytics', e);
+      return false;
     }
   },
 };

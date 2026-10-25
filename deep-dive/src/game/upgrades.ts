@@ -1,5 +1,6 @@
 import { coins, metaChanged } from '../core/meta';
 import { store } from '../core/settings';
+import { track } from '../core/analytics';
 
 /** Permanent power-up upgrades bought in the shop (Jetpack Joyride style), five levels each. */
 export type UpgradeId = 'shield' | 'magnet' | 'bubbles' | 'lifeline';
@@ -37,6 +38,7 @@ export const upgrades = {
     all[id] = this.level(id) + 1;
     store.set('upgrades', all);
     metaChanged();
+    track('spend', { item: `upgrade:${id}`, level: all[id], price, cur: 'coins' });
     return 'bought';
   },
 };

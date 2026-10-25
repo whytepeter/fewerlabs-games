@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Deep Dive app icon: the diver plunging down through a sunlit trench, in the game's outlined
-       cartoon style. The diver stays inside the central 80% so the maskable crop keeps it whole. -->
+  <!-- Deep Dive app icon: Little Brass's doodle head in a sunlit trench, in the game's outlined
+       cartoon style. The head stays inside the central 80% so the maskable crop keeps it whole. -->
   <defs>
     <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#5fe0ff"/>
@@ -16,15 +16,6 @@
       <stop offset=".55" stop-color="#ffd23f"/>
       <stop offset="1" stop-color="#e9a514"/>
     </linearGradient>
-    <linearGradient id="fin" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#ff5f2f"/>
-      <stop offset="1" stop-color="#ff9a4d"/>
-    </linearGradient>
-    <radialGradient id="glass" cx=".38" cy=".32" r=".75">
-      <stop offset="0" stop-color="#d8f8ff"/>
-      <stop offset=".55" stop-color="#57c9f3"/>
-      <stop offset="1" stop-color="#1f86c8"/>
-    </radialGradient>
     <radialGradient id="glow" cx=".5" cy=".5" r=".5">
       <stop offset="0" stop-color="#fff6c8" stop-opacity=".55"/>
       <stop offset="1" stop-color="#fff6c8" stop-opacity="0"/>
@@ -47,18 +38,58 @@
     <circle cx="150" cy="150" r="20"/><circle cx="120" cy="98" r="13"/><circle cx="160" cy="62" r="9"/>
   </g>
 
-  <!-- The diver, plunging head-first down to the right -->
-  <g transform="translate(262 262) rotate(32)" stroke="#16233b" stroke-width="11" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M-96 -18 -168 -62q-14 22 -8 44l64 26Z" fill="url(#fin)"/>
-    <path d="M-96 18 -168 62q-14-22-8-44l64-26Z" fill="url(#fin)"/>
-    <rect x="-70" y="-84" width="96" height="40" rx="20" fill="#dfe7ef"/>
-    <rect x="-40" y="-94" width="22" height="14" rx="5" fill="#ff5a7a"/>
-    <ellipse cx="-14" cy="0" rx="98" ry="58" fill="url(#body)"/>
-    <path d="M-60 -6v14M-36 -8v18" stroke="#16233b" stroke-width="9"/>
-    <circle cx="78" cy="-2" r="58" fill="#eef3f8"/>
-    <circle cx="86" cy="-2" r="40" fill="url(#glass)"/>
-    <g stroke="none" fill="#16233b"><circle cx="76" cy="-10" r="7"/><circle cx="102" cy="-10" r="7"/></g>
-    <path d="M78 10q11 10 22 0" fill="none" stroke-width="7"/>
-    <path d="M58 -26q12-16 30-18" fill="none" stroke="#fff" stroke-width="7" stroke-opacity=".9"/>
+  <!-- Little Brass's doodle head, as in the game: a round yellow head under a silver helmet cap,
+       big eyes and a heavy brow looking forward, and a grin. -->
+  <defs>
+    <clipPath id="head"><circle cx="256" cy="270" r="138"/></clipPath>
+    <radialGradient id="shade" cx=".32" cy=".22" r=".95">
+      <stop offset=".45" stop-color="#e9a514" stop-opacity="0"/>
+      <stop offset="1" stop-color="#e9a514" stop-opacity=".75"/>
+    </radialGradient>
+    <radialGradient id="rim" cx=".5" cy=".5" r=".5">
+      <stop offset=".6" stop-color="#16233b" stop-opacity="0"/>
+      <stop offset="1" stop-color="#16233b" stop-opacity=".26"/>
+    </radialGradient>
+    <radialGradient id="cap" cx=".2" cy=".05" r="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".5" stop-color="#d9e2eb"/>
+      <stop offset="1" stop-color="#8a9bb0"/>
+    </radialGradient>
+    <linearGradient id="capRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9e2eb"/>
+      <stop offset="1" stop-color="#8a9bb0"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#16233b" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Vent knob on top of the cap, behind the head -->
+    <rect x="222" y="88" width="68" height="64" rx="19" fill="url(#capRim)" stroke-width="12"/>
+    <circle cx="256" cy="270" r="138" fill="url(#body)" stroke="none"/>
+    <g clip-path="url(#head)" stroke="none">
+      <ellipse cx="297" cy="346" rx="91" ry="58" transform="rotate(-8.6 297 346)" fill="#fff0b8"/>
+      <rect x="110" y="124" width="292" height="292" fill="url(#shade)"/>
+      <rect x="110" y="124" width="292" height="292" fill="url(#rim)"/>
+      <path d="M150 386q60 40 196 0" fill="none" stroke="#bef0ff" stroke-opacity=".55" stroke-width="12"/>
+      <!-- The helmet cap and its riveted rim -->
+      <rect x="110" y="124" width="292" height="91" fill="url(#cap)"/>
+      <ellipse cx="198" cy="162" rx="36" ry="12" transform="rotate(-23 198 162)" fill="#fff" fill-opacity=".75"/>
+      <rect x="110" y="215" width="292" height="34" fill="url(#capRim)"/>
+      <path d="M110 215h292M110 249h292" stroke="#16233b" stroke-width="13"/>
+      <g fill="#16233b" fill-opacity=".55">
+        <circle cx="144" cy="232" r="7"/><circle cx="181" cy="232" r="7"/><circle cx="219" cy="232" r="7"/><circle cx="256" cy="232" r="7"/>
+        <circle cx="293" cy="232" r="7"/><circle cx="331" cy="232" r="7"/><circle cx="368" cy="232" r="7"/>
+      </g>
+    </g>
+    <circle cx="256" cy="270" r="138" fill="none" stroke-width="16"/>
+    <!-- Eyes, looking ahead -->
+    <ellipse cx="267" cy="281" rx="27.6" ry="34.5" fill="#fff" stroke-width="12"/>
+    <ellipse cx="332" cy="275.6" rx="31.7" ry="38.6" fill="#fff" stroke-width="12"/>
+    <g stroke="none">
+      <circle cx="275.3" cy="285.8" r="14.4" fill="#16233b"/><circle cx="341.5" cy="281" r="16.5" fill="#16233b"/>
+      <circle cx="270.3" cy="280.3" r="4.7" fill="#fff"/><circle cx="335.8" cy="274.7" r="5.4" fill="#fff"/>
+    </g>
+    <!-- The brow: one heavy slab, dipping in the middle -->
+    <path d="M233.9 232.8 301.5 249.4 374.7 230" fill="none" stroke="#1b1410" stroke-width="27.6"/>
+    <!-- Grin -->
+    <path d="M340 323.7A27.6 27.6 0 0 1 290.3 328.3" fill="none" stroke-width="12.4"/>
   </g>
 </svg>

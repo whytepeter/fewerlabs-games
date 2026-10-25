@@ -1,5 +1,6 @@
 import { coins, metaChanged } from '../core/meta';
 import { store } from '../core/settings';
+import { track } from '../core/analytics';
 
 /**
  * Boosters (as in Subway Surfers): one-use items you keep in a stack and tap at the start of a
@@ -41,6 +42,7 @@ export const boosters = {
     const b = BOOSTERS.find(x => x.id === id)!;
     if (!coins.spend(b.price)) return 'poor';
     this.add(id);
+    track('spend', { item: `booster:${id}`, price: b.price, cur: 'coins' });
     return 'bought';
   },
 };

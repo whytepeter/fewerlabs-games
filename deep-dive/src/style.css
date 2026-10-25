@@ -196,11 +196,11 @@ body {
 /* ---------- Divers (character select) */
 .divers-panel { width: min(440px, 100%); }
 .diver-stage { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-.diver-stage img { width: min(230px, 56vw); aspect-ratio: 82 / 46; object-fit: contain; filter: drop-shadow(0 6px 0 rgba(22, 35, 59, .25)); }
-.diver-stage img.locked { filter: brightness(.15) drop-shadow(0 6px 0 rgba(22, 35, 59, .25)); opacity: .7; }
+.diver-stage canvas { width: min(230px, 56vw); aspect-ratio: 82 / 46; object-fit: contain; filter: drop-shadow(0 6px 0 rgba(22, 35, 59, .25)); }
+.diver-stage canvas.locked { filter: brightness(.15) drop-shadow(0 6px 0 rgba(22, 35, 59, .25)); opacity: .7; }
 .diver-stage { position: relative; }
-.diver-stage img.for-sale { animation: k-float 2.4s ease-in-out infinite; }
-.diver-stage img.pop { animation: k-pop .35s cubic-bezier(.2, 1.4, .4, 1) both; }
+.diver-stage canvas.for-sale { animation: k-float 2.4s ease-in-out infinite; }
+.diver-stage canvas.pop { animation: k-pop .35s cubic-bezier(.2, 1.4, .4, 1) both; }
 .divers-panel h2 { margin-top: 2px; }
 .diver-bio { margin: 2px 0 4px; font-size: 15px; min-height: 1.3em; }
 .diver-perk { display: table; margin: 0 auto 12px; padding: 3px 10px; border-radius: 999px; background: #e6f4ff; font-size: 13px; font-weight: 700; }
@@ -612,17 +612,16 @@ body.dev-mode::after {
   #shop, #missions, #divers, #settings, #board, #caves, #treasures { padding-top: calc(var(--safe-t) + 26px); }
   :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel) { width: min(980px, 100%); padding: 30px 18px calc(var(--safe-b) + 10px); }
   :is(.board-panel, .settings-panel) { width: min(640px, 100%); padding: 30px 18px calc(var(--safe-b) + 10px); }
-  /* Height is scarce sideways: Back moves up to the card's top-left corner, beside the ribbon. */
-  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel) > :is(.back-btn, #boardBack),
-  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel) > :is(.back-btn, #boardBack):active {
+  /* Height is scarce sideways: Back moves up to the card's top-left corner, beside the ribbon (Settings and Top divers too). */
+  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel, .settings-panel, .board-panel) > :is(.back-btn, #boardBack),
+  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel, .settings-panel, .board-panel) > :is(.back-btn, #boardBack):active {
     position: absolute; top: -20px; left: 14px; z-index: 3; width: auto; height: auto; margin: 0; align-self: start; justify-self: start;
     min-height: 40px; padding: 0 16px 3px; font-size: 16px; border-radius: 14px;
   }
-  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel) > :is(.back-btn, #boardBack) {
+  :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel, .settings-panel, .board-panel) > :is(.back-btn, #boardBack) {
     box-shadow: inset 0 -5px 0 var(--lo), inset 0 3px 0 rgba(255, 255, 255, .55), 0 4px 0 var(--k-outline);
   }
   :is(.shop-panel, .missions-panel, .divers-panel, .caves-panel, .treasures-panel)::after { display: none; }
-  :is(.settings-panel, .board-panel) > :is(.back-btn, #boardBack) { align-self: center; width: min(300px, 100%); }
 
   /* Shop and missions: two columns of rows; the coins sit in the card's corner. */
   .shop-list, #missionList { grid-template-columns: 1fr 1fr; align-content: start; }
@@ -650,7 +649,7 @@ body.dev-mode::after {
   .divers-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-auto-rows: auto; align-content: start; column-gap: 20px; }
   .divers-panel > :not(.diver-side, #diverGrid, .char-tabs, .back-btn, .k-ribbon) { grid-column: 1; }
   .divers-panel > .char-tabs { grid-column: 1 / -1; }
-  .diver-stage img { width: min(190px, 100%); }
+  .diver-stage canvas { width: min(190px, 100%); }
   .diver-bio { margin-bottom: 8px; }
   .divers-panel > :is(.diver-side, #diverGrid) { grid-column: 2; grid-row: 2 / span 9; align-self: start; }
   .diver-side .diver-head:first-child { margin-top: 0; }
@@ -848,6 +847,10 @@ body.dev-mode::after {
 .over-ad { gap: 6px; margin-top: 4px; }
 .over-ad[hidden] { display: none; }
 .over-ad .k-coin { width: 16px; height: 16px; }
+/* The ad buttons' little TV: a touch bigger, and it wobbles now and then to catch the eye. */
+:is(#savemeAd, .over-ad) > svg:first-child { width: 26px; height: 26px; flex-shrink: 0; transform-origin: 50% 90%; animation: tv-wobble 2.6s ease-in-out infinite; }
+@keyframes tv-wobble { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-9deg); } 90% { transform: rotate(7deg); } 95% { transform: rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) { :is(#savemeAd, .over-ad) > svg:first-child { animation: none; } }
 /* The dev server's stand-in for a rewarded ad (see core/ads.ts). */
 .fake-ad { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(8, 14, 28, .92); color: #fff; }
 .fake-ad div { display: grid; gap: 12px; justify-items: center; font-size: 18px; }
@@ -1159,13 +1162,13 @@ body.dev-mode::after {
   display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.showcase img {
+.showcase canvas {
   /* As big as the room allows: never under the rail (portrait), never pushing the pill off. */
   width: max(90px, min(340px, 92cqw, (100cqh - 196px) * 1.78)); aspect-ratio: 82 / 46; object-fit: contain;
   filter: drop-shadow(0 10px 0 rgba(6, 20, 45, .35));
   animation: k-float 2.6s ease-in-out infinite;
 }
-.showcase:active img { transform: scale(.94); }
+.showcase:active canvas { transform: scale(.94); }
 .showcase-name {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 2px;
   padding: 3px 8px 3px 14px; border-radius: 999px; background: rgba(22, 35, 59, .72); border: 3px solid var(--k-outline);
@@ -1179,15 +1182,15 @@ body.dev-mode::after {
 .showcase-name > svg { width: 14px; height: 14px; flex: none; fill: none; stroke: #b6fff0; stroke-width: 3; }
 @container hero (min-height: 460px) {
   .title-tag { display: block; }
-  .showcase img { width: max(90px, min(380px, 92cqw, (100cqh - 236px) * 1.78)); }
+  .showcase canvas { width: max(90px, min(380px, 92cqw, (100cqh - 236px) * 1.78)); }
 }
 @media (orientation: portrait) {
   /* The rail floats over the stage's left edge (64px): the diver takes the room right of it,
      while the logo stays centred on the screen. */
   .showcase { margin-left: 74px; }
-  .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 196px) * 1.78)); }
+  .showcase canvas { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 196px) * 1.78)); }
   @container hero (min-height: 460px) {
-    .showcase img { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 236px) * 1.78)); }
+    .showcase canvas { width: max(90px, min(340px, 100cqw - 78px, (100cqh - 236px) * 1.78)); }
   }
 }
 

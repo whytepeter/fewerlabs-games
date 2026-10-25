@@ -1,6 +1,8 @@
 import { coins } from '../core/meta';
 import { todayKey } from '../core/rng';
 import { store } from '../core/settings';
+import { track } from '../core/analytics';
+import { tuning } from './tuning';
 
 /**
  * Sea Hearts: a rare, glowing heart gem kept between dives, the ocean's life. They're called
@@ -29,20 +31,22 @@ export const shells = {
  * Sea Hearts for coins in the shop: a few a week, each dearer than the last, restocked every
  * Monday. Enough to save up for a diver or a "Save me", never enough to make shells common.
  */
-export const SHELL_PRICES = [3000, 5000, 8000]; // about 5, 8 and 13 good dives
+/** This week's coin prices, cheapest first (remote tuning; 3000, 5000 and 8000 by default). */
+export const shellPrices = () => tuning.now.heartPrices;
 export const weekKey = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return todayKey(d); };
 
 export const shellShop = {
   /** Shells bought in the shop this week. */
   get bought() { const w = store.get<{ week: string; n: number }>('shellWeek', { week: '', n: 0 }); return w.week === weekKey() ? w.n : 0; },
   /** Coin price of the next shell, or null when this week's are sold out. */
-  get price(): number | null { return SHELL_PRICES[this.bought] ?? null; },
+  get price(): number | null { return shellPrices()[this.bought] ?? null; },
   buy(): 'bought' | 'poor' | 'soldout' {
     const price = this.price;
     if (price === null) return 'soldout';
     if (!coins.spend(price)) return 'poor';
     store.set('shellWeek', { week: weekKey(), n: this.bought + 1 });
     shells.add(1);
+    track('spend', { item: 'sea-heart', price, cur: 'coins' });
     return 'bought';
   },
 };

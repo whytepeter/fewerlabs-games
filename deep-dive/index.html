@@ -88,7 +88,7 @@
           <div class="title-best" id="titleBestBox" title="Your best in this cave"><i data-icon="trophy"></i><small>Best</small><b id="titleBest">0</b><small>m</small></div>
           <button class="showcase" id="showcase" type="button" aria-label="Change diver">
             <span class="showcase-bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-            <img id="showcaseImg" alt="">
+            <canvas id="showcaseImg" width="246" height="138" aria-hidden="true"></canvas>
             <span class="showcase-pedestal" aria-hidden="true"></span>
             <span class="showcase-name"><b id="showcaseName">Sunny</b><span class="showcase-special"><i data-icon="star"></i><span id="showcaseSpecial">Second Wind</span></span><i data-icon="next"></i></span>
           </button>
@@ -130,7 +130,7 @@
         <div class="char-tabs" id="charTabs" role="radiogroup" aria-label="Characters"></div>
         <div class="diver-stage">
           <button class="k-icon-btn k-icon-btn--sm" id="diverPrev" type="button" aria-label="Previous character"><i data-icon="prev"></i></button>
-          <img id="diverImg" alt="">
+          <canvas id="diverImg" width="246" height="138" aria-hidden="true"></canvas>
           <button class="k-icon-btn k-icon-btn--sm" id="diverNext" type="button" aria-label="Next character"><i data-icon="next"></i></button>
         </div>
         <h2 id="diverName"></h2>
@@ -260,7 +260,7 @@
           <span id="savemeCount">5</span>
         </div>
         <button class="k-btn k-btn--block" id="savemeYes" type="button">Keep diving <span class="price-chip shell-chip" id="savemeCost"></span></button>
-        <button class="k-btn k-btn--blue k-btn--block" id="savemeAd" type="button" hidden><i data-icon="play"></i>Watch an ad to keep diving</button>
+        <button class="k-btn k-btn--blue k-btn--block" id="savemeAd" type="button" aria-label="Watch an ad to keep diving" hidden><i data-icon="tv"></i>Watch to keep diving</button>
         <p class="saveme-have" id="savemeHave"></p>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="savemeNo" type="button">No thanks</button>
       </div>

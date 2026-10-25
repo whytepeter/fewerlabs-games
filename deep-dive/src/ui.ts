@@ -11,7 +11,7 @@ import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cleanName, cloud, topBest, type LinkResult } from './core/cloud';
 import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
-import { claimSignupGift, SHELL_PRICES, shellShop, shells, SIGNUP_GIFT } from './game/shells';
+import { claimSignupGift, shellPrices, shellShop, shells, SIGNUP_GIFT } from './game/shells';
 import type { ChestPrize } from './game/chests';
 import type { Special } from './game/specials';
 import { specialOf } from './game/specials';
@@ -23,6 +23,7 @@ import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
+import { liveDiver } from './liveDiver';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -67,6 +68,8 @@ let hintTimer = 0, tipTimer = 0;
 let guidePressed = 0;
 const SAVE_ME_SECONDS = 5;
 let diveEnded = false; // the next title screen comes straight after a dive
+let showcase: ReturnType<typeof liveDiver> | undefined; // the title's big, live-drawn diver
+let diverPreview: ReturnType<typeof liveDiver> | undefined; // and the Divers screen's
 const INSTALL_AFTER_DIVES = 3, INSTALL_GAP = 3 * 24 * 60 * 60 * 1000;
 let onSkin: (id: string) => boolean = () => false;
 let onCave: (id: CaveId) => boolean = () => false;
@@ -171,7 +174,8 @@ function offerDoubleCoins(n: number) {
   void ads.rewarded('double-coins').then(show => {
     if (!show || $('over').hidden) return;
     b.disabled = false;
-    b.innerHTML = `${icon('play')}Watch an ad: double your coins <span class="price-chip">+${coinTag(n)}</span>`;
+    b.innerHTML = `${icon('tv')}Double your coins <span class="price-chip">+${coinTag(n)}</span>`;
+    b.setAttribute('aria-label', `Watch an ad to double your coins: ${n} more`);
     b.hidden = false;
     b.onclick = () => {
       buzz(10);
@@ -431,7 +435,7 @@ export const ui = {
   /** Title hub: rank, diver showcase, best depth and the badges on the menu tiles. */
   refreshTitle() {
     const s = SKINS[skinIndex(wearing)];
-    ($('showcaseImg') as HTMLImageElement).src = portraits[`diver-${s.id}`] ?? '';
+    (showcase ??= liveDiver($('showcaseImg') as HTMLCanvasElement)).set(s);
     $('showcaseName').textContent = charOf(s).name;
     $('showcaseSpecial').textContent = specialOf(s.id).name;
     const cv = currentCave();
@@ -675,8 +679,8 @@ export const ui = {
     viewed = (i + SKINS.length) % SKINS.length;
     const s = SKINS[viewed], c = charOf(s), rank = deepMissions.rank;
     markSeen(`diver:${s.id}`, isNewDiver(s, rank));
-    const img = $('diverImg') as HTMLImageElement;
-    img.src = portraits[`diver-${s.id}`] ?? '';
+    const img = $('diverImg') as HTMLCanvasElement;
+    (diverPreview ??= liveDiver(img)).set(s);
     // Divers you can buy show in full colour (so you want them); rank rewards stay a mystery.
     img.classList.toggle('locked', rankLocked(s, rank));
     img.classList.toggle('for-sale', !suits.owns(s.id));
@@ -902,12 +906,13 @@ export const ui = {
     const bought = shellShop.bought;
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
-    $('shopList').innerHTML = SHELL_PRICES.map((price, i) => {
+    const prices = shellPrices();
+    $('shopList').innerHTML = prices.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
         : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Sea Heart for ${price} coins">${coinTag(price)}</button>`;
       return `<li class="shop-item${i < bought ? ' equipped' : ''}"><img src="${portraits.shell ?? ''}" alt="">
-        <div class="shop-body"><b>Sea Heart</b><span>${i === 0 ? 'This week’s first Sea Heart' : i === bought ? 'Another one, a little dearer' : i < bought ? 'Bought this week' : `Opens once you buy the ${SHELL_PRICES[i - 1].toLocaleString()}-coin one`}</span></div>${btn}</li>`;
+        <div class="shop-body"><b>Sea Heart</b><span>${i === 0 ? 'This week’s first Sea Heart' : i === bought ? 'Another one, a little dearer' : i < bought ? 'Bought this week' : `Opens once you buy the ${prices[i - 1].toLocaleString()}-coin one`}</span></div>${btn}</li>`;
     }).join('');
     $('shopList').querySelector<HTMLButtonElement>('[data-shell]')?.addEventListener('click', e => {
       const b = e.currentTarget as HTMLButtonElement;

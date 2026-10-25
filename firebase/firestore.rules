@@ -4,6 +4,8 @@ rules_version = '2';
 //   players/{uid}/saves/{game}         a player's cloud backup, private to them
 //   leaderboards/{game}/scores/{uid}   one public row per player, best can only go up
 //   leaderboards/{game}/days/{day}/scores/{uid}   the same, for one day's daily challenge
+//   config/{game}                      balance tuning, readable by all, edited in the console
+//   analytics/{game}/events/{id}       play events: players can add their own, nobody can read them back
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedInAs(uid) {
@@ -24,6 +26,26 @@ service cloud.firestore {
         && d.name is string && d.name.size() > 0 && d.name.size() <= 16
         && d.best is int && d.best > 0 && d.best <= 100000
         && d.updatedAt == request.time;
+    }
+
+    function validEvent() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['name', 'uid', 'day', 'at', 'data'])
+        && d.name in ['app_open', 'dive_end', 'save_me', 'ad', 'spend', 'treasure']
+        && d.uid == request.auth.uid
+        && d.day is string && d.day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.at == request.time
+        && d.data is map && d.data.size() <= 12;
+    }
+
+    // Remote tuning: anyone can read it; only the console (admin) can change it.
+    match /config/{game} {
+      allow read: if knownGame(game);
+    }
+
+    // Play events: write-only for signed-in players, each tagged with their own id.
+    match /analytics/{game}/events/{id} {
+      allow create: if request.auth != null && knownGame(game) && validEvent();
     }
 
     match /players/{uid}/saves/{game} {

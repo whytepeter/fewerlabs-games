@@ -10,6 +10,8 @@ import { GameScene } from './scenes/GameScene';
 import { initPWA } from './core/pwa';
 import { initEmbed } from './core/embed';
 import { cloud } from './core/cloud';
+import { initAnalytics, track } from './core/analytics';
+import { tuning } from './game/tuning';
 
 autoScaleUI();
 
@@ -29,5 +31,8 @@ const game = createGame({
 if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
 
 initPWA();
-void cloud.start();
+// Remote tuning (game/tuning.ts): the fetched values apply from the next dive.
+void cloud.start().then(() => cloud.config()).then(c => { if (c) tuning.apply(c); });
+initAnalytics();
+track('app_open', { installed: matchMedia('(display-mode: standalone)').matches });
 initEmbed('deep-dive');

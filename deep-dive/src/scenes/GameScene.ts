@@ -26,6 +26,8 @@ import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud, topBest } from '../core/cloud';
 import { ads } from '../core/ads';
+import { track } from '../core/analytics';
+import { tuning, type Tuning } from '../game/tuning';
 import { embed } from '../core/embed';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
@@ -131,7 +133,9 @@ export class GameScene extends Phaser.Scene {
   private nextShell = 0;
   private runChests = 0;   // treasure chests picked up this dive, opened on the game-over screen
   private saves = 0;       // times "Save me" was used this dive
-  private adSaved = false; // a rewarded ad already saved this dive (one per dive)
+  private adSaves = 0;     // rewarded-ad saves used this dive (tuning.adSaves allowed)
+  /** This dive's balance numbers (remote tuning, fixed when the dive starts). */
+  private tune: Tuning = tuning.dive(false);
   /** Power-up strengths for this dive, from the shop upgrades. */
   private shieldTime = shieldTime(0);
   private magnetTime = magnetTime(0);
@@ -362,7 +366,8 @@ export class GameScene extends Phaser.Scene {
   private cr(a: number, b: number) { return a + this.rng() * (b - a); }
   private cpick<T>(a: T[]) { return a[(this.rng() * a.length) | 0]; }
   /** Distance (px) to the next spawn of a `Gap`: a minimum plus a random wait that's usually short, now and then long, capped. */
-  private gap([min, mean, max]: Gap) { return Math.min(max, min - Math.log(1 - this.rng()) * mean) * 10; }
+  /** A spacing from `g`, every part scaled by `k` (the tuning's spacing for that spawner). */
+  private gap([min, mean, max]: Gap, k = 1) { return Math.min(max * k, min * k - Math.log(1 - this.rng()) * mean * k) * 10; }
   /** Run `fn` with `this.rng` swapped for another stream. */
   private withRng<T>(r: () => number, fn: () => T) { const keep = this.rng; this.rng = r; try { return fn(); } finally { this.rng = keep; } }
 
@@ -412,6 +417,7 @@ export class GameScene extends Phaser.Scene {
     sfx.resume();
     this.clearWorld();
     this.daily = daily;
+    this.tune = tuning.dive(daily);
     for (const k of STREAMS) this.streams[k] = daily ? mulberry32(dailyRun.seed(k)) : Math.random;
     this.place = daily ? mulberry32(dailyRun.seed('place')) : Math.random;
     this.rng = Math.random;
@@ -470,17 +476,17 @@ export class GameScene extends Phaser.Scene {
     this.nextAir = 320;
     this.nextPearls = 700;
     const s = this.streams;
-    this.nextPerk = this.withRng(s.perk, () => this.gap(PERK_FIRST));
+    this.nextPerk = this.withRng(s.perk, () => this.gap(PERK_FIRST, this.tune.perkGap));
     this.perkCount = 0;
     this.calmUntil = 0;
-    this.nextChest = this.withRng(s.chest, () => this.gap(CHEST_FIRST));
-    this.nextShell = this.withRng(s.shell, () => this.gap(SHELL_FIRST));
+    this.nextChest = this.withRng(s.chest, () => this.gap(CHEST_FIRST, this.tune.chestGap));
+    this.nextShell = this.withRng(s.shell, () => this.gap(SHELL_FIRST, this.tune.heartGap));
     this.turboT = 0;
     this.turboMax = TURBO_TIME;
     this.kickoff = false;
     this.runChests = 0;
     this.saves = 0;
-    this.adSaved = false;
+    this.adSaves = 0;
     this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.withRng(s.kelp, () => this.cr(200, 500)) : Infinity;
     this.tangle = 0;
     this.tangles = 0;
@@ -506,7 +512,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gear.has('headstart')) {
       this.kickoff = true;
       this.turboT = this.turboMax = HEAD_START_TURBO;
-      this.nextPerk += PERK_GAP[0] * 10; // you've had your Turbo; the next power-up comes later (no extra roll, see `streams`)
+      this.nextPerk += PERK_GAP[0] * this.tune.perkGap * 10; // you've had your Turbo; the next power-up comes later (no extra roll, see `streams`)
       this.perkCount = 1;
       this.cameras.main.flash(180, 255, 190, 110);
       this.time.delayedCall(300, () => { if (this.state === 'play') ui.damage('Head Start!', true); });
@@ -811,15 +817,15 @@ export class GameScene extends Phaser.Scene {
       const canLife = !this.lifeline && depth > LIFELINE_FROM, r = this.rng(), alt = this.cpick(rest);
       const perk = this.perkCount++ === 0 && depth > TURBO_FROM ? 'turbo' : canLife && r < this.lifelineChance ? 'lifeline' : alt;
       this.spawnRow(perk, 1, 0);
-      this.nextPerk = this.gap(PERK_GAP) - this.lag;
+      this.nextPerk = this.gap(PERK_GAP, this.tune.perkGap) - this.lag;
     });
     if ((this.nextShell -= step) <= 0) using('shell', this.nextShell, () => {
       this.spawnRow('shell', 1, 0, true);
-      this.nextShell = this.gap(SHELL_GAP) - this.lag;
+      this.nextShell = this.gap(SHELL_GAP, this.tune.heartGap) - this.lag;
     });
     if ((this.nextChest -= step) <= 0) using('chest', this.nextChest, () => {
       this.spawnRow('chest', 1, 0, true);
-      this.nextChest = this.gap(CHEST_GAP) - this.lag;
+      this.nextChest = this.gap(CHEST_GAP, this.tune.chestGap) - this.lag;
     });
     if (this.def.kelp && (this.nextKelp -= step) <= 0) using('kelp', this.nextKelp, () => {
       this.spawnKelp();
@@ -1290,7 +1296,7 @@ export class GameScene extends Phaser.Scene {
     this.nextDeck = first(d.decks);
     this.lastWreckX = -Infinity;
     // Plain Math.random, not the course's random streams: treasure isn't part of the course.
-    const roll = rollTreasure(d.id);
+    const roll = rollTreasure(d.id, Math.random, this.tune.treasureOdds);
     this.treasureDef = roll?.t ?? null;
     this.treasureAt = roll ? roll.depth * 10 : Infinity;
   }
@@ -1571,6 +1577,7 @@ export class GameScene extends Phaser.Scene {
   /** The big moment: slow motion, a flash and burst in the treasure's colour, its own chime and a banner. */
   private findTreasure(it: TreasureItem) {
     const r = this.treasureDef!, first = treasureLog.add(r.id), n = first ? r.first : r.again, big = !!r.legendary;
+    track('treasure', { id: r.id, first, depth: Math.floor(this.dist / 10) });
     shells.add(n);
     ui.banner(r.name, big && first ? 'Legendary find!' : first ? 'New treasure!' : 'Found it again!');
     ui.damage(`+${n} Sea Heart${n > 1 ? 's' : ''}! (${shells.count})`, true);
@@ -1886,7 +1893,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (once a dive), Subway Surfers style, before ending the dive. */
   private die(reason: string) {
-    const cost = saveCost(this.saves), adOk = !this.adSaved && ads.enabled;
+    const cost = saveCost(this.saves), adOk = this.adSaves < this.tune.adSaves && ads.enabled;
     if (shells.count < cost && !adOk) { this.endDive(reason); return; }
     this.state = 'saveme';
     this.sparks.explode(14, this.dist, this.diverY);
@@ -1897,7 +1904,8 @@ export class GameScene extends Phaser.Scene {
     void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null).then(choice => {
       if (this.state !== 'saveme') return;
       sfx.resume();
-      if (choice === 'ad') this.adSaved = true;
+      track('save_me', { choice: choice ?? 'none', cost, ad: adOk, cave: this.def.id });
+      if (choice === 'ad') this.adSaves++;
       else if (choice !== 'shell' || !shells.spend(cost)) { this.endDive(reason); return; }
       this.saves++;
       this.state = 'play';
@@ -1962,7 +1970,7 @@ export class GameScene extends Phaser.Scene {
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus * this.def.pay * (this.perk === 'coins' ? DIVER_PERK.coins : 1); // harder caves (and Royal) pay more
-    const twice = this.doubler ? 2 : 1; // the Coin Doubler booster
+    const twice = (this.doubler ? 2 : 1) * this.tune.coinRate; // the Coin Doubler booster, and the tuning's coin rate
     const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus) * twice; // ~25–45 for a good dive at x1
     const closeCoins = Math.round(this.runBonus * bonus) * twice;
     coins.add(runCoins + closeCoins);
@@ -1980,6 +1988,10 @@ export class GameScene extends Phaser.Scene {
     const missionCoins = coins.balance - coinsBefore;
     const chests = openChests(this.runChests);
     const huntBefore = hunt.pearls, huntWon = hunt.add(this.runPearls);
+    track('dive_end', {
+      cave: this.def.id, depth, cause: reason, daily: this.daily, secs: Math.round(this.runT), best: isBest,
+      saves: this.saves, adSaves: this.adSaves, pearls: this.runPearls, coins: runCoins + closeCoins, chests: this.runChests, diver: this.skin,
+    });
 
     ui.lowO2(false);
     ui.hint(null);
@@ -1990,7 +2002,7 @@ export class GameScene extends Phaser.Scene {
         depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
         close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null, chests,
         hunt: { before: huntBefore, won: huntWon }, daily: this.daily, today, newDivers,
-        adCoins: dev.on ? 0 : runCoins + closeCoins,
+        adCoins: dev.on || !this.tune.adDoubleCoins ? 0 : runCoins + closeCoins,
         earned: [{ label: `Dive ×${(bonus * twice).toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily Dive', n: dailyBonus }],
       });
     });

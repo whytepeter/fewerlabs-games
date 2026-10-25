@@ -61,11 +61,7 @@ export class BootScene extends Phaser.Scene {
   private makeDiver(skin: Skin) {
     // Drawn straight into the 82 x 46 frame, facing right, body around (42, 23). One sheet per
     // outfit; each character has its own drawing (see the draw* functions below the class).
-    const draw = DRAW[skin.char ?? 'brass'];
-    sheetTexture(this, `diver-${skin.id}`, 82, 46, 6, (ctx, i) => {
-      setup(ctx);
-      draw(ctx, Math.sin((i / 6) * TAU), i / 6, skin);
-    });
+    sheetTexture(this, `diver-${skin.id}`, 82, 46, 6, (ctx, i) => paintDiver(ctx, skin, i));
   }
 
   /** Shop icons for the gadgets, one 32x32 badge each. */
@@ -507,207 +503,285 @@ type DrawDiver = (ctx: Ctx, k: number, p: number, s: Skin) => void;
 const METAL = { brass: ['#fff1a6', '#ffc43d', '#c9820f'], silver: ['#ffffff', '#d9e2eb', '#8a9bb0'], copper: ['#ffd9bd', '#ee9256', '#a24e22'] };
 const HATS: Extra[] = ['crown', 'cap', 'lure'];
 
-/** Little Brass: a chubby suited kid whose head is a big round diving helmet. */
+// Every character is a "doodle head" (Angry Birds style: big eyes, a heavy brow that carries the
+// mood, one signature prop) on a small chubby body. The head is about half the character and sits
+// at the front; the body, tank and kicking legs trail behind.
+
+/** Little Brass: a suited kid with a brass diving-helmet cap on a round doodle head. */
 const drawBrass: DrawDiver = (ctx, k, _p, s) => {
-  const M = METAL[s.metal ?? 'brass'];
+  const [x, y, r] = [57, 22.5, 13], M = METAL[s.metal ?? 'brass'];
   if (s.extra === 'glow') {
-    const g = ctx.createRadialGradient(44, 23, 4, 44, 23, 23);
+    const g = ctx.createRadialGradient(46, 24, 4, 46, 24, 24);
     g.addColorStop(0, 'rgba(170,235,255,.55)'); g.addColorStop(1, 'rgba(170,235,255,0)');
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(44, 23, 23, 0, TAU); ctx.fill();
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(46, 24, 24, 0, TAU); ctx.fill();
   }
-  for (const side of [-1, 1]) {
-    ctx.save(); ctx.translate(25, 27.5 + side * 1.8); ctx.rotate(0.1 * side + k * 0.3 * side);
-    limb(ctx, [0, 0, -8.5, 0.5], side < 0 ? s.belly : s.body);
-    const fin = new Path2D();
-    fin.moveTo(-8, -2.6); fin.quadraticCurveTo(-14, -6.5, -20, -4.6); fin.quadraticCurveTo(-17.5, 0.4, -20, 5.4); fin.quadraticCurveTo(-14, 5.4, -8, 2.8); fin.closePath();
-    shaded(ctx, fin, s.fins, () => finShade(ctx, side < 0, s.fins, -21, -7));
-    ctx.restore();
-  }
-  const tank = new Path2D(); tank.roundRect(20, 11.5, 17, 7.5, 3.75);
-  shaded(ctx, tank, '#dfe7ee', () => cylinder(ctx, 20, 11.5, 17, 7.5, '#ff5a7a'));
-  if (s.extra === 'spikes') spikes(ctx, 33, 25.5, 13, 10.5);
-  const body = new Path2D(); body.ellipse(33, 25.5, 13, 10.5, 0, 0, TAU);
-  shaded(ctx, body, s.body, () => {
-    ctx.fillStyle = s.belly; ctx.beginPath(); ctx.ellipse(33, 32.5, 12, 4.4, 0, 0, TAU); ctx.fill();
-    if (s.extra === 'spots') {
-      ctx.fillStyle = 'rgba(255,255,255,.6)';
-      for (const [x, y, r] of [[24, 22, 2.2], [33, 18, 1.8], [36, 27, 1.6], [24, 30, 1.4]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); }
-    } else if (s.extra === 'stripes') {
-      ctx.fillStyle = s.belly;
-      for (const x of [22.5, 34]) band(ctx, x, 2.6, 14, 37);
-    }
-    ctx.fillStyle = '#4a5a78'; band(ctx, 27.5, 3.1, 14, 37);
-    vol(ctx, 33, 25.5, 13, 10.5, s.belly);
-  });
-  const gold = ctx.createLinearGradient(0, 23, 0, 27); gold.addColorStop(0, '#ffe58a'); gold.addColorStop(1, '#e09a12');
-  roundRect(ctx, 26.6, 23.2, 5.4, 4, 1.2); fillOut(ctx, gold, 1.6);
-  limb(ctx, [41, 28, 44 + k * 1.2, 33.5, 47.5 + k * 2, 34.5 - k], s.body, 3.8);
-  ctx.beginPath(); ctx.arc(48 + k * 2, 34.6 - k, 2.7, 0, TAU); fillOut(ctx, s.fins, 2);
+  suitBody(ctx, k, s, 12, '#dfe7ee', '#ff5a7a', s.fins);
   const hat = s.extra && HATS.includes(s.extra);
-  if (!hat) { roundRect(ctx, 52.5, 7.2, 6, 4.4, 1.6); fillOut(ctx, metal(ctx, 52, 7, 59, 12, M), 2); }
-  ctx.beginPath(); ctx.ellipse(45, 24.5, 3.6, 9.2, 0, 0, TAU); fillOut(ctx, metal(ctx, 41, 15, 49, 34, M), 2.2);
-  const helm = new Path2D(); helm.arc(56, 22.5, 13, 0, TAU);
-  shaded(ctx, helm, M[1], () => {
-    const g = ctx.createRadialGradient(50.5, 15, 0.5, 56, 22.5, 13.6);
-    g.addColorStop(0, M[0]); g.addColorStop(0.5, M[1]); g.addColorStop(1, M[2]);
-    ctx.fillStyle = g; ctx.fillRect(42, 9, 28, 28);
-    ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.beginPath(); ctx.ellipse(50.5, 14.5, 4.2, 1.7, -0.6, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(190,240,255,.55)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(56, 22.5, 11.4, 0.5, 2.5); ctx.stroke();
-    // A riveted seam round the dome.
-    ctx.strokeStyle = 'rgba(22,35,59,.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(51, 22.5, 3.4, 12.6, 0, -Math.PI / 2, Math.PI / 2); ctx.stroke();
-    ctx.fillStyle = 'rgba(22,35,59,.45)';
-    for (const a of [-1, -0.5, 0, 0.5, 1]) { ctx.beginPath(); ctx.arc(51 + Math.cos(a) * 3.4 - 1.1, 22.5 + Math.sin(a) * 12.6, 0.6, 0, TAU); ctx.fill(); }
+  squash(ctx, x, y, k, () => {
+    if (!hat) { roundRect(ctx, x - 3.2, y - r - 4.2, 6.4, 6, 1.8); fillOut(ctx, metal(ctx, x - 3, y - r - 4, x + 3, y - r + 2, M), 2); }
+    shaded(ctx, circle(x, y, r), s.body, () => {
+      patch(ctx, x, y, r, s.body);
+      vol(ctx, x, y, r, r, s.belly);
+      // The helmet cap over the top of the head, with a riveted rim.
+      const capY = y - 0.4 * r;
+      const g = ctx.createRadialGradient(x - 0.45 * r, y - 0.9 * r, 0.5, x, y - 0.5 * r, r * 1.1);
+      g.addColorStop(0, M[0]); g.addColorStop(0.5, M[1]); g.addColorStop(1, M[2]);
+      ctx.fillStyle = g; ctx.fillRect(x - r - 2, y - r - 2, 2 * r + 4, capY - (y - r - 2));
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(x - 0.42 * r, y - 0.78 * r, 0.26 * r, 0.09 * r, -0.4, 0, TAU); ctx.fill();
+      ctx.fillStyle = metal(ctx, x, capY, x, capY + 3.4, [M[1], M[1], M[2]]); ctx.fillRect(x - r - 2, capY, 2 * r + 4, 3.2);
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(x - r - 2, capY); ctx.lineTo(x + r + 2, capY); ctx.moveTo(x - r - 2, capY + 3.2); ctx.lineTo(x + r + 2, capY + 3.2); ctx.stroke();
+      ctx.fillStyle = 'rgba(22,35,59,.55)';
+      for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.arc(x + i * r * 0.27, capY + 1.6, 0.65, 0, TAU); ctx.fill(); }
+    });
+    face(ctx, x, y, r, s.body, { drop: 0.12, lift: -0.06 });
   });
-  porthole(ctx, 61.5, 22.5, 8.4, 6.8, M);
-  headgear(ctx, s, 55.5, 10.6);
+  headgear(ctx, s, x, y - r + 0.6);
 };
 
-/** Scuba Kid: lying flat in a wetsuit, big mask, slim tank, long fins in a scissor kick. */
+/** Scuba Kid: a wetsuit hood with the face showing, a big dive mask, snorkel and long fins. */
 const drawScuba: DrawDiver = (ctx, k, _p, s) => {
-  const tone = s.tone ?? '#f6c9a0', toneDeep = mix(tone, '#5a2a14', 0.3), mask = s.mask ?? s.fins;
-  for (const side of [-1, 1]) {
-    ctx.save(); ctx.translate(29, 25.5 + side * 1.4); ctx.rotate(0.04 * side + k * 0.26 * side);
-    limb(ctx, [0, 0, -12.5, 0], side < 0 ? s.belly : s.body, 4);
-    const fin = new Path2D();
-    fin.moveTo(-11.5, -2.4); fin.quadraticCurveTo(-19, -5.6, -26.5, -4.2); fin.quadraticCurveTo(-24, 0.2, -26.5, 4.6); fin.quadraticCurveTo(-19, 4.6, -11.5, 2.4); fin.closePath();
-    shaded(ctx, fin, s.fins, () => finShade(ctx, side < 0, s.fins, -27, -11));
-    ctx.restore();
-  }
-  const tank = new Path2D(); tank.roundRect(27, 12, 22, 6.6, 3.3);
-  shaded(ctx, tank, '#ffe27a', () => cylinder(ctx, 27, 12, 22, 6.6));
-  roundRect(ctx, 48, 13, 3, 4.6, 1); fillOut(ctx, '#8796a8', 1.6);
-  const body = new Path2D(); body.ellipse(41, 24.5, 14.5, 7.8, 0, 0, TAU);
-  shaded(ctx, body, s.body, () => {
-    ctx.fillStyle = s.fins; ctx.beginPath(); ctx.ellipse(41, 27.6, 13.5, 1.5, 0.02, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#3a4863'; ctx.fillRect(33, 16, 2.8, 17);
-    vol(ctx, 41, 24.5, 14.5, 7.8, s.belly);
+  const [x, y, r] = [57.5, 22.5, 12.5], tone = s.tone ?? '#f6c9a0', mask = s.mask ?? s.fins;
+  suitBody(ctx, k, s, 16, '#ffe27a', null, tone);
+  const hat = s.extra && HATS.includes(s.extra);
+  squash(ctx, x, y, k, () => {
+    if (!hat) {
+      // Snorkel (it comes off when a hat goes on).
+      const sx = x - 0.5 * r;
+      ctx.beginPath(); ctx.moveTo(sx, y - 0.4 * r); ctx.lineTo(sx, y - r - 5.5);
+      ctx.strokeStyle = OUT; ctx.lineWidth = 4.6; ctx.stroke(); ctx.strokeStyle = mask; ctx.lineWidth = 2.4; ctx.stroke();
+      ctx.beginPath(); ctx.arc(sx, y - r - 5.6, 1.9, 0, TAU); fillOut(ctx, '#ff5a7a', 1.6);
+    }
+    shaded(ctx, circle(x, y, r), s.body, () => {
+      ctx.fillStyle = s.fins; ctx.fillRect(x - r - 2, y + 0.5 * r, 2 * r + 4, 0.16 * r);
+      // The hood's face opening, with a fringe of hair.
+      ctx.fillStyle = tone; ctx.beginPath(); ctx.ellipse(x + 0.32 * r, y + 0.02 * r, 0.62 * r, 0.68 * r, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = s.hair ?? '#5a3a22'; ctx.beginPath(); ctx.ellipse(x + 0.2 * r, y - 0.62 * r, 0.5 * r, 0.2 * r, -0.2, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.ellipse(x + 0.32 * r, y + 0.02 * r, 0.62 * r, 0.68 * r, 0, 0, TAU); ctx.stroke();
+      vol(ctx, x, y, r, r, s.belly);
+    });
+    // Mask strap, the mask, eyes behind its glass, brows on the skin above it, mouth below.
+    ctx.beginPath(); ctx.moveTo(x - 0.15 * r, y - 0.08 * r); ctx.lineTo(x - 0.95 * r, y - 0.2 * r);
+    ctx.strokeStyle = OUT; ctx.lineWidth = 3.6; ctx.stroke(); ctx.strokeStyle = mask; ctx.lineWidth = 1.8; ctx.stroke();
+    roundRect(ctx, x - 0.18 * r, y - 0.38 * r, 1.05 * r, 0.62 * r, 0.26 * r); fillOut(ctx, mask, 2.2);
+    const lens = new Path2D(); lens.roundRect(x - 0.08 * r, y - 0.29 * r, 0.86 * r, 0.44 * r, 0.18 * r);
+    const glass = ctx.createLinearGradient(x, y - 0.3 * r, x + 0.8 * r, y + 0.2 * r); glass.addColorStop(0, '#dcf7ff'); glass.addColorStop(1, '#4fb8ee');
+    shaded(ctx, lens, glass, () => {
+      face(ctx, x, y + 0.02 * r, r * 0.9, '#ffffff', { mouth: false, brow: false, lift: 0.3 });
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x + 0.02 * r, y + 0.08 * r); ctx.lineTo(x + 0.16 * r, y - 0.22 * r); ctx.stroke();
+    }, 1.6);
+    face(ctx, x, y + 0.02 * r, r * 0.9, '#ffffff', { mouth: false, eyes: false, lift: 0.3 });
+    ctx.strokeStyle = OUT; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(x + 0.44 * r, y + 0.36 * r, 0.16 * r, 0.35, Math.PI - 0.5); ctx.stroke();
   });
-  limb(ctx, [51, 26.5, 55 + k, 31, 59.5 + k * 1.6, 31.5 - k * 0.6], s.body, 3.4);
-  ctx.beginPath(); ctx.arc(60 + k * 1.6, 31.4 - k * 0.6, 2.2, 0, TAU); fillOut(ctx, tone, 1.8);
-  if (!(s.extra && HATS.includes(s.extra))) {
-    // Snorkel (it comes off when a hat goes on).
-    ctx.beginPath(); ctx.moveTo(57.5, 15); ctx.lineTo(57.5, 5.5);
-    ctx.strokeStyle = OUT; ctx.lineWidth = 4.6; ctx.stroke(); ctx.strokeStyle = mask; ctx.lineWidth = 2.4; ctx.stroke();
-    ctx.beginPath(); ctx.arc(57.5, 5.2, 1.9, 0, TAU); fillOut(ctx, '#ff5a7a', 1.6);
-  }
-  const head = new Path2D(); head.arc(63, 20, 9, 0, TAU);
-  shaded(ctx, head, tone, () => {
-    ctx.fillStyle = s.hair ?? '#5a3a22'; ctx.beginPath(); ctx.ellipse(59, 13, 9.5, 6, -0.35, 0, TAU); ctx.fill();
-    vol(ctx, 63, 20, 9, 9, toneDeep, false);
-    ctx.fillStyle = 'rgba(255,110,150,.5)'; ctx.beginPath(); ctx.ellipse(63.6, 25, 1.6, 0.9, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = OUT; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(68, 24.3, 1.7, 0.4, Math.PI - 0.4); ctx.stroke();
-  });
-  ctx.beginPath(); ctx.moveTo(54.6, 17.6); ctx.lineTo(62, 17.6);
-  ctx.strokeStyle = OUT; ctx.lineWidth = 3.6; ctx.stroke(); ctx.strokeStyle = mask; ctx.lineWidth = 1.6; ctx.stroke();
-  roundRect(ctx, 61, 13, 12, 9.4, 4.2); fillOut(ctx, mask, 2.2);
-  const glass = ctx.createLinearGradient(62, 14, 72, 21); glass.addColorStop(0, '#dcf7ff'); glass.addColorStop(1, '#4fb8ee');
-  const lens = new Path2D(); lens.roundRect(62.6, 14.6, 8.8, 6.2, 3);
-  shaded(ctx, lens, glass, () => {
-    eye(ctx, 65, 17.8, 1.45); eye(ctx, 69.1, 17.8, 1.45);
-    ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(63.6, 19.6); ctx.lineTo(65.8, 15.4); ctx.stroke();
-  }, 1.6);
-  headgear(ctx, s, 62.5, 11.6);
+  headgear(ctx, s, x + 0.1 * r, y - r + 0.6);
 };
 
-/** Otter: a sea otter in a glass bubble helmet with a backpack tank; the tail does the kicking. */
+/** Otter: a furry body with a tail and paws, a backpack, and a round head with ears, muzzle and scarf. */
 const drawOtter: DrawDiver = (ctx, k, _p, s) => {
-  const cream = s.cream ?? '#ffe3c2';
-  ctx.save(); ctx.translate(23, 27); ctx.rotate(k * 0.26);
-  const tail = new Path2D();
-  tail.moveTo(2, -5); tail.quadraticCurveTo(-8, -5.6, -17, -1.6); tail.quadraticCurveTo(-19.6, 0.4, -17, 2.3); tail.quadraticCurveTo(-8, 4.8, 2, 4.6); tail.closePath();
-  shaded(ctx, tail, s.body, () => {
-    const g = ctx.createLinearGradient(0, -6, 0, 5);
-    g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, rgba(s.belly, 0.9));
-    ctx.fillStyle = g; ctx.fillRect(-20, -7, 23, 13);
-  });
-  ctx.restore();
-  const paddle = (x: number, y: number, a: number, col: string) => {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  const [x, y, r] = [57, 23, 12.5], cream = s.cream ?? '#ffe3c2';
+  otterTail(ctx, k, s, 27, 28.5);
+  for (const side of [-1, 1]) {
+    ctx.save(); ctx.translate(29, 32 + side * 1.5); ctx.rotate(0.5 + side * 0.1 - k * 0.4 * side);
     ctx.beginPath(); ctx.moveTo(1, -1.6); ctx.quadraticCurveTo(-6, -4, -7.5, 0); ctx.quadraticCurveTo(-6, 4, 1, 1.6); ctx.closePath();
-    fillOut(ctx, col, 2); ctx.restore();
-  };
-  paddle(27, 33, 0.5 - k * 0.45, s.belly);
-  const pack = new Path2D(); pack.roundRect(22, 11.2, 15, 8, 4);
-  shaded(ctx, pack, s.fins, () => cylinder(ctx, 22, 11.2, 15, 8));
-  if (s.extra === 'spikes') spikes(ctx, 35, 26, 14, 10);
-  const body = new Path2D(); body.ellipse(35, 26, 14, 10, 0, 0, TAU);
-  shaded(ctx, body, s.body, () => {
-    ctx.fillStyle = cream; ctx.beginPath(); ctx.ellipse(37.5, 32.5, 11, 4.6, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = s.fins; band(ctx, 29.5, 3.1, 14, 37);
-    vol(ctx, 35, 26, 14, 10, s.belly);
-  });
-  paddle(30, 34.5, 0.35 + k * 0.45, s.body);
-  ctx.beginPath(); ctx.ellipse(48.5 + k * 1.5, 34 - k * 0.8, 2.8, 2.2, 0.3, 0, TAU); fillOut(ctx, s.body, 2);
-  ctx.beginPath(); ctx.ellipse(46.5, 24.5, 3.4, 9, 0, 0, TAU); fillOut(ctx, metal(ctx, 43, 15, 50, 34, METAL.brass), 2.2);
-  for (const [x, y] of [[53, 14.4], [61.6, 13.4]]) {
-    ctx.beginPath(); ctx.arc(x, y, 2.4, 0, TAU); fillOut(ctx, s.body, 1.8);
-    ctx.fillStyle = cream; ctx.beginPath(); ctx.arc(x, y + 0.3, 1, 0, TAU); ctx.fill();
+    fillOut(ctx, side < 0 ? s.belly : s.body, 2); ctx.restore();
   }
-  const head = new Path2D(); head.arc(58, 21.5, 8, 0, TAU);
-  shaded(ctx, head, s.body, () => vol(ctx, 58, 21.5, 8, 8, s.belly, false), 2.2);
-  ctx.beginPath(); ctx.ellipse(62.3, 24.6, 4.6, 3.3, 0, 0, TAU); fillOut(ctx, cream, 1.6);
-  ctx.fillStyle = 'rgba(255,110,150,.5)'; ctx.beginPath(); ctx.ellipse(55, 24, 1.5, 0.9, 0, 0, TAU); ctx.fill();
-  eye(ctx, 56.6, 19.6, 1.6); eye(ctx, 62.2, 19.2, 1.6);
-  ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(64.8, 22.8, 1.6, 1.1, 0, 0, TAU); ctx.fill();
-  ctx.strokeStyle = OUT; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(62.9, 25, 1, 0.2, Math.PI - 0.2); ctx.arc(64.9, 25, 1, 0.2, Math.PI - 0.2); ctx.stroke();
-  ctx.strokeStyle = 'rgba(22,35,59,.55)'; ctx.lineWidth = 0.6;
-  ctx.beginPath(); ctx.moveTo(65.5, 24.4); ctx.lineTo(68.8, 23.4); ctx.moveTo(65.5, 25.4); ctx.lineTo(68.8, 26.2); ctx.stroke();
-  // The bubble: faint tint, thicker glass at the rim, reflections, then its outline.
-  const bub = new Path2D(); bub.arc(57.5, 21.2, 12.2, 0, TAU);
-  ctx.save(); ctx.clip(bub);
-  ctx.fillStyle = 'rgba(190,235,255,.2)'; ctx.fillRect(44, 8, 28, 28);
-  const edge = ctx.createRadialGradient(57.5, 21.2, 8.5, 57.5, 21.2, 12.4);
-  edge.addColorStop(0, 'rgba(130,210,255,0)'); edge.addColorStop(1, 'rgba(130,210,255,.6)');
-  ctx.fillStyle = edge; ctx.fillRect(44, 8, 28, 28);
-  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(57.5, 21.2, 9.6, 3.55, 4.6); ctx.stroke();
-  ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(60.5, 11.8, 0.9, 0, TAU); ctx.fill();
-  ctx.strokeStyle = 'rgba(225,250,255,.6)'; ctx.lineWidth = 1.1; ctx.beginPath(); ctx.arc(57.5, 21.2, 10, 0.2, 1.35); ctx.stroke();
-  ctx.restore();
-  ctx.strokeStyle = OUT; ctx.lineWidth = LINE; ctx.stroke(bub);
-  headgear(ctx, s, 57.5, 9.8);
+  const pack = new Path2D(); pack.roundRect(27, 15.5, 14, 7, 3.5);
+  shaded(ctx, pack, s.fins, () => cylinder(ctx, 27, 15.5, 14, 7));
+  torso(ctx, s, cream, s.fins);
+  paw(ctx, k, s.body, s.body);
+  squash(ctx, x, y, k, () => {
+    for (const [ex, ey] of [[x - 0.32 * r, y - 0.86 * r], [x + 0.4 * r, y - 0.92 * r]]) {
+      ctx.beginPath(); ctx.arc(ex, ey, 0.27 * r, 0, TAU); fillOut(ctx, s.body, 2);
+      ctx.fillStyle = cream; ctx.beginPath(); ctx.arc(ex + 0.03 * r, ey + 0.04 * r, 0.12 * r, 0, TAU); ctx.fill();
+    }
+    shaded(ctx, circle(x, y, r), s.body, () => {
+      ctx.fillStyle = cream; ctx.beginPath(); ctx.ellipse(x + 0.15 * r, y + 0.8 * r, 0.75 * r, 0.42 * r, 0, 0, TAU); ctx.fill();
+      vol(ctx, x, y, r, r, s.belly);
+      // A scarf in the outfit's accent colour round the neck.
+      ctx.strokeStyle = s.fins; ctx.lineWidth = 0.26 * r;
+      ctx.beginPath(); ctx.arc(x - 0.08 * r, y - 0.05 * r, r * 1.02, 1.75, 2.85); ctx.stroke();
+      ctx.strokeStyle = 'rgba(22,35,59,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x - 0.08 * r, y - 0.05 * r, r * 0.89, 1.75, 2.85); ctx.stroke();
+    });
+    // Muzzle, then the eyes and brow, nose, mouth and whiskers.
+    ctx.beginPath(); ctx.ellipse(x + 0.5 * r, y + 0.36 * r, 0.44 * r, 0.3 * r, 0, 0, TAU); fillOut(ctx, cream, 1.6);
+    face(ctx, x, y - 0.06 * r, r, s.body, { mouth: false, browCol: lum(s.body) > 0.75 ? '#5b3a2a' : BROW });
+    ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(x + 0.86 * r, y + 0.22 * r, 0.14 * r, 0.1 * r, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = OUT; ctx.lineWidth = 1.1;
+    ctx.beginPath(); ctx.arc(x + 0.62 * r, y + 0.42 * r, 0.09 * r, 0.2, Math.PI - 0.2); ctx.arc(x + 0.8 * r, y + 0.42 * r, 0.09 * r, 0.2, Math.PI - 0.2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(22,35,59,.6)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(x + 0.9 * r, y + 0.34 * r); ctx.lineTo(x + 1.15 * r, y + 0.28 * r); ctx.moveTo(x + 0.9 * r, y + 0.42 * r); ctx.lineTo(x + 1.15 * r, y + 0.47 * r); ctx.stroke();
+  });
+  headgear(ctx, s, x + 0.05 * r, y - r + 0.8);
 };
 
-/** Pod: a tiny round submarine with a face in the porthole and a spinning three-blade prop. */
+/** Pod: a short hull with a spinning prop behind a round cockpit head with a periscope and lamp. */
 const drawPod: DrawDiver = (ctx, k, p, s) => {
-  const th = (p * TAU) / 3; // a third of a turn per loop: the three blades line up again
-  ctx.beginPath(); ctx.moveTo(20, 24.5); ctx.lineTo(11, 24.5);
+  const [x, y, r] = [57, 23.5, 12.5], th = (p * TAU) / 3; // a third of a turn per loop: the three blades line up again
+  ctx.beginPath(); ctx.moveTo(24, 25); ctx.lineTo(16, 25);
   ctx.strokeStyle = OUT; ctx.lineWidth = 4.4; ctx.stroke(); ctx.strokeStyle = '#8796a8'; ctx.lineWidth = 2.2; ctx.stroke();
-  const blades = [0, 1, 2].map(i => th + (i * TAU) / 3).sort((a, b) => Math.sin(a) - Math.sin(b));
-  for (const a of blades) {
-    const ext = 7.6 * Math.cos(a);
-    ctx.beginPath(); ctx.ellipse(10.5, 24.5 - ext / 2, 2.3, Math.abs(ext) / 2 + 0.9, 0, 0, TAU);
+  for (const a of [0, 1, 2].map(i => th + (i * TAU) / 3).sort((m, n) => Math.sin(m) - Math.sin(n))) {
+    const ext = 7.4 * Math.cos(a);
+    ctx.beginPath(); ctx.ellipse(15.5, 25 - ext / 2, 2.3, Math.abs(ext) / 2 + 0.9, 0, 0, TAU);
     fillOut(ctx, Math.sin(a) < 0 ? '#9fb0c0' : '#e3eaf1', 1.8);
   }
-  ctx.beginPath(); ctx.arc(10.5, 24.5, 2.2, 0, TAU); fillOut(ctx, '#ffc43d', 1.6);
+  ctx.beginPath(); ctx.arc(15.5, 25, 2.1, 0, TAU); fillOut(ctx, '#ffc43d', 1.6);
   for (const side of [-1, 1]) {
-    const fin = new Path2D(), y = 24.5;
-    fin.moveTo(26, y + side * 7); fin.lineTo(18, y + side * 13); fin.quadraticCurveTo(16.5, y + side * 9, 19, y + side * 4); fin.closePath();
-    shaded(ctx, fin, s.fins, () => { ctx.fillStyle = side < 0 ? 'rgba(255,255,255,.3)' : 'rgba(22,35,59,.25)'; ctx.fillRect(15, y - 14, 12, 28); }, 2.2);
+    const fin = new Path2D();
+    fin.moveTo(30, 25 + side * 5.2); fin.lineTo(22, 25 + side * 9); fin.quadraticCurveTo(20.5, 25 + side * 5.7, 23, 25 + side * 3); fin.closePath();
+    shaded(ctx, fin, s.fins, () => { ctx.fillStyle = side < 0 ? 'rgba(255,255,255,.3)' : 'rgba(22,35,59,.25)'; ctx.fillRect(19, 9, 14, 32); }, 2.2);
   }
-  const sail = new Path2D(); sail.roundRect(35, 8.6, 13, 9.4, 3.6);
-  shaded(ctx, sail, s.body, () => {
-    const g = ctx.createLinearGradient(35, 0, 48, 0); g.addColorStop(0, 'rgba(255,255,255,.4)'); g.addColorStop(1, rgba(s.belly, 0.9));
-    ctx.fillStyle = g; ctx.fillRect(35, 8, 13, 10);
-  });
-  ctx.beginPath(); ctx.arc(48.6, 12.8, 1.9, 0, TAU); fillOut(ctx, '#fff59d', 1.6);
-  if (s.extra === 'spikes') spikes(ctx, 41, 25, 23, 13);
-  const hull = new Path2D(); hull.ellipse(41, 25, 23, 13, 0, 0, TAU);
-  shaded(ctx, hull, s.body, () => {
-    ctx.fillStyle = s.fins; ctx.fillRect(17, 28.6, 48, 3.8);
-    ctx.strokeStyle = 'rgba(22,35,59,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(29, 25, 3.2, 12.6, 0, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+  shaded(ctx, oval(36, 25, 16, 9.5), s.body, () => {
+    ctx.fillStyle = s.fins; ctx.fillRect(18, 28.5, 36, 3);
     ctx.fillStyle = 'rgba(22,35,59,.45)';
-    for (const a of [-1.1, -0.55, 0, 0.55, 1.1]) { ctx.beginPath(); ctx.arc(29 + Math.cos(a) * 3.2 - 1.2, 25 + Math.sin(a) * 12.6, 0.6, 0, TAU); ctx.fill(); }
-    vol(ctx, 41, 25, 23, 13, s.belly);
+    for (const dx of [-9, -4, 1]) { ctx.beginPath(); ctx.arc(36 + dx, 20.5, 0.65, 0, TAU); ctx.fill(); }
+    vol(ctx, 36, 25, 16, 9.5, s.belly);
   });
-  ctx.save(); ctx.translate(38, 34); ctx.rotate(0.15 + k * 0.25);
+  ctx.save(); ctx.translate(38, 33.5); ctx.rotate(0.15 + k * 0.25);
   const wing = new Path2D(); wing.moveTo(3, -1.5); wing.quadraticCurveTo(-4, 1, -8, 5); wing.quadraticCurveTo(-1, 5.5, 4, 1.8); wing.closePath();
   shaded(ctx, wing, s.fins, () => { ctx.fillStyle = 'rgba(22,35,59,.2)'; ctx.fillRect(-9, 2, 14, 5); }, 2);
   ctx.restore();
-  porthole(ctx, 59.5, 23.5, 9, 7.2, METAL.brass);
-  headgear(ctx, s, 41.5, 9.4);
+  squash(ctx, x, y, k, () => {
+    // Periscope up top, then the cockpit head with a stripe, rivets, lamp and face.
+    const px = x - 0.42 * r;
+    ctx.beginPath(); ctx.moveTo(px, y - r + 3); ctx.lineTo(px, 4.5); ctx.lineTo(px + 4.5, 4.5);
+    ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#9fb0c0'; ctx.lineWidth = 2.8; ctx.stroke();
+    roundRect(ctx, px + 3.5, 2.4, 3.2, 4.2, 1); fillOut(ctx, '#5fe8ff', 1.4);
+    shaded(ctx, circle(x, y, r), s.body, () => {
+      ctx.fillStyle = s.fins; ctx.fillRect(x - r - 2, y + 0.42 * r, 2 * r + 4, 0.26 * r);
+      ctx.strokeStyle = 'rgba(22,35,59,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x - 0.55 * r, y, 3, r - 0.5, 0, -Math.PI / 2, Math.PI / 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(22,35,59,.45)';
+      for (const a of [-1.1, -0.55, 0, 0.55, 1.1]) { ctx.beginPath(); ctx.arc(x - 0.55 * r + Math.cos(a) * 3 - 1.2, y + Math.sin(a) * (r - 0.5), 0.6, 0, TAU); ctx.fill(); }
+      patch(ctx, x, y, r, s.body);
+      vol(ctx, x, y, r, r, s.belly);
+    });
+    ctx.beginPath(); ctx.arc(x + 0.95 * r, y - 0.55 * r, 1.8, 0, TAU); fillOut(ctx, '#fff59d', 1.5);
+    face(ctx, x, y, r, s.body);
+  });
+  headgear(ctx, s, x + 0.2 * r, y - r + 0.8);
 };
 
 const DRAW: Record<CharId, DrawDiver> = { brass: drawBrass, scuba: drawScuba, otter: drawOtter, pod: drawPod };
+
+/**
+ * One of an outfit's 6 kick frames, in the 82 x 46 frame at whatever scale `ctx` is set to. Used for
+ * the sprite sheets, and live (at screen resolution) for the title screen's showcase.
+ */
+export function paintDiver(ctx: Ctx, skin: Skin, frame: number) {
+  setup(ctx);
+  DRAW[skin.char ?? 'brass'](ctx, Math.sin((frame / 6) * TAU), frame / 6, skin);
+}
+
+const BROW = '#1b1410';
+
+/**
+ * The doodle-head face: two big eyes looking forward and a heavy slab of brow across both, dipping
+ * in the middle so they look determined, plus a grin. `under` is the colour the brow sits on (a dark
+ * one gets a light rim so the brow still shows).
+ */
+function face(ctx: Ctx, x: number, y: number, r: number, under: string,
+  o: { drop?: number; lift?: number; eyes?: boolean; brow?: boolean; mouth?: boolean; browCol?: string } = {}) {
+  const ey = y + (o.drop ?? 0) * r;
+  if (o.eyes !== false) {
+    for (const [ex, eyy, rx, ry] of [[x + 0.08 * r, ey - 0.04 * r, 0.2 * r, 0.25 * r], [x + 0.55 * r, ey - 0.08 * r, 0.23 * r, 0.28 * r]]) {
+      ctx.beginPath(); ctx.ellipse(ex, eyy, rx, ry, 0, 0, TAU); fillOut(ctx, '#ffffff', Math.max(1.3, r * 0.085));
+      const px = ex + rx * 0.3, py = eyy + ry * 0.14;
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(px, py, rx * 0.52, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(px - rx * 0.18, py - rx * 0.2, rx * 0.17, 0, TAU); ctx.fill();
+    }
+  }
+  if (o.brow !== false) {
+    const by = ey - (0.4 + (o.lift ?? 0)) * r;
+    const brow = () => {
+      ctx.beginPath(); ctx.moveTo(x - 0.16 * r, by - 0.05 * r); ctx.lineTo(x + 0.33 * r, by + 0.07 * r); ctx.lineTo(x + 0.86 * r, by - 0.07 * r); ctx.stroke();
+    };
+    if (lum(under) < 0.4) { ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 0.2 * r + 2; brow(); }
+    ctx.strokeStyle = o.browCol ?? BROW; ctx.lineWidth = 0.2 * r; brow();
+  }
+  if (o.mouth === false) return;
+  ctx.strokeStyle = OUT; ctx.lineWidth = Math.max(1.2, 0.09 * r);
+  ctx.beginPath(); ctx.arc(x + 0.42 * r, y + 0.32 * r, 0.2 * r, 0.35, Math.PI - 0.55); ctx.stroke();
+}
+
+/** The head squashes and stretches a touch with the kick. */
+function squash(ctx: Ctx, x: number, y: number, k: number, draw: () => void) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(1 + 0.03 * k, 1 - 0.03 * k); ctx.translate(-x, -y);
+  draw();
+  ctx.restore();
+}
+
+/** A light patch toward the front-bottom of a head (inside its clip). */
+function patch(ctx: Ctx, x: number, y: number, r: number, body: string) {
+  ctx.fillStyle = mix(body, '#ffffff', 0.55);
+  ctx.beginPath(); ctx.ellipse(x + 0.3 * r, y + 0.55 * r, 0.66 * r, 0.42 * r, -0.15, 0, TAU); ctx.fill();
+}
+
+/** Little Brass's and the Scuba Kid's body: kicking legs with flippers, a tank on the back, the torso and one arm. */
+function suitBody(ctx: Ctx, k: number, s: Skin, finLen: number, tankBase: string, tankBand: string | null, hand: string) {
+  for (const side of [-1, 1]) {
+    ctx.save(); ctx.translate(28, 28.5 + side * 2); ctx.rotate(0.06 * side + k * 0.32 * side);
+    limb(ctx, [0, 0, -8, 0.4], side < 0 ? s.belly : s.body);
+    ctx.translate(-7, 0.3);
+    const fin = new Path2D();
+    fin.moveTo(0, -2.7); fin.quadraticCurveTo(-finLen * 0.55, -6.6, -finLen, -4.3);
+    fin.quadraticCurveTo(-finLen * 0.84, 0, -finLen, 4.3); fin.quadraticCurveTo(-finLen * 0.55, 6.6, 0, 2.7); fin.closePath();
+    shaded(ctx, fin, s.fins, () => finShade(ctx, side < 0, s.fins, -finLen - 1, 1), 2.2);
+    ctx.restore();
+  }
+  const tank = new Path2D(); tank.roundRect(26, 15, 17, 6.6, 3.3);
+  shaded(ctx, tank, tankBase, () => cylinder(ctx, 26, 15, 17, 6.6, tankBand ?? undefined));
+  if (s.extra === 'spikes') spikes(ctx, 36, 26.5, 12, 8.5);
+  const scuba = s.char === 'scuba';
+  torso(ctx, s, mix(s.body, '#ffffff', 0.5), scuba ? null : '#4a5a78', scuba ? s.fins : null);
+  paw(ctx, k, s.body, hand);
+}
+
+/** The chubby torso behind the head, with the outfit's pattern, a light belly, and a strap or stripe. */
+function torso(ctx: Ctx, s: Skin, belly: string, strap: string | null, stripe: string | null = null) {
+  const [bx, by, rx, ry] = [36, 26.5, 12, 8.5];
+  shaded(ctx, oval(bx, by, rx, ry), s.body, () => {
+    if (s.extra === 'spots') {
+      ctx.fillStyle = 'rgba(255,255,255,.65)';
+      for (const [dx, dy, rr] of [[-6, -2, 1.8], [-1, -4.5, 1.4], [-4, 3, 1.3]]) { ctx.beginPath(); ctx.arc(bx + dx, by + dy, rr, 0, TAU); ctx.fill(); }
+    } else if (s.extra === 'stripes') {
+      ctx.fillStyle = s.belly;
+      for (const dx of [-8, -2]) band(ctx, bx + dx, 2.4, by - ry, by + ry);
+    }
+    ctx.fillStyle = belly; ctx.beginPath(); ctx.ellipse(bx + 2, by + ry - 1.5, rx * 0.8, 3.6, 0, 0, TAU); ctx.fill();
+    if (stripe) { ctx.fillStyle = stripe; ctx.fillRect(bx - rx, by + 1.2, 2 * rx, 1.8); }
+    if (strap) { ctx.fillStyle = strap; band(ctx, bx - 4, 2.6, by - ry, by + ry); }
+    vol(ctx, bx, by, rx, ry, s.belly);
+  });
+}
+
+/** One arm paddling under the head. */
+function paw(ctx: Ctx, k: number, arm: string, hand: string) {
+  const hx = 51.5 + k * 1.6, hy = 34.5 - k * 0.6;
+  limb(ctx, [44, 29.5, 47.5 + k, 34, hx, hy], arm, 3.4);
+  ctx.beginPath(); ctx.arc(hx + 0.4, hy, 2.4, 0, TAU); fillOut(ctx, hand, 1.8);
+}
+
+/** The otter's thick tail, flapping with the kick. */
+function otterTail(ctx: Ctx, k: number, s: Skin, x: number, y: number) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(k * 0.3);
+  const tail = new Path2D();
+  tail.moveTo(2, -4.6); tail.quadraticCurveTo(-7, -5, -15, -1.4); tail.quadraticCurveTo(-17.5, 0.4, -15, 2.1); tail.quadraticCurveTo(-7, 4.4, 2, 4.2); tail.closePath();
+  shaded(ctx, tail, s.body, () => {
+    const g = ctx.createLinearGradient(0, -5, 0, 5);
+    g.addColorStop(0, 'rgba(255,255,255,.35)'); g.addColorStop(0.5, 'rgba(255,255,255,0)'); g.addColorStop(1, rgba(s.belly, 0.9));
+    ctx.fillStyle = g; ctx.fillRect(-18, -6, 21, 12);
+  });
+  ctx.restore();
+}
+
+const circle = (x: number, y: number, r: number) => { const p = new Path2D(); p.arc(x, y, r, 0, TAU); return p; };
+const oval = (x: number, y: number, rx: number, ry: number) => { const p = new Path2D(); p.ellipse(x, y, rx, ry, 0, 0, TAU); return p; };
+
+/** Rough brightness of a '#rrggbb' colour, 0..1. */
+function lum(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+}
 
 /** Crown, captain's cap or angler lure, anchored at the middle of the hat's base. */
 function headgear(ctx: Ctx, s: Skin, x: number, y: number) {
@@ -810,33 +884,6 @@ function metal(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, M: stri
   const g = ctx.createLinearGradient(x0, y0, x1, y1);
   g.addColorStop(0, M[0]); g.addColorStop(0.45, M[1]); g.addColorStop(1, M[2]);
   return g;
-}
-
-/** A face window: metal ring with bolts, glass sunk into it, the face behind, glossy reflections. */
-function porthole(ctx: Ctx, cx: number, cy: number, ring: number, r: number, M: string[]) {
-  ctx.beginPath(); ctx.arc(cx, cy, ring, 0, TAU); fillOut(ctx, metal(ctx, cx - ring, cy - ring, cx + ring, cy + ring, M), 1.8);
-  for (const a of [0.6, 2.1, 3.7, 5.2]) {
-    const bx = cx + Math.cos(a) * ring, by = cy + Math.sin(a) * ring;
-    ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(bx, by, 0.8, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(bx - 0.25, by - 0.25, 0.3, 0, TAU); ctx.fill();
-  }
-  const glass = ctx.createRadialGradient(cx - r * 0.38, cy - r * 0.45, 0.5, cx, cy, r * 1.06);
-  glass.addColorStop(0, '#dcf7ff'); glass.addColorStop(0.6, '#6cc6f2'); glass.addColorStop(1, '#3a9be0');
-  const lens = new Path2D(); lens.arc(cx, cy, r, 0, TAU);
-  shaded(ctx, lens, glass, () => {
-    const fx = cx + 0.15, fy = cy + 0.2;
-    eye(ctx, fx - 0.3 * r, fy - 0.2 * r, 0.27 * r); eye(ctx, fx + 0.37 * r, fy - 0.2 * r, 0.27 * r);
-    ctx.fillStyle = 'rgba(255,110,150,.55)'; ctx.beginPath();
-    ctx.ellipse(fx - 0.5 * r, fy + 0.32 * r, 0.23 * r, 0.14 * r, 0, 0, TAU); ctx.ellipse(fx + 0.6 * r, fy + 0.32 * r, 0.23 * r, 0.14 * r, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = OUT; ctx.lineWidth = 0.2 * r; ctx.beginPath(); ctx.arc(fx + 0.05 * r, fy + 0.26 * r, 0.35 * r, 0.3, Math.PI - 0.3); ctx.stroke();
-    // The glass sits sunk in the ring, so its edge falls into shade, most on the top left.
-    const sunk = ctx.createRadialGradient(cx + 0.9, cy + 0.9, 0, cx + 0.9, cy + 0.9, r * 1.18);
-    sunk.addColorStop(0.7, 'rgba(22,35,59,0)'); sunk.addColorStop(1, 'rgba(22,35,59,.42)');
-    ctx.fillStyle = sunk; ctx.fillRect(cx - r - 2, cy - r - 2, r * 2 + 4, r * 2 + 4);
-    ctx.strokeStyle = 'rgba(255,255,255,.95)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(cx, cy, r * 0.76, 3.5, 4.55); ctx.stroke();
-    ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(cx + r * 0.2, cy - r * 0.73, 0.8, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(225,250,255,.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r * 0.79, 0.25, 1.35); ctx.stroke();
-  }, 2);
 }
 
 /** An arm or leg: a thick outlined stroke, straight or (with six numbers) curved. */

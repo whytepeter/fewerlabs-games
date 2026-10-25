@@ -1,5 +1,6 @@
 import { settings } from './settings';
 import { sfx } from './sfx';
+import { track } from './analytics';
 
 /**
  * Rewarded ads only (Google H5 Games Ads, part of AdSense): the player chooses to watch one for a
@@ -57,6 +58,14 @@ export const ads = {
    */
   rewarded(name: string): Promise<ShowAd | null> {
     if (mode === 'off' || showing) return Promise.resolve(null);
+    // Analytics: whether an ad was there to offer, and whether the player watched it to the end.
+    return this.request(name).then(show => {
+      track('ad', { placement: name, result: show ? 'offered' : 'none' });
+      return show && (() => show().then(watched => { track('ad', { placement: name, result: watched ? 'watched' : 'skipped' }); return watched; }));
+    });
+  },
+
+  request(name: string): Promise<ShowAd | null> {
     if (mode === 'fake') return Promise.resolve(fakeAd);
     return new Promise(ready => {
       let settled = false, finish: (watched: boolean) => void = () => {};

@@ -1,5 +1,6 @@
 import { metaChanged, shop } from '../core/meta';
 import { store } from '../core/settings';
+import { track } from '../core/analytics';
 
 /**
  * Gadgets (as in Jetpack Joyride): bought once, then equipped into a few slots. Each one bends a
@@ -45,6 +46,7 @@ export const gadgets = {
     const r = owned.buy(id);
     owned.equip(before);
     if (r !== 'bought') return 'poor';
+    track('spend', { item: `gadget:${id}`, price: GADGETS.find(g => g.id === id)!.price, cur: 'coins' });
     if (this.equipped(rank).length < this.slots(rank)) this.toggle(id, rank);
     return 'bought';
   },

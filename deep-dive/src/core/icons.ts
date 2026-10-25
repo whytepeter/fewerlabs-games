@@ -20,7 +20,9 @@ const PATHS = {
   lock: '<rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" fill="none" stroke="currentColor" stroke-width="2.6"/>',
   star: '<path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/>',
   calendar: '<path fill-rule="evenodd" d="M7 2.5a1 1 0 0 1 1 1V5h8V3.5a1 1 0 1 1 2 0V5h1a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V3.5a1 1 0 0 1 1-1ZM5 10v9h14v-9Zm3 2h3v3H8Z"/>',
-  gift: '<path d="M3.5 8.5h17v4h-17zM5 12.5h14V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M12 8.5c-1-3-5.5-4.5-6-2s4 2 6 2c2 0 6.5.5 6-2s-5-1-6 2zM11 8.5h2V21h-2z" fill="#fff" opacity=".85"/>',
+  // A little cartoon TV with antennae and a play button on its screen: rewarded ads.
+  tv: '<path d="M8.2 2.6 12 6.2l3.8-3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="6" width="20" height="13.5" rx="4"/><rect x="4.6" y="8.4" width="14.8" height="8.7" rx="2.4" fill="#16233b" opacity=".45"/><path d="M10.4 10.4v4.9a.5.5 0 0 0 .75.43l4.1-2.45a.5.5 0 0 0 0-.86l-4.1-2.45a.5.5 0 0 0-.75.43z"/><path d="M6.5 19.5 5.6 21.6M17.5 19.5l.9 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+    gift: '<path d="M3.5 8.5h17v4h-17zM5 12.5h14V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1z"/><path d="M12 8.5c-1-3-5.5-4.5-6-2s4 2 6 2c2 0 6.5.5 6-2s-5-1-6 2zM11 8.5h2V21h-2z" fill="#fff" opacity=".85"/>',
   boat: '<path d="M2.5 13h19l-3.2 5.5a2 2 0 0 1-1.7 1H7.4a2 2 0 0 1-1.7-1z"/><path d="M11 3.5v8H5.5z"/><path d="M12.5 5v6.5H18z"/>',
   stone: '<ellipse cx="12" cy="13" rx="9" ry="5.5"/>',
   close: '<path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',

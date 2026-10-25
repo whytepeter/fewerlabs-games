@@ -1,17 +1,17 @@
 import { coins } from '../core/meta';
 import { BOOSTERS, boosters, type BoosterId } from './boosters';
 import { shells } from './shells';
+import { tuning } from './tuning';
 
 /** What's inside a treasure chest. */
 export type ChestPrize = { kind: 'coins'; n: number } | { kind: 'shell' } | { kind: 'booster'; id: BoosterId };
-
-const SHELL_CHANCE = 0.06, BOOSTER_CHANCE = 0.14;
 
 /**
  * Treasure chests are collected during a dive and opened on the game-over screen. The prizes are
  * rolled and paid out when the dive ends, so leaving without tapping a chest loses nothing.
  */
 export function openChests(n: number): ChestPrize[] {
+  const { chestHeart: SHELL_CHANCE, chestBooster: BOOSTER_CHANCE } = tuning.now; // 6% and 14% unless tuned
   return Array.from({ length: n }, (): ChestPrize => {
     const r = Math.random();
     if (r < SHELL_CHANCE) { shells.add(1); return { kind: 'shell' }; }
