@@ -89,7 +89,7 @@ const ICICLE_LATE = 0.45;     // share of icicles still falling as you pass unde
  */
 type Gap = [number, number, number];
 /** The course's random streams, one per spawner. */
-const STREAMS = ['obs', 'air', 'pearl', 'perk', 'shell', 'chest', 'kelp', 'ice', 'wreck'] as const;
+const STREAMS = ['obs', 'air', 'pearl', 'perk', 'shell', 'chest', 'kelp', 'ice', 'wreck', 'current'] as const;
 type Stream = (typeof STREAMS)[number];
 const PERK_FIRST: Gap = [80, 40, 160], PERK_GAP: Gap = [150, 130, 520];
 const CHEST_FIRST: Gap = [250, 500, 1300], CHEST_GAP: Gap = [450, 950, 2600];
@@ -621,6 +621,7 @@ export class GameScene extends Phaser.Scene {
     const drag = this.tangle > 0 ? 5 : glide ? lerp(glide.drag, 2.6, grip) : 2.6;
     const push = (this.tangle > 0 ? 0.7 : glide ? lerp(glide.steer, 1, grip) : 1) * (this.perk === 'steer' ? DIVER_PERK.steer : 1);
     this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * push * dt, -340, 340);
+    this.vy += this.currentPush() * dt; // Riptide Canyon's currents
     // Turbo steers you gently towards open water so the burst is all fun.
     if (this.turboT > 0) this.vy += clamp(this.caveMid(this.dist + 160) - this.diverY, -80, 80) * 10 * dt;
     this.diverY += this.vy * dt;
@@ -1299,10 +1300,12 @@ export class GameScene extends Phaser.Scene {
     const roll = rollTreasure(d.id, Math.random, this.tune.treasureOdds);
     this.treasureDef = roll?.t ?? null;
     this.treasureAt = roll ? roll.depth * 10 : Infinity;
+    this.resetSetPieces();
   }
 
   private clearWreck() {
     this.cannons = []; this.balls = []; this.anchors = []; this.vents = []; this.decks = [];
+    this.clearSetPieces();
     if (this.treasure) { this.treasure.sprite.destroy(); this.treasure.glow.destroy(); this.treasure = null; }
   }
 
@@ -1317,12 +1320,14 @@ export class GameScene extends Phaser.Scene {
     if (d.anchors && (this.nextAnchor -= step) <= 0) due.push({ timer: this.nextAnchor, run: () => { this.nextAnchor = (this.spawnAnchor() ? this.cr(...d.anchors!.gap) : 200) - this.lag; } });
     if (d.vents && (this.nextVent -= step) <= 0) due.push({ timer: this.nextVent, run: () => { this.nextVent = (this.spawnVent() ? this.cr(...d.vents!.gap) : 200) - this.lag; } });
     if (d.decks && (this.nextDeck -= step) <= 0) due.push({ timer: this.nextDeck, run: () => { this.nextDeck = (this.spawnDeck() ? this.cr(...d.decks!.gap) : 200) - this.lag; } });
+    this.setPieceDue(due, step);
     this.withRng(this.streams.wreck, () => due.sort((a, b) => a.timer - b.timer).forEach(h => { at(h.timer); h.run(); }));
     if (this.dist - this.diverX() + this.W > this.treasureAt) this.spawnTreasure();
     this.cannonCheck(dt, leftEdge);
     if (this.state === 'play') this.anchorCheck(leftEdge);
     if (this.state === 'play') this.ventCheck(leftEdge);
     if (this.state === 'play') this.deckCheck(dt, leftEdge);
+    if (this.state === 'play') this.setPieceCheck(dt, leftEdge, step);
     if (this.state === 'play') this.treasureCheck(dt, leftEdge);
   }
 
@@ -1331,7 +1336,7 @@ export class GameScene extends Phaser.Scene {
     // Measured from where the last hazard was placed (not the live ones, which can vanish on a timer),
     // so the spacing is the same however fast you go: a Daily Dive stays the same for everyone.
     const wx = this.dist - this.diverX() + this.W + 80 - this.lag;
-    if (Math.abs(wx - this.lastWreckX) < WRECK_SPACING) return null;
+    if (this.ghost || Math.abs(wx - this.lastWreckX) < WRECK_SPACING) return null; // nothing new while the ghost ship fires
     this.lastWreckX = wx;
     return wx;
   }
@@ -1418,7 +1423,7 @@ export class GameScene extends Phaser.Scene {
         this.sparks.explode(10, b.x, b.y);
         sfx.noise(0.25, 0.1, 500);
         this.vy = Math.sign(this.diverY - b.y || 1) * 260;
-        this.loseLife('Hit by a cannonball');
+        this.loseLife(b.ghost ? 'Hit by a ghostly cannonball' : 'Hit by a cannonball');
         if (this.state !== 'play') return;
         continue;
       }
@@ -1611,6 +1616,8 @@ export class GameScene extends Phaser.Scene {
         g.strokePoints(this.topEdge.map(p => ({ x: p.x, y: p.y - off })));
         g.strokePoints(this.botEdge.map(p => ({ x: p.x, y: p.y + off })));
       }
+    } else if (kind !== 'liner') {
+      this.newWalls(g, rock);
     } else {
       g.fillStyle(mixNum(rock, 0xffffff, 0.28), 1);
       this.topEdge.forEach(p => { if ((Math.round(p.x / 12) & 1) === 0) g.fillCircle(p.x, p.y - 9, 1.6); });
@@ -1628,7 +1635,8 @@ export class GameScene extends Phaser.Scene {
       if (this.spiky(wx, side)) continue;
       const base = cave(wx, H, this.cv, this.def.shape)[side], up = side ? -1 : 1, pick = hash(k * 5.3 + 1);
       if (kind === 'ship') this.shipDecor(g, wx, base, up, pick, T, mute, line);
-      else this.linerDecor(g, wx, base, up, pick, mute, line);
+      else if (kind === 'liner') this.linerDecor(g, wx, base, up, pick, mute, line);
+      else this.newDecor(g, wx, base, up, pick, T, mute, line);
     }
   }
 
@@ -1755,6 +1763,13 @@ export class GameScene extends Phaser.Scene {
       if (!on(b.x)) continue;
       const len = Math.hypot(b.vx, b.vy) || 1;
       for (let i = 3; i >= 1; i--) { g.fillStyle(0xc9d2dc, 0.18 * (4 - i)); g.fillCircle(b.x - (b.vx / len) * i * 10, b.y - (b.vy / len) * i * 10, 5 + i); }
+      if (b.ghost) {
+        // A ghostly ball: pale green light with a dark core.
+        glow.fillStyle(0x8fffc8, 0.35); glow.fillCircle(b.x, b.y, BALL_R + 6);
+        g.fillStyle(0x1f4a3c, 1); g.fillCircle(b.x, b.y, BALL_R);
+        g.lineStyle(2.6, 0x8fffc8, 1); g.strokeCircle(b.x, b.y, BALL_R);
+        continue;
+      }
       g.fillStyle(0x2b2f38, 1); g.fillCircle(b.x, b.y, BALL_R);
       g.lineStyle(2.6, OUTLINE, 1); g.strokeCircle(b.x, b.y, BALL_R);
       g.fillStyle(0x8a95a8, 1); g.fillCircle(b.x - 3, b.y - 3, 2.4);
@@ -1836,6 +1851,402 @@ export class GameScene extends Phaser.Scene {
       const y = it.y + Math.sin(it.ph * 2.5) * 4;
       it.sprite.setPosition(it.x, y).setRotation(Math.sin(it.ph * 1.8) * 0.12).setScale(TEX_SCALE * (1 + Math.sin(it.ph * 4) * 0.06));
       it.glow.setPosition(it.x, y).setDisplaySize(130, 130).setAlpha(0.6 + Math.sin(it.ph * 4) * 0.25);
+    }
+  }
+
+  // ---------- Riptide Canyon currents, Sunken City gates and spears, the Pirate Shipwreck's ghost-ship broadside
+
+  private nextCurrent = Infinity;
+  private currents: Current[] = [];
+  private inCurrent: Current | null = null;  // the current you're in (for its whoosh)
+  private nextGate = Infinity;
+  private gates: Gate[] = [];
+  private nextSpear = Infinity;
+  private spears: Spear[] = [];
+  private broadsideAt = Infinity;            // world x where this dive's ghost ship turns up (Infinity: not this dive)
+  private ghost: Ghost | null = null;
+
+  /** A new dive: first currents, gates and spears, and where the ghost ship comes (all from the course's streams). */
+  private resetSetPieces() {
+    const d = this.def, s = this.streams, first = (h: { from: number } | undefined, r: () => number) => (h ? h.from * 10 + this.withRng(r, () => this.cr(200, 500)) : Infinity);
+    this.nextCurrent = first(d.currents, s.current);
+    this.nextGate = first(d.gates, s.wreck);
+    this.nextSpear = first(d.spears, s.wreck);
+    const b = d.broadside;
+    this.broadsideAt = b ? this.withRng(s.wreck, () => this.cr(b.from, b.to)) * 10 : Infinity;
+  }
+
+  private clearSetPieces() {
+    this.currents = []; this.gates = []; this.spears = []; this.ghost = null; this.inCurrent = null;
+  }
+
+  /** Gates and spears share the wreck hazards' spacing and stream (see `wreckCheck`). */
+  private setPieceDue(due: { timer: number; run: () => void }[], step: number) {
+    const d = this.def;
+    if (d.gates && (this.nextGate -= step) <= 0) due.push({ timer: this.nextGate, run: () => { this.nextGate = (this.spawnGate() ? this.cr(...d.gates!.gap) : 200) - this.lag; } });
+    if (d.spears && (this.nextSpear -= step) <= 0) due.push({ timer: this.nextSpear, run: () => { this.nextSpear = (this.spawnSpear() ? this.cr(...d.spears!.gap) : 200) - this.lag; } });
+  }
+
+  /** Currents (their own stream), gates, spears and the ghost ship; any of them but the currents can end the dive. */
+  private setPieceCheck(dt: number, leftEdge: number, step: number) {
+    const c = this.def.currents;
+    if (c && (this.nextCurrent -= step) <= 0) {
+      this.lag = this.daily ? -this.nextCurrent : 0;
+      this.withRng(this.streams.current, () => { this.spawnCurrent(c); this.nextCurrent = this.cr(...c.gap) - this.lag; });
+    }
+    this.currents = this.currents.filter(k => k.x1 > leftEdge);
+    const now = this.currents.find(k => this.dist > k.x0 && this.dist < k.x1) ?? null;
+    if (now && now !== this.inCurrent && this.turboT <= 0) sfx.noise(0.7, 0.05, 1300, 0.6);
+    this.inCurrent = now;
+    if (this.dist > this.broadsideAt) this.startBroadside();
+    if (this.ghost) this.broadside(dt);
+    if (this.state === 'play') this.gateCheck(leftEdge);
+    if (this.state === 'play') this.spearCheck(leftEdge);
+  }
+
+  // Currents
+
+  /** A stretch of current just off-screen, with a row of pearls along the path it carries you if you let go. */
+  private spawnCurrent(c: NonNullable<CaveDef['currents']>) {
+    const x0 = this.dist - this.diverX() + this.W + 80 - this.lag, len = this.cr(...c.len), dir: 1 | -1 = this.rng() < 0.5 ? 1 : -1;
+    const push = c.push * (0.8 + 0.4 * Math.min(1, this.dist / 9000));
+    const k: Current = { x0, x1: x0 + len, dir, push };
+    this.currents.push(k);
+    // Drifting from rest under a steady push with the water's drag (2.6): y = (a/k)t - (a/k²)(1 - e^-kt).
+    const a = dir * STEER * push, drag = 2.6, speed = this.speed;
+    const [t0, b0] = cave(x0, this.H, this.cv, this.def.shape), y0 = (t0 + b0) / 2 - dir * (b0 - t0) * 0.22;
+    for (let i = 0; i < 7; i++) {
+      const x = x0 + 60 + (i * (len - 80)) / 6, t = (x - x0) / speed;
+      const [tt, bb] = cave(x, this.H, this.cv, this.def.shape);
+      const y = clamp(y0 + (a / drag) * t - (a / (drag * drag)) * (1 - Math.exp(-drag * t)), tt + 34, bb - 34);
+      this.items.push({
+        type: 'pearl', x, y, ph: rand(0, TAU),
+        sprite: this.add.image(x, y, PICKUP_TEX.pearl).setScale(TEX_SCALE).setDepth(11),
+        glow: this.glow(PICKUP_GLOW.pearl).setDepth(10.5),
+      });
+    }
+  }
+
+  /** How hard the water pushes you at world x (px/s², + is down), easing in and out at each end of a current. */
+  private currentAt(x: number) {
+    for (const k of this.currents) {
+      if (x <= k.x0 || x >= k.x1) continue;
+      return k.dir * k.push * STEER * Math.min(1, (x - k.x0) / CURRENT_EASE, (k.x1 - x) / CURRENT_EASE);
+    }
+    return 0;
+  }
+
+  /** The push on the diver this frame: Turbo cuts straight through, and it fades near the wall it pushes towards, so it never pins you. */
+  private currentPush() {
+    if (this.turboT > 0 || !this.currents.length) return 0;
+    const a = this.currentAt(this.dist);
+    if (!a) return 0;
+    const [t, b] = cave(this.dist, this.H, this.cv, this.def.shape), room = a > 0 ? b - this.diverY : this.diverY - t;
+    return a * clamp((room - DIVER_R - 18) / 60, 0, 1);
+  }
+
+  // Gates
+
+  private spawnGate() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const depth = this.dist / 10;
+    const options = depth < 250 ? GATE_PATTERNS.slice(0, 1) : depth < 600 ? GATE_PATTERNS.slice(0, 3) : GATE_PATTERNS;
+    const p = this.cpick(options);
+    this.gates.push({ x: wx, pat: p.pat, per: p.per, ph: Math.floor(this.rng() * 4), slot: -1 });
+    return true;
+  }
+
+  /** Beats into the cave's song, by the music's own clock when it's playing (so what you see matches what you hear). */
+  private beatNow() {
+    return music.beat(this.def.song) ?? (this.clock * this.def.song.bpm) / 60;
+  }
+
+  /** A gate's doorway right now: its top and bottom, which slot it's in, and the slot it moves to next. */
+  private gateAt(g: Gate, beat: number) {
+    const [t, b] = cave(g.x, this.H, this.cv, this.def.shape), n = g.pat.length;
+    const pos = (beat + g.ph) / g.per, i = Math.floor(pos), f = (pos - i) * g.per; // beats into this slot
+    const from = g.pat[(((i - 1) % n) + n) % n], to = g.pat[((i % n) + n) % n];
+    const slide = Math.min(1, f / GATE_SLIDE), e = slide * slide * (3 - 2 * slide);
+    const h = clamp((b - t) * 0.34, 96, 128), cy = t + (b - t) * lerp(from, to, e);
+    return { top: cy - h / 2, bot: cy + h / 2, slot: i, next: g.pat[(((i + 1) % n) + n) % n], t, b };
+  }
+
+  /** Walk through the doorway: it jumps to its next height on the beat, so line up with where it will be. */
+  private gateCheck(leftEdge: number) {
+    this.gates = this.gates.filter(g => g.x + GATE_W > leftEdge);
+    const beat = this.beatNow();
+    for (const g of this.gates) {
+      const d = this.gateAt(g, beat);
+      if (d.slot !== g.slot) {
+        if (g.slot !== -1 && g.x - this.dist > -60 && g.x - this.dist < this.W) sfx.noise(0.16, 0.05, 240, 1.5);
+        g.slot = d.slot;
+      }
+      if (Math.abs(this.dist - g.x) > GATE_W / 2 + DIVER_R * 0.8) { this.dodged(g); continue; }
+      const r = DIVER_R * 0.8, room = Math.min(this.diverY - r - d.top, d.bot - (this.diverY + r));
+      g.gap = Math.min(g.gap ?? Infinity, room);
+      if (room < 0 && this.invuln <= 0 && this.turboT <= 0) {
+        this.sparks.explode(8, this.dist, this.diverY);
+        sfx.noise(0.3, 0.1, 300);
+        this.vy = Math.sign((d.top + d.bot) / 2 - this.diverY || 1) * 280;
+        this.loseLife('Crushed by a temple gate');
+        if (this.state !== 'play') return;
+      }
+    }
+  }
+
+  // Spears
+
+  private spawnSpear() {
+    const wx = this.wreckSpot();
+    if (wx === null) return false;
+    const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
+    this.spears.push({ x: wx, side: this.plainSide(wx, 0.5), reach: (b - t) * this.cr(0.46, 0.58), ph: Math.floor(this.rng() * 4) });
+    return true;
+  }
+
+  /** A spear's reach right now (0 when it's drawn back), whether its statue's eyes are glowing (the beat before), and its base. */
+  private spearAt(sp: Spear, beat: number) {
+    const p = (((beat + sp.ph) % 4) + 4) % 4; // thrusts on the 4th beat of every bar
+    const out = p >= 3 ? Math.min(1, (p - 3) / 0.12, (3.7 - p) / 0.2) : 0;
+    const base = cave(sp.x, this.H, this.cv, this.def.shape)[sp.side] + (sp.side ? -30 : 30);
+    return { reach: sp.reach * Math.max(0, out), warn: p >= 2 && p < 3, base };
+  }
+
+  private spearCheck(leftEdge: number) {
+    this.spears = this.spears.filter(sp => sp.x + 40 > leftEdge);
+    const beat = this.beatNow();
+    for (const sp of this.spears) {
+      const { reach, base } = this.spearAt(sp, beat), d = sp.side ? -1 : 1;
+      if (reach > 4 && !sp.thrust) { sp.thrust = true; if (Math.abs(sp.x - this.dist) < this.W) sfx.noise(0.18, 0.05, 2600, 0.8); }
+      else if (reach <= 4) sp.thrust = false;
+      const gap = reach > 4 ? this.segGap(sp.x, base, sp.x, base + d * reach, 6) : Infinity;
+      if (Math.abs(sp.x - this.dist) < 60 && reach > 4) sp.gap = Math.min(sp.gap ?? Infinity, gap);
+      if (gap < 0 && this.invuln <= 0 && this.turboT <= 0) {
+        this.sparks.explode(8, this.dist, this.diverY);
+        sfx.tone(300, 0.2, { type: 'square', vol: 0.05, slideTo: 140 });
+        this.vy = (sp.side ? -1 : 1) * 260; // away from the statue
+        this.loseLife("Poked by a statue's spear");
+        if (this.state !== 'play') return;
+      }
+      this.dodged(sp);
+    }
+  }
+
+  // The ghost ship
+
+  private startBroadside() {
+    this.broadsideAt = Infinity;
+    this.ghost = { t: 0, shots: 0 };
+    this.calmUntil = Math.max(this.calmUntil, this.dist / 10 + 90); // fewer creatures while it fires
+    ui.banner('Ghost ship!', 'Broadside');
+    for (const [f, d] of [[110, 0], [138.6, 0.05], [164.8, 0.1]] as const) sfx.tone(f, 1.8, { type: 'sawtooth', vol: 0.035, slideTo: f * 0.94, delay: d });
+    buzz([20, 40, 20]);
+  }
+
+  /** The ghost ship's keel, sailing just under the ceiling a little ahead of you. */
+  private ghostAt(): [number, number] {
+    const cx = this.dist + GHOST_AHEAD;
+    let top = -Infinity;
+    for (let x = cx - 120; x <= cx + 120; x += 40) top = Math.max(top, cave(x, this.H, this.cv, this.def.shape)[0]);
+    // Low enough that its masts stay on screen; it's a ghost, so it can sail through rock and water alike.
+    return [cx, Math.max(top + 46, GHOST_MAST + 14) + Math.sin(this.clock * 1.3) * 4];
+  }
+
+  /** Fade in, fire six shots from the bow back to the stern, fade out, and leave its hold of pearls behind. */
+  private broadside(dt: number) {
+    const gh = this.ghost!;
+    gh.t += dt;
+    const fire = GHOST_FIRST + gh.shots * GHOST_EVERY;
+    if (gh.shots < GHOST_SHOTS && gh.t >= fire) {
+      const [cx, keel] = this.ghostAt(), px = cx + 84 - gh.shots * 34, py = keel + 4;
+      const dx = this.dist - px, dy = this.diverY - py, len = Math.hypot(dx, dy) || 1;
+      this.balls.push({ x: px, y: py, vx: (dx / len) * GHOST_CLOSE, vy: (dy / len) * GHOST_CLOSE, ghost: true });
+      this.pops.explode(6, px, py);
+      sfx.noise(0.35, 0.1, 260, 0.8);
+      sfx.tone(220, 0.4, { type: 'triangle', vol: 0.04, slideTo: 150 });
+      gh.shots++;
+    }
+    if (gh.t > GHOST_FIRST + GHOST_SHOTS * GHOST_EVERY + 1.6) {
+      this.ghost = null;
+      this.spawnRow('pearl', 10, 26);
+      ui.damage('The ghost ship spills its hold!', true);
+      sfx.tone(523, 0.18, { vol: 0.06 }); sfx.tone(659, 0.3, { vol: 0.06, delay: 0.1 });
+    }
+  }
+
+  // Drawing
+
+  /** Currents, gates, spears and the ghost ship, with glows so they read in the dark. */
+  private drawSetPieces(g: Phaser.GameObjects.Graphics, x0: number, W: number, T: number, dark: number) {
+    const H = this.H, glow = this.edges, ga = Math.max(0.35, dark), on = (a: number, b: number) => b > x0 - 60 && a < x0 + W + 60;
+    for (const k of this.currents) {
+      if (!on(k.x0, k.x1)) continue;
+      // A faint wash of lighter water over the whole current, streaks of sand racing along it, and chevrons pointing the way it pushes.
+      for (let x = Math.max(k.x0, x0 - 40); x < Math.min(k.x1, x0 + W + 40); x += 24) {
+        const [t, b] = cave(x, H, this.cv, this.def.shape), ease = Math.min(1, (x - k.x0) / CURRENT_EASE, (k.x1 - x) / CURRENT_EASE);
+        g.fillStyle(0xdffbff, 0.1 * ease); g.fillRect(x, t, 24, b - t);
+      }
+      for (let i = 0; i < (k.x1 - k.x0) / 18; i++) {
+        const x = k.x0 + hash(i * 3.7 + k.x0) * (k.x1 - k.x0), [t, b] = cave(x, H, this.cv, this.def.shape);
+        const ease = Math.min(1, (x - k.x0) / CURRENT_EASE, (k.x1 - x) / CURRENT_EASE);
+        const f = (((hash(i * 9.1 + k.x0) + (T * 0.9 * k.dir) * (0.6 + hash(i) * 0.5)) % 1) + 1) % 1, y = t + 14 + f * (b - t - 28);
+        g.lineStyle(2.6, 0xffffff, 0.55 * ease); g.lineBetween(x, y, x - 4, y - k.dir * 24);
+        g.fillStyle(0xf6dfb0, 0.7 * ease); g.fillCircle(x + 4, y - k.dir * 8, 1.4);
+        if (dark > 0.25) { glow.lineStyle(3, 0x9fefff, 0.22 * dark * ease); glow.lineBetween(x, y, x - 3, y - k.dir * 18); }
+      }
+      for (let x = k.x0 + 70; x < k.x1 - 50; x += 120) {
+        const [t, b] = cave(x, H, this.cv, this.def.shape), y = (t + b) / 2 + Math.sin(T * 3 + x) * 6 + k.dir * ((T * 40) % 30);
+        const v = [{ x: x - 12, y: y - k.dir * 8 }, { x, y: y + k.dir * 6 }, { x: x + 12, y: y - k.dir * 8 }];
+        g.lineStyle(7, OUTLINE, 0.4); g.strokePoints(v);
+        g.lineStyle(4, 0xffffff, 0.85); g.strokePoints(v);
+      }
+    }
+    const beat = this.beatNow();
+    for (const gt of this.gates) {
+      if (!on(gt.x - GATE_W, gt.x + GATE_W)) continue;
+      const d = this.gateAt(gt, beat), pulse = 1 - ((beat % 1) + 1) % 1;
+      // Two stone slabs with a carved band, leaving the doorway between them.
+      for (const [a, b] of [[d.t - 30, d.top], [d.bot, d.b + 30]]) {
+        if (b - a < 2) continue;
+        g.fillStyle(0xd9cfb4, 1); g.fillRect(gt.x - GATE_W / 2, a, GATE_W, b - a);
+        g.lineStyle(2.6, OUTLINE, 1); g.strokeRect(gt.x - GATE_W / 2, a, GATE_W, b - a);
+        g.lineStyle(2, 0xa8977a, 1);
+        for (let y = a + 16; y < b - 6; y += 22) g.lineBetween(gt.x - GATE_W / 2 + 4, y, gt.x + GATE_W / 2 - 4, y);
+      }
+      // The doorway's edges glow sea-green, brightest on the beat; small marks show where it goes next.
+      g.fillStyle(0x7fffd4, 0.14 + pulse * 0.1); g.fillRect(gt.x - GATE_W / 2 - 6, d.top, GATE_W + 12, d.bot - d.top);
+      g.fillStyle(0x7fffd4, 0.5 + pulse * 0.4); g.fillRect(gt.x - GATE_W / 2, d.top - 5, GATE_W, 5); g.fillRect(gt.x - GATE_W / 2, d.bot, GATE_W, 5);
+      const ny = d.t + (d.b - d.t) * d.next;
+      g.fillStyle(0x7fffd4, 0.35); g.fillTriangle(gt.x - GATE_W / 2 - 12, ny - 6, gt.x - GATE_W / 2 - 4, ny, gt.x - GATE_W / 2 - 12, ny + 6);
+      glow.lineStyle(6, 0x7fffd4, (0.25 + pulse * 0.35) * ga);
+      glow.lineBetween(gt.x - GATE_W / 2, d.top - 2, gt.x + GATE_W / 2, d.top - 2); glow.lineBetween(gt.x - GATE_W / 2, d.bot + 2, gt.x + GATE_W / 2, d.bot + 2);
+      if (dark > 0.25) { glow.lineStyle(3, 0xe8dcc0, 0.25 * dark); glow.strokeRect(gt.x - GATE_W / 2, d.t, GATE_W, d.top - d.t); glow.strokeRect(gt.x - GATE_W / 2, d.bot, GATE_W, d.b - d.bot); }
+    }
+    for (const sp of this.spears) {
+      if (!on(sp.x - 30, sp.x + 30)) continue;
+      const { reach, warn, base } = this.spearAt(sp, beat), d = sp.side ? -1 : 1, wall = base - d * 30;
+      // The spear first (behind the statue), then a little statue head and shoulders on the wall.
+      if (reach > 4) {
+        const tip = base + d * reach;
+        g.lineStyle(9, OUTLINE, 1); g.lineBetween(sp.x, base, sp.x, tip);
+        g.lineStyle(5, 0xc9a36a, 1); g.lineBetween(sp.x, base, sp.x, tip);
+        const prong = [{ x: sp.x - 10, y: tip - d * 14 }, { x: sp.x - 10, y: tip - d * 3 }, { x: sp.x, y: tip + d * 10 }, { x: sp.x + 10, y: tip - d * 3 }, { x: sp.x + 10, y: tip - d * 14 }];
+        g.lineStyle(8, OUTLINE, 1); g.strokePoints(prong); g.lineStyle(4, 0xffd23f, 1); g.strokePoints(prong);
+        g.lineStyle(8, OUTLINE, 1); g.lineBetween(sp.x, tip - d * 4, sp.x, tip + d * 10); g.lineStyle(4, 0xffd23f, 1); g.lineBetween(sp.x, tip - d * 4, sp.x, tip + d * 10);
+        glow.lineStyle(5, 0xffe27a, 0.3 * ga); glow.lineBetween(sp.x, base, sp.x, tip);
+      }
+      // A stone bust on a plinth: shoulders, a helmeted head, eyes that glow the beat before it strikes.
+      const plinth = [{ x: sp.x - 20, y: wall + d * 2 }, { x: sp.x - 20, y: wall - d * 6 }, { x: sp.x + 20, y: wall - d * 6 }, { x: sp.x + 20, y: wall + d * 2 }];
+      const body = [{ x: sp.x - 18, y: wall }, { x: sp.x - 13, y: wall + d * 14 }, { x: sp.x + 13, y: wall + d * 14 }, { x: sp.x + 18, y: wall }];
+      g.fillStyle(0xbfb08f, 1); g.fillPoints(plinth, true); g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(plinth, true);
+      g.fillStyle(0xd9cfb4, 1); g.fillPoints(body, true); g.lineStyle(2.6, OUTLINE, 1); g.strokePoints(body, true);
+      const hy = wall + d * 25;
+      g.fillStyle(0xd9cfb4, 1); g.fillCircle(sp.x, hy, 11); g.lineStyle(2.6, OUTLINE, 1); g.strokeCircle(sp.x, hy, 11);
+      g.lineStyle(4, OUTLINE, 1); g.lineBetween(sp.x - 11, hy + d * 3, sp.x + 11, hy + d * 3);
+      g.lineStyle(2, 0xa8977a, 1); g.lineBetween(sp.x - 10, hy + d * 3, sp.x + 10, hy + d * 3);
+      const eye = warn ? 0x7fffd4 : 0x6e6250;
+      g.fillStyle(eye, 1); g.fillCircle(sp.x - 4, hy - d * 1, 2.2); g.fillCircle(sp.x + 4, hy - d * 1, 2.2);
+      if (warn) { glow.fillStyle(0x7fffd4, 0.55 * ga); glow.fillCircle(sp.x - 4, hy - d, 7); glow.fillCircle(sp.x + 4, hy - d, 7); }
+      else if (dark > 0.25) { glow.lineStyle(3, 0xe8dcc0, 0.25 * dark); glow.strokeCircle(sp.x, hy, 12); }
+    }
+    const gh = this.ghost;
+    if (gh) {
+      // A see-through galleon, drawn in light (additive) so it glows even in the dark.
+      const end = GHOST_FIRST + GHOST_SHOTS * GHOST_EVERY + 1.6, a = Math.min(1, gh.t / 1, (end - gh.t) / 1) * (0.75 + Math.sin(T * 5) * 0.08);
+      const [cx, keel] = this.ghostAt(), col = 0x8fffc8;
+      const hull = [{ x: cx - 128, y: keel - 36 }, { x: cx + 136, y: keel - 42 }, { x: cx + 108, y: keel - 6 }, { x: cx + 60, y: keel + 4 }, { x: cx - 100, y: keel }, { x: cx - 126, y: keel - 16 }];
+      glow.fillStyle(col, 0.16 * a); glow.fillPoints(hull, true);
+      glow.lineStyle(3, col, 0.7 * a); glow.strokePoints(hull, true);
+      glow.lineStyle(2, col, 0.4 * a); glow.lineBetween(cx - 122, keel - 24, cx + 122, keel - 28);
+      for (const mx of [-60, 30]) {
+        glow.lineStyle(3, col, 0.55 * a); glow.lineBetween(cx + mx, keel - 38, cx + mx, keel - GHOST_MAST);
+        const sail = [{ x: cx + mx - 30, y: keel - GHOST_MAST + 8 }, { x: cx + mx + 30, y: keel - GHOST_MAST + 8 }, { x: cx + mx + 26, y: keel - 48 }, { x: cx + mx + 10, y: keel - 56 }, { x: cx + mx, y: keel - 46 }, { x: cx + mx - 12, y: keel - 55 }, { x: cx + mx - 26, y: keel - 48 }];
+        glow.fillStyle(col, 0.1 * a); glow.fillPoints(sail, true);
+        glow.lineStyle(2, col, 0.45 * a); glow.strokePoints(sail, true);
+      }
+      for (let i = 0; i < GHOST_SHOTS; i++) {
+        const px = cx + 84 - i * 34, lit = i === gh.shots && gh.t > GHOST_FIRST + i * GHOST_EVERY - 0.45;
+        glow.fillStyle(lit ? 0xffffff : col, (lit ? 0.9 : 0.45) * a); glow.fillCircle(px, keel - 12, lit ? 6 + Math.random() * 2 : 4);
+      }
+    }
+  }
+
+  /** Scenery for the new caves: banded sandstone, sea fans and starfish; mosaics, columns, statues and arches. */
+  private newDecor(g: Phaser.GameObjects.Graphics, wx: number, base: number, up: number, pick: number, T: number, mute: (c: number) => number, line: (w: number, c: number, pts: Point[]) => void) {
+    if (this.def.decor === 'canyon') {
+      if (up > 0) {
+        if (pick < 0.5) for (let i = 0; i < 3; i++) line(3, mute(0xd08a52), [{ x: wx + i * 10, y: base - 2 }, { x: wx + i * 10 + 2, y: base + 12 + hash(wx + i) * 14 }]);
+        return;
+      }
+      if (pick < 0.35) {
+        // A purple sea fan.
+        const fan = [{ x: wx, y: base + 3 }];
+        for (let i = 0; i <= 6; i++) { const a = -Math.PI * (0.15 + 0.7 * (i / 6)); fan.push({ x: wx + Math.cos(a) * 26, y: base - 4 + Math.sin(a) * 30 + Math.sin(T * 1.5 + i) }); }
+        g.fillStyle(mute(0xb07cff), 0.9); g.fillPoints(fan, true); g.lineStyle(2.2, OUTLINE, 1); g.strokePoints(fan, true);
+        g.lineStyle(1.2, mute(0x7a4ccf), 1);
+        for (let i = 1; i < fan.length; i += 2) g.lineBetween(wx, base + 2, fan[i].x, fan[i].y);
+      } else if (pick < 0.65) {
+        // A starfish.
+        const pts: Point[] = [];
+        for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4 : 10; pts.push({ x: wx + Math.cos(a) * r, y: base - 7 + Math.sin(a) * r }); }
+        g.fillStyle(0xff8a5c, 1); g.fillPoints(pts, true); g.lineStyle(2, OUTLINE, 1); g.strokePoints(pts, true);
+      } else {
+        // Spiral shells.
+        for (const [dx, r] of [[0, 7], [16, 5]] as const) {
+          g.fillStyle(mute(0xf3d3b0), 1); g.fillCircle(wx + dx, base - r + 2, r); g.lineStyle(2, OUTLINE, 1); g.strokeCircle(wx + dx, base - r + 2, r);
+          g.lineStyle(1.4, mute(0xb07a52), 1); g.beginPath(); g.arc(wx + dx, base - r + 2, r * 0.55, 0, Math.PI * 1.5); g.strokePath();
+        }
+      }
+      return;
+    }
+    const stone = mute(0xe2d7bd), dark = mute(0xa89470);
+    if (up > 0) {
+      // A broken arch overhead.
+      g.lineStyle(14, OUTLINE, 1); g.beginPath(); g.arc(wx + 30, base - 6, 30, 0.1, Math.PI - 0.1); g.strokePath();
+      g.lineStyle(10, stone, 1); g.beginPath(); g.arc(wx + 30, base - 6, 30, 0.1, Math.PI - 0.1); g.strokePath();
+      return;
+    }
+    if (pick < 0.4) {
+      // A standing column with a capital.
+      const h = 46 + pick * 40;
+      g.fillStyle(stone, 1); g.fillRect(wx - 8, base - h, 16, h + 4); g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(wx - 8, base - h, 16, h + 4);
+      g.lineStyle(1.4, dark, 1); for (const dx of [-3, 3]) g.lineBetween(wx + dx, base - h + 6, wx + dx, base);
+      g.fillStyle(stone, 1); g.fillRect(wx - 13, base - h - 7, 26, 8); g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(wx - 13, base - h - 7, 26, 8);
+    } else if (pick < 0.65) {
+      // A fallen column in pieces.
+      g.save(); g.translateCanvas(wx + 10, base - 8); g.rotateCanvas(-0.12);
+      for (const [x, w] of [[-30, 26], [0, 22]] as const) { g.fillStyle(stone, 1); g.fillRect(x, -8, w, 16); g.lineStyle(2.4, OUTLINE, 1); g.strokeRect(x, -8, w, 16); }
+      g.restore();
+    } else if (pick < 0.85) {
+      // A statue's head, half buried.
+      g.fillStyle(stone, 1); g.fillCircle(wx, base - 12, 14); g.lineStyle(2.6, OUTLINE, 1); g.strokeCircle(wx, base - 12, 14);
+      g.lineStyle(2, dark, 1); g.lineBetween(wx - 6, base - 15, wx - 2, base - 15); g.lineBetween(wx + 3, base - 15, wx + 7, base - 15); g.lineBetween(wx - 2, base - 7, wx + 4, base - 7);
+      for (let i = -2; i <= 2; i++) { g.fillStyle(mute(0x3ad06b), 1); g.fillCircle(wx + i * 6, base - 26 + Math.abs(i) * 2, 3.5); }
+    } else {
+      // Temple steps.
+      const poly = [{ x: wx - 4, y: base + 4 }, { x: wx - 4, y: base - 6 }, { x: wx + 4, y: base - 6 }, { x: wx + 4, y: base - 13 }, { x: wx + 12, y: base - 13 }, { x: wx + 12, y: base - 20 }, { x: wx + 44, y: base - 20 }, { x: wx + 44, y: base - 13 }, { x: wx + 52, y: base - 13 }, { x: wx + 52, y: base - 6 }, { x: wx + 60, y: base - 6 }, { x: wx + 60, y: base + 4 }];
+      g.fillStyle(stone, 1); g.fillPoints(poly, true); g.lineStyle(2.4, OUTLINE, 1); g.strokePoints(poly, true);
+    }
+  }
+
+  /** The new caves' walls: sandstone strata for the canyon, a mosaic band for the city. */
+  private newWalls(g: Phaser.GameObjects.Graphics, rock: number) {
+    if (this.def.decor === 'canyon') {
+      for (const [off, c] of [[10, mixNum(rock, 0xffffff, 0.22)], [20, mixNum(rock, OUTLINE, 0.25)], [32, mixNum(rock, 0xffe0b0, 0.3)]] as const) {
+        g.lineStyle(4, c, 1);
+        g.strokePoints(this.topEdge.map(p => ({ x: p.x, y: p.y - off + Math.sin(p.x * 0.01 + off) * 3 })));
+        g.strokePoints(this.botEdge.map(p => ({ x: p.x, y: p.y + off + Math.sin(p.x * 0.01 + off) * 3 })));
+      }
+      return;
+    }
+    // Mosaic: little square tiles along the walls, alternating sea-green and gold.
+    for (const [edge, d] of [[this.topEdge, -1], [this.botEdge, 1]] as const) {
+      edge.forEach(p => {
+        const k = Math.round(p.x / 12);
+        g.fillStyle(k % 3 === 0 ? 0xd9b45a : mixNum(rock, 0x3fc9b0, 0.45), 1);
+        g.fillRect(p.x - 4, p.y + d * 13 - 4, 8, 8);
+      });
     }
   }
 
@@ -2285,6 +2696,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.drawWreck(g, x0, W, T, dark);
+    this.drawSetPieces(g, x0, W, T, dark);
     // Your best depth: a dashed gold line across the trench, bright enough to see in the dark.
     if (bestOn) {
       const [t, b] = cave(bestX, H, this.cv, this.def.shape), a = this.bestPassed ? 0.25 : 0.6 + Math.sin(T * 5) * 0.2;
@@ -2313,7 +2725,7 @@ const DECK_LEAD = 1.4, DECK_SHAKE = 0.35, DECK_G = 1600;
 /** A cannon on a broken hull, on the floor (side 1) or the ceiling (side 0). It tracks you, then fires once. */
 interface Cannon { x: number; side: 0 | 1; aim: number; fuse: number; fired: boolean; kick: number }
 /** A cannonball; its velocity is relative to you, so on screen it flies straight at where you were. */
-interface Ball { x: number; y: number; vx: number; vy: number; gap?: number; passed?: boolean; gone?: boolean }
+interface Ball { x: number; y: number; vx: number; vy: number; gap?: number; passed?: boolean; gone?: boolean; ghost?: boolean }
 /** An anchor swinging on a chain from the ceiling. */
 interface Anchor { x: number; len: number; amp: number; period: number; ph: number; gap?: number; passed?: boolean }
 /** A broken boiler pipe on a wall, bursting steam on a fixed beat. */
@@ -2322,3 +2734,29 @@ interface Vent { x: number; side: 0 | 1; reach: number; ph: number; hissed?: boo
 interface Deck { x: number; len: number; dir: 1 | -1; ang: number; vang: number; shake: number; falling: boolean; gap?: number; passed?: boolean }
 /** This dive's treasure, floating near a wall. */
 interface TreasureItem { x: number; y: number; ph: number; sprite: Image; glow: Image }
+
+// ---------- Riptide Canyon, Sunken City, the ghost ship
+
+/** Currents ease in and out over this much of each end (world px). */
+const CURRENT_EASE = 70;
+/** A temple gate's wall thickness (world px), and how long its doorway takes to slide to its next height (beats). */
+const GATE_W = 28, GATE_SLIDE = 0.3;
+/** Doorway patterns: heights (share of the trench, top to bottom) visited in turn, each held for `per` beats. Easiest first. */
+const GATE_PATTERNS: { pat: number[]; per: number }[] = [
+  { pat: [0.3, 0.7], per: 2 },
+  { pat: [0.28, 0.5, 0.72, 0.5], per: 2 },
+  { pat: [0.7, 0.3], per: 2 },
+  { pat: [0.3, 0.7], per: 1 },
+  { pat: [0.26, 0.5, 0.74], per: 1 },
+];
+/** The ghost ship sails this far ahead of you (world px), fires GHOST_SHOTS shots GHOST_EVERY s apart from GHOST_FIRST s, closing at GHOST_CLOSE px/s. */
+const GHOST_AHEAD = 360, GHOST_MAST = 104, GHOST_FIRST = 1.4, GHOST_EVERY = 0.65, GHOST_SHOTS = 6, GHOST_CLOSE = 470;
+
+/** A stretch of trench where the water pushes up (dir -1) or down (dir 1), `push` compared with your steering. */
+interface Current { x0: number; x1: number; dir: 1 | -1; push: number }
+/** A temple gate: its doorway visits the heights in `pat`, `per` beats each, offset by `ph` beats. */
+interface Gate { x: number; pat: number[]; per: number; ph: number; slot: number; gap?: number; passed?: boolean }
+/** A statue on a wall that thrusts its spear across the trench on the 4th beat of every bar (shifted by `ph`). */
+interface Spear { x: number; side: 0 | 1; reach: number; ph: number; thrust?: boolean; gap?: number; passed?: boolean }
+/** The ghost ship: seconds since it appeared, and shots fired. */
+interface Ghost { t: number; shots: number }

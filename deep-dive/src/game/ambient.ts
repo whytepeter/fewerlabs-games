@@ -18,7 +18,9 @@ export type AmbientSound =
   | 'bell'     // a ship's bell, far away: two strikes
   | 'groan'    // a huge steel hull flexing: deep and slow
   | 'ping'     // a lone metallic ping that echoes away
-  | 'clank';   // something loose knocking in the dark
+  | 'clank'    // something loose knocking in the dark
+  | 'surge'    // a rush of fast water going past
+  | 'gong';    // a big temple gong, far off
 
 export interface Soundscape {
   /** Two oscillators through a lowpass that sways, closing from `bright` to `dark` Hz as you go deeper. */
@@ -73,6 +75,29 @@ export const PIRATE_AMBIENCE: Soundscape = {
     { sound: 'rope', every: [7, 14], vol: 0.04 },
     { sound: 'bell', every: [15, 26], vol: 0.05 },
     { sound: 'bubbles', every: [8, 15], vol: 0.03 },
+  ],
+};
+
+/** Rushing water: a strong wash, surges sweeping past, bubbles and the crackle of life on warm rock. */
+export const RIPTIDE_AMBIENCE: Soundscape = {
+  drone: { wave: 'triangle', hz: 73.4, hz2: 110, level: 0.035, bright: 1100, dark: 320, sway: 0.15 },
+  wash: 0.032,
+  events: [
+    { sound: 'surge', every: [3, 7], vol: 0.06 },
+    { sound: 'bubbles', every: [4, 8], vol: 0.04 },
+    { sound: 'shrimp', every: [5, 10], vol: 0.025 },
+  ],
+};
+
+/** A drowned temple: a warm low hum, far-off gongs and bells in a big echoing hall. */
+export const SUNKEN_AMBIENCE: Soundscape = {
+  drone: { wave: 'sine', hz: 55, hz2: 82.4, level: 0.045, bright: 800, dark: 260, sway: 0.07 },
+  wash: 0.014,
+  echo: { time: 0.48, feedback: 0.45, wet: 0.4 },
+  events: [
+    { sound: 'gong', every: [10, 18], vol: 0.06 },
+    { sound: 'bell', every: [12, 22], vol: 0.035 },
+    { sound: 'bubbles', every: [6, 12], vol: 0.03 },
   ],
 };
 
@@ -263,6 +288,16 @@ function play(ac: AudioContext, bus: AudioNode, sound: AmbientSound, t: number, 
       s.noise(t, 0.08, 'bandpass', rnd(1500, 2200), 7, vol * 1.5);
       s.tone('sine', rnd(200, 260), rnd(170, 210), t, 0.45, vol * 0.9);
       return;
+    case 'surge':
+      s.swell(t, rnd(1.2, 1.8), 'highpass', [600, 1800, 900], 0.7, vol);
+      return;
+    case 'gong': {
+      const f = rnd(98, 118);
+      s.bell(f, t, vol * 1.3);
+      s.tone('sine', f, f * 0.98, t, 3.5, vol * 0.8);
+      s.tone('sine', f * 2.02, f * 2, t, 2.5, vol * 0.3);
+      return;
+    }
   }
 }
 

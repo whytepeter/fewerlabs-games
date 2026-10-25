@@ -124,6 +124,23 @@ function caveArt(c: CaveDef) {
       + `<path d="M-4 76L96 50L98 56L-4 82Z" fill="#8a2b2b" stroke="${INK}" stroke-width="2"/>`
       + stroke(`M-2 ${deck(-2) - 7}L74 ${deck(74) - 7}`, 1.6, '#c9d3dc') + rail + ports
       + `<circle cx="106" cy="42" r="8" fill="#5fb8ff" opacity=".35"/><path d="M106 46.5C100.5 43 100.5 37.5 106 40C111.5 37.5 111.5 43 106 46.5Z" fill="#2f7bff" stroke="${INK}" stroke-width="1.4"/>`;
+  } else if (c.id === 'riptide') {
+    // Banded sandstone, streaks of a fast current with its chevrons, a sea fan and a starfish.
+    const streaks = [[18, 22], [30, 40], [44, 26], [58, 44], [72, 24], [86, 38], [100, 28]].map(([x, y]) => `<path d="M${x} ${y}l-2 12" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/><circle cx="${x + 3}" cy="${y + 4}" r="1.1" fill="#f6dfb0"/>`).join('');
+    const chev = (x: number, y: number) => `<path d="M${x - 6} ${y - 4}L${x} ${y + 3}L${x + 6} ${y - 4}" fill="none" stroke="${INK}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity=".4"/><path d="M${x - 6} ${y - 4}L${x} ${y + 3}L${x + 6} ${y - 4}" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const star = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 2.6 : 6.5; return `${(96 + Math.cos(a) * r).toFixed(1)},${(53 + Math.sin(a) * r).toFixed(1)}`; }).join(' ');
+    scene = streaks + chev(52, 30) + chev(52, 42)
+      + `<path d="M22 60L8 40Q14 30 24 30Q34 30 38 40Z" fill="#b07cff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M22 58L14 38M22 58L24 32M22 58L34 40" stroke="#7a4ccf" stroke-width="1.2"/>`
+      + `<polygon points="${star}" fill="#ff8a5c" stroke="${INK}" stroke-width="1.8" stroke-linejoin="round"/>`
+      + `<path d="M0 22Q30 16 60 21T120 20" stroke="#ffe0b0" stroke-width="2.5" fill="none" opacity=".7"/>`;
+  } else if (c.id === 'sunken') {
+    // Marble columns either side of a glowing temple doorway, with an arch and a gold glint.
+    const col = (x: number, h: number) => `<rect x="${x - 5}" y="${62 - h}" width="10" height="${h}" fill="#e2d7bd" stroke="${INK}" stroke-width="2"/><rect x="${x - 8}" y="${57 - h}" width="16" height="6" fill="#e2d7bd" stroke="${INK}" stroke-width="2"/>`;
+    scene = col(18, 36) + col(102, 30)
+      + `<rect x="52" y="10" width="16" height="16" fill="#d9cfb4" stroke="${INK}" stroke-width="2"/><rect x="52" y="44" width="16" height="22" fill="#d9cfb4" stroke="${INK}" stroke-width="2"/>`
+      + `<rect x="52" y="24" width="16" height="3" fill="#7fffd4"/><rect x="52" y="42" width="16" height="3" fill="#7fffd4"/><rect x="48" y="26" width="24" height="17" fill="#7fffd4" opacity=".18"/>`
+      + `<path d="M30 30A14 14 0 0 1 42 16" fill="none" stroke="${INK}" stroke-width="7"/><path d="M30 30A14 14 0 0 1 42 16" fill="none" stroke="#e2d7bd" stroke-width="4"/>`
+      + `<path d="M80 54L82 48L86 52L90 46L94 52L98 48L100 54Z" fill="#ffd23f" stroke="${INK}" stroke-width="1.6" stroke-linejoin="round"/><circle cx="90" cy="50" r="9" fill="#7fffd4" opacity=".2"/>`;
   } else {
     const ice = (x: number, y: number, w: number, h: number) => `<path d="M${x - w / 2} ${y}L${x} ${y + h}L${x + w / 2} ${y}Z" fill="#cff3ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/><path d="M${x - w * 0.15} ${y + 3}L${x - 1} ${y + h * 0.65}" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>`;
     const spike = (x: number, y: number) => `<path d="M${x - 6} ${y}L${x} ${y - 11}L${x + 6} ${y}Z" fill="#a8e6ff" stroke="${INK}" stroke-width="2" stroke-linejoin="round"/>`;

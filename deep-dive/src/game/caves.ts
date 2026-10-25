@@ -1,8 +1,8 @@
 import { store } from '../core/settings';
 import type { Song } from '../core/music';
 import type { Biome } from './biomes';
-import { DEEP_SONG, FROST_SONG, KELP_SONG, LINER_SONG, PIRATE_SONG } from './song';
-import { FROST_AMBIENCE, KELP_AMBIENCE, LINER_AMBIENCE, PIRATE_AMBIENCE, REEF_AMBIENCE, type Soundscape } from './ambient';
+import { DEEP_SONG, FROST_SONG, KELP_SONG, LINER_SONG, PIRATE_SONG, RIPTIDE_SONG, SUNKEN_SONG } from './song';
+import { FROST_AMBIENCE, KELP_AMBIENCE, LINER_AMBIENCE, PIRATE_AMBIENCE, REEF_AMBIENCE, RIPTIDE_AMBIENCE, SUNKEN_AMBIENCE, type Soundscape } from './ambient';
 
 /**
  * Caves you can dive in. Each one has its own depth zones (colours and names), trench shape,
@@ -10,7 +10,7 @@ import { FROST_AMBIENCE, KELP_AMBIENCE, LINER_AMBIENCE, PIRATE_AMBIENCE, REEF_AM
  * opens once you reach a depth in the cave before it. Bests are kept per cave.
  */
 
-export type CaveId = 'reef' | 'kelp' | 'frost' | 'pirate' | 'titanic';
+export type CaveId = 'reef' | 'kelp' | 'frost' | 'pirate' | 'titanic' | 'riptide' | 'sunken';
 export type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
 
 /** How a cave's sharp walls look, glow in the dark, and what the message says when they get you. */
@@ -57,7 +57,19 @@ export interface CaveDef {
   /** Sections of deck that tear loose from the ceiling and swing down as you come near: from this depth, this far apart (world px). */
   decks?: { from: number; gap: [number, number] };
   /** Wreckage drawn along the walls (scenery only). */
-  decor?: 'ship' | 'liner';
+  decor?: 'ship' | 'liner' | 'canyon' | 'city';
+  /**
+   * Currents: stretches of the trench where the water pushes you up or down (`push`, compared with
+   * your own steering), from this depth, `len` long and this far apart (world px). A row of pearls
+   * shows where the current carries you if you let it.
+   */
+  currents?: { from: number; gap: [number, number]; len: [number, number]; push: number };
+  /** Temple gates: a stone wall with a doorway that jumps between heights on the music's beat. From this depth, this far apart (world px). */
+  gates?: { from: number; gap: [number, number] };
+  /** Statues on the walls that thrust a spear across the trench on the beat. From this depth, this far apart (world px). */
+  spears?: { from: number; gap: [number, number] };
+  /** Once a dive, somewhere between these depths (m): a ghost ship sails alongside and fires a broadside at you. */
+  broadside?: { from: number; to: number };
   /** Sharp walls that aren't coral or ice. */
   spikeLook?: SpikeLook;
   /** Slippery steering: how fast you drift to a stop (normal 2.6) and how hard steering pushes (normal 1). */
@@ -179,6 +191,7 @@ export const CAVES: CaveDef[] = [
     cannons: { from: 30, gap: [900, 1500] },
     anchors: { from: 90, gap: [1100, 1800] },
     decor: 'ship',
+    broadside: { from: 450, to: 750 },
     tip: 'Cannons aim at you: keep moving when the fuse fizzes',
     raysUntil: 240,
     plantsUntil: 120,
@@ -215,6 +228,65 @@ export const CAVES: CaveDef[] = [
     coral: 0,
     song: LINER_SONG,
     ambience: LINER_AMBIENCE,
+  },
+  {
+    id: 'riptide',
+    name: 'Riptide Canyon',
+    blurb: 'A sunny sandstone canyon full of fast currents. Ride them, or fight them. Coins ×1.5.',
+    unlock: { cave: 'reef', depth: 1500 },
+    biomes: [
+      { at: 0,   name: 'Sandbar Shallows', top: 0x5fd8e6, bot: 0x1b9cb8, rock: 0xd08a52, dark: 0,    vent: 0 },
+      { at: 170, name: 'Red Rock Narrows', top: 0x2fa6c9, bot: 0x12648f, rock: 0xb4643c, dark: 0.28, vent: 0 },
+      { at: 420, name: 'Tidal Gorge',      top: 0x1d6f9e, bot: 0x0c3a63, rock: 0x8f4a34, dark: 0.52, vent: 0 },
+      { at: 780, name: 'The Undertow',     top: 0x163c66, bot: 0x081a36, rock: 0x6a3a32, dark: 0.7,  vent: 0 },
+    ],
+    shape: { start: 0.78, end: 0.54, over: 1500, wave: 0.1, wave2: 0.04 },
+    creatures: { jelly: 0, mine: 90, eel: 260, angler: 420 },
+    crowdFrom: 600,
+    pace: { gap: [450, 230], over: 1250 },
+    pay: 1.5,
+    spikeFrom: 150,
+    spikes: 0.9,
+    spikeLook: { fill: 0x5b3a7a, shine: 0xb48cff, glow: 0xc77dff, hit: 'Spiked by sea urchins' },
+    pearlGap: [520, 900],
+    currents: { from: 15, gap: [380, 760], len: [380, 680], push: 0.5 },
+    decor: 'canyon',
+    tip: 'Currents push you up or down: ride them for pearls',
+    raysUntil: 320,
+    plantsUntil: 260,
+    coral: 0.35,
+    song: RIPTIDE_SONG,
+    ambience: RIPTIDE_AMBIENCE,
+  },
+  {
+    id: 'sunken',
+    name: 'Sunken City',
+    blurb: 'A drowned temple city. Its gates and spears move on the beat of the music. Coins ×2.25.',
+    unlock: { cave: 'titanic', depth: 1400 },
+    biomes: [
+      { at: 0,   name: 'Marble Terraces',  top: 0x4fd6c8, bot: 0x1a8f99, rock: 0xbfae8c, dark: 0.05, vent: 0 },
+      { at: 170, name: 'Temple Gates',     top: 0x2a9db0, bot: 0x105a78, rock: 0xa89470, dark: 0.32, vent: 0 },
+      { at: 420, name: 'Hall of Statues',  top: 0x1d5f86, bot: 0x0b3156, rock: 0x8a7a62, dark: 0.55, vent: 0 },
+      { at: 780, name: 'The Drowned Throne', top: 0x162f5a, bot: 0x07142e, rock: 0x5e5450, dark: 0.74, vent: 0 },
+    ],
+    shape: { start: 0.84, end: 0.56, over: 1500, wave: 0.08, wave2: 0.03 },
+    creatures: { jelly: 0, angler: 160, eel: 320, mine: 520 },
+    crowdFrom: 650,
+    pace: { gap: [470, 235], over: 1250 },
+    pay: 2.25,
+    spikeFrom: 160,
+    spikes: 0.8,
+    spikeLook: { fill: 0xe8e2d0, shine: 0xffffff, glow: 0x7fffd4, hit: 'Cut on broken marble' },
+    pearlGap: [480, 820],
+    gates: { from: 30, gap: [700, 1100] },
+    spears: { from: 140, gap: [900, 1400] },
+    decor: 'city',
+    tip: 'Gates and spears move on the beat: listen, then line up with the doorway',
+    raysUntil: 260,
+    plantsUntil: 160,
+    coral: 0.25,
+    song: SUNKEN_SONG,
+    ambience: SUNKEN_AMBIENCE,
   },
 ];
 
