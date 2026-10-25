@@ -28,6 +28,17 @@ Anonymous sign-in, a cloud backup of progress (coins, suits, missions, best dept
 - **Accounts:** saving to Google or email links the guest account, so its progress and leaderboard row carry over unchanged. If that sign-in already has an account, the player chooses to load its progress (replacing the guest's) or stay a guest. Signing out keeps the progress in the account and starts the device over as a new guest.
 - **Limits:** a guest's backup only restores in the same browser. Inside the store's frame the browser partitions storage, so a player there is a separate anonymous account. The rules stop players from touching other rows and only let a best go up, but scores aren't verified server-side.
 
+## Purchases (Bachs)
+
+Real-money packs (Sea Hearts and a one-time Starter Pack, listed in `src/game/packs.ts`) sold through [Bachs](https://docs.bachs.io) hosted checkout. Needs Firebase, since every purchase belongs to a player's account. The server side is three Vercel functions in `api/`.
+
+- **Flow:** the Shop asks `/api/checkout` for a checkout page and goes there. After paying, Bachs sends the player back with `?checkout_id=…`, and the game calls `/api/claim`. The server reads the checkout back from Bachs and, if it's `completed`, records it once at `players/{uid}/purchases/{checkout_id}`. The game then applies anything not yet applied, marking it applied first so nothing is given twice. `/api/bachs-webhook` records it too, for a player who closes the tab before coming back.
+- **Vercel env vars:** `BACHS_SECRET_KEY` (`sk_sandbox_…` while testing, `sk_live_…` for real money) and `FIREBASE_SERVICE_ACCOUNT` (Firebase console > Project settings > Service accounts > Generate new private key, pasted as one line of JSON). Neither starts with `VITE_`, so neither reaches the browser.
+- **Bachs dashboard:** add a webhook endpoint at `https://<your domain>/api/bachs-webhook` for `checkout.completed`.
+- **Firestore:** deploy the rules again (they add `players/{uid}/purchases`).
+- **Under 13:** a grown-up has to answer a sum before checkout opens.
+- **Local testing:** `npm run dev` doesn't run the `api/` functions; use `vercel dev` with the env vars above and a sandbox key.
+
 ## Structure
 
 ```

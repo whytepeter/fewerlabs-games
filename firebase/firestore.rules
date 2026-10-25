@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Fewer Labs Games. Players sign in anonymously; see deep-dive/src/core/cloud.ts.
 //   players/{uid}/saves/{game}         a player's cloud backup, private to them
+//   players/{uid}/purchases/{checkout} a paid Bachs checkout, written by the server (deep-dive/api)
 //   leaderboards/{game}/scores/{uid}   one public row per player, best can only go up
 //   leaderboards/{game}/days/{day}/scores/{uid}   the same, for one day's daily challenge
 service cloud.firestore {
@@ -29,6 +30,14 @@ service cloud.firestore {
     match /players/{uid}/saves/{game} {
       allow read, delete: if signedInAs(uid);
       allow create, update: if signedInAs(uid) && knownGame(game) && validSave();
+    }
+
+    // Only the server (Admin SDK) creates these; the player can read theirs and mark one applied.
+    match /players/{uid}/purchases/{checkout} {
+      allow read: if signedInAs(uid);
+      allow update: if signedInAs(uid)
+        && resource.data.applied == false && request.resource.data.applied == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applied']);
     }
 
     // A daily challenge's board: one per UTC day, the same rules as the all-time board.

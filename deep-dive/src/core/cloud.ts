@@ -9,6 +9,7 @@
  *   players/{uid}/saves/{game}          { data: { key: value }, updatedAt }   cloud backup
  *   leaderboards/{game}/scores/{uid}    { name, best, updatedAt }             one row per player
  *   leaderboards/{game}/days/{day}/scores/{uid}                               the same, per Daily Dive
+ *   players/{uid}/purchases/{checkout}  { pack, hearts, coins, boosters, applied }  written by the server
  */
 import type { Auth, AuthCredential, User } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore/lite';
@@ -392,6 +393,38 @@ export const cloud = {
     } catch (e) {
       warn('rank', e);
       return null;
+    }
+  },
+
+  /** A fresh Firebase ID token for the server functions (/api), or null when offline or off. */
+  async idToken() {
+    const f = await starting;
+    try { return (await f?.auth.currentUser?.getIdToken()) ?? null; } catch { return null; }
+  },
+
+  /** Paid purchases the server recorded that this player hasn't applied yet (see deep-dive/api). */
+  async unappliedPurchases(): Promise<{ id: string; data: Record<string, unknown> }[]> {
+    const f = await starting;
+    if (!f) return [];
+    try {
+      const q = f.fs.query(f.fs.collection(f.db, 'players', f.uid, 'purchases'), f.fs.where('applied', '==', false));
+      return (await f.fs.getDocs(q)).docs.map(d => ({ id: d.id, data: d.data() }));
+    } catch (e) {
+      warn('purchases', e);
+      return [];
+    }
+  },
+
+  /** Mark a purchase applied; false if that failed (then don't apply it, so it isn't given twice). */
+  async markApplied(id: string) {
+    const f = await starting;
+    if (!f) return false;
+    try {
+      await f.fs.updateDoc(f.fs.doc(f.db, 'players', f.uid, 'purchases', id), { applied: true });
+      return true;
+    } catch (e) {
+      warn('purchase', e);
+      return false;
     }
   },
 };

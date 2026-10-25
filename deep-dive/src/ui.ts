@@ -21,6 +21,8 @@ import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from 
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
+import { PACKS, type Pack } from './game/packs';
+import { purchases } from './game/purchases';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 
@@ -162,6 +164,42 @@ const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
 /** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
+/** What a pack holds, in a few words. */
+function packText(p: Pack) {
+  const parts = [`${p.hearts} Sea Hearts`];
+  if (p.coins) parts.push(`${p.coins.toLocaleString()} coins`);
+  if (p.boosters) parts.push(`${p.boosters === 1 ? 'one' : p.boosters} of every booster`);
+  return parts.join(', ');
+}
+
+/** Players under 13 need a grown-up to answer a sum before a real-money checkout. */
+function parentCheck(): Promise<boolean> {
+  if (store.get<number>('age', 99) >= 13) return Promise.resolve(true);
+  const a = 6 + ((Math.random() * 7) | 0), b = 6 + ((Math.random() * 7) | 0);
+  const el = $('parentGate'), input = $('parentAnswer') as HTMLInputElement;
+  $('parentSum').textContent = `${a} × ${b} = ?`;
+  input.value = '';
+  el.hidden = false;
+  input.focus();
+  return new Promise(resolve => {
+    const done = (ok: boolean) => { el.hidden = true; $('parentForm').onsubmit = $('parentCancel').onclick = null; resolve(ok); };
+    $('parentForm').onsubmit = e => {
+      e.preventDefault();
+      if (Number(input.value) === a * b) done(true);
+      else { nope(input); input.value = ''; }
+    };
+    $('parentCancel').onclick = () => done(false);
+  });
+}
+
+/** A purchase arrived: say thanks and what was added. */
+function thank(given: Pack[]) {
+  $('thanksText').textContent = `${given.map(packText).join(' + ')} added to your game.`;
+  $('thanksPop').hidden = false;
+  cheer(true);
+  $('thanksOk').onclick = () => { $('thanksPop').hidden = true; };
+}
+
 /** Game over: once a rewarded ad is ready, offer to pay the dive's coins again for watching it. */
 function offerDoubleCoins(n: number) {
   const b = $('overAd') as HTMLButtonElement;
@@ -501,6 +539,10 @@ export const ui = {
     cloud.onAccount(() => { if (this.isOpen('settings')) renderAccount(); });
     // Back from a Google redirect whose account already had progress: ask what to keep.
     // Also back from a redirect that linked the account: its sign-up shell (only once the save has synced).
+    // Back from a Bachs checkout (or anything paid and not yet given): hand it over with a thank-you.
+    const deliver = () => void purchases.sync().then(given => { if (given.length) thank(given); });
+    void cloud.start().then(() => purchases.claim()).then(deliver);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && purchases.available) deliver(); });
     void cloud.start().then(() => {
       if (!cloud.account.guest && claimSignupGift() && this.isOpen('settings')) renderAccount(giftNote('Saved!', true));
       if (!cloud.hasPending) return;
@@ -568,7 +610,7 @@ export const ui = {
   },
 
   /** A first-open popover is up (the game's keys stay quiet). */
-  askingAge() { return !$('ageGate').hidden || !$('namePop').hidden || !$('streakPop').hidden; },
+  askingAge() { return ['ageGate', 'namePop', 'streakPop', 'parentGate', 'thanksPop'].some(id => !$(id).hidden); },
 
   /** Once a day, on opening the game: the login streak's gift for today, then `next`. */
   offerStreak(next: () => void) {
@@ -902,7 +944,11 @@ export const ui = {
     const bought = shellShop.bought;
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
-    $('shopList').innerHTML = SHELL_PRICES.map((price, i) => {
+    const packs = purchases.available ? PACKS.filter(p => !(p.once && purchases.owns(p.id))) : [];
+    $('shopList').innerHTML = packs.map(p => `<li class="shop-item pack-item"><img src="${portraits.shell ?? ''}" alt="">
+        <div class="shop-body"><b>${p.name}</b><span>${p.coins || p.boosters ? packText(p) : 'For Save me and divers'}</span>${p.note ? `<small>${p.note}</small>` : ''}</div>
+        <button type="button" class="k-btn k-btn--green k-btn--sm" data-pack="${p.id}" aria-label="Buy ${p.name} for $${p.usd}">$${p.usd}</button></li>`).join('')
+    + SHELL_PRICES.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
         : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Sea Heart for ${price} coins">${coinTag(price)}</button>`;
@@ -913,6 +959,16 @@ export const ui = {
       const b = e.currentTarget as HTMLButtonElement;
       if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
     });
+    $('shopList').querySelectorAll<HTMLButtonElement>('[data-pack]').forEach(b => b.addEventListener('click', async () => {
+      const pack = PACKS.find(p => p.id === b.dataset.pack)!;
+      buzz(8);
+      if (!(await parentCheck())) return;
+      b.disabled = true;
+      b.textContent = '…';
+      const r = await purchases.buy(pack);
+      if (r !== 'leaving') { b.disabled = false; b.textContent = `$${pack.usd}`; $('gadgetInfo').textContent = r.error; $('gadgetInfo').classList.add('warn'); }
+      else window.setTimeout(() => { b.disabled = false; b.textContent = `$${pack.usd}`; }, 4000); // checkout opened in another tab
+    }));
   },
 
   /**

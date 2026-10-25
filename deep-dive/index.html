@@ -226,6 +226,25 @@
       </form>
     </div>
 
+    <div class="rotate-hint age-gate" id="parentGate" hidden>
+      <form class="k-panel age-panel" id="parentForm" role="dialog" aria-modal="true" aria-labelledby="parentTitle">
+        <h2 id="parentTitle">Ask a grown-up</h2>
+        <p>This costs real money. A grown-up needs to answer:</p>
+        <b class="parent-sum" id="parentSum"></b>
+        <input class="name-pop-input" id="parentAnswer" inputmode="numeric" autocomplete="off" aria-label="Answer">
+        <button class="k-btn k-btn--block" type="submit">Continue</button>
+        <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="parentCancel" type="button">Cancel</button>
+      </form>
+    </div>
+
+    <div class="rotate-hint age-gate" id="thanksPop" hidden>
+      <div class="k-panel age-panel" role="dialog" aria-modal="true" aria-labelledby="thanksTitle">
+        <h2 id="thanksTitle">Thank you!</h2>
+        <p id="thanksText"></p>
+        <button class="k-btn k-btn--block" id="thanksOk" type="button">Let&rsquo;s dive</button>
+      </div>
+    </div>
+
     <div class="rotate-hint streak-pop" id="streakPop" hidden>
       <div class="k-panel streak-panel" role="dialog" aria-modal="true" aria-labelledby="streakTitle">
         <div class="k-ribbon" id="streakTitle">Daily gift</div>

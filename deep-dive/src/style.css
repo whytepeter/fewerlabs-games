@@ -798,6 +798,8 @@ body.dev-mode::after {
 /* ---------- Age popover (first open) */
 .age-gate { z-index: 31; }
 .name-pop-input { width: 100%; min-height: 48px; margin: 4px 0; padding: 0 14px; border: 2.5px solid var(--k-outline); border-radius: 14px; background: #fff; color: var(--k-ink); font: inherit; font-size: 20px; font-weight: 700; text-align: center; }
+.parent-sum { font-size: 30px; color: var(--k-ink); }
+.pack-item .k-btn { min-width: 76px; }
 .name-pop-input:focus-visible { outline: 3px solid #3aa8ff; outline-offset: 2px; }
 .age-panel { width: min(340px, 100%); padding-top: 22px; text-align: center; display: grid; gap: 10px; justify-items: center; }
 .age-panel h2 { margin: 2px 0 0; font-size: 22px; }
