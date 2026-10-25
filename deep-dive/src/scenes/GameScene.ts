@@ -25,6 +25,7 @@ import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud, topBest } from '../core/cloud';
+import { ads } from '../core/ads';
 import { embed } from '../core/embed';
 import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
@@ -130,6 +131,7 @@ export class GameScene extends Phaser.Scene {
   private nextShell = 0;
   private runChests = 0;   // treasure chests picked up this dive, opened on the game-over screen
   private saves = 0;       // times "Save me" was used this dive
+  private adSaved = false; // a rewarded ad already saved this dive (one per dive)
   /** Power-up strengths for this dive, from the shop upgrades. */
   private shieldTime = shieldTime(0);
   private magnetTime = magnetTime(0);
@@ -478,6 +480,7 @@ export class GameScene extends Phaser.Scene {
     this.kickoff = false;
     this.runChests = 0;
     this.saves = 0;
+    this.adSaved = false;
     this.nextKelp = this.def.kelp ? this.def.kelp.from * 10 + this.withRng(s.kelp, () => this.cr(200, 500)) : Infinity;
     this.tangle = 0;
     this.tangles = 0;
@@ -1881,20 +1884,21 @@ export class GameScene extends Phaser.Scene {
     return this.add.image(0, 0, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setAlpha(0);
   }
 
-  /** Out of lives (or air): offer a "Save me" for Sea Hearts, Subway Surfers style, before ending the dive. */
+  /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (once a dive), Subway Surfers style, before ending the dive. */
   private die(reason: string) {
-    const cost = saveCost(this.saves);
-    if (shells.count < cost) { this.endDive(reason); return; }
+    const cost = saveCost(this.saves), adOk = !this.adSaved && ads.enabled;
+    if (shells.count < cost && !adOk) { this.endDive(reason); return; }
     this.state = 'saveme';
     this.sparks.explode(14, this.dist, this.diverY);
     this.cameras.main.shake(200, 0.008);
     buzz([30, 30, 50]);
     sfx.tone(240, 0.3, { type: 'sawtooth', vol: 0.07, slideTo: 120 });
     sfx.suspend();
-    void ui.saveMe(reason, cost, shells.count).then(yes => {
+    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null).then(choice => {
       if (this.state !== 'saveme') return;
       sfx.resume();
-      if (!yes || !shells.spend(cost)) { this.endDive(reason); return; }
+      if (choice === 'ad') this.adSaved = true;
+      else if (choice !== 'shell' || !shells.spend(cost)) { this.endDive(reason); return; }
       this.saves++;
       this.state = 'play';
       this.hearts = HEARTS;
@@ -1986,6 +1990,7 @@ export class GameScene extends Phaser.Scene {
         depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
         close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null, chests,
         hunt: { before: huntBefore, won: huntWon }, daily: this.daily, today, newDivers,
+        adCoins: dev.on ? 0 : runCoins + closeCoins,
         earned: [{ label: `Dive ×${(bonus * twice).toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily Dive', n: dailyBonus }],
       });
     });

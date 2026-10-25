@@ -843,6 +843,16 @@ body.dev-mode::after {
 .saveme-panel > .k-btn { width: 100%; }
 #savemeYes { gap: 10px; white-space: nowrap; font-size: 20px; padding-inline: 12px; }
 #savemeYes .k-coin { width: 18px; height: 18px; }
+#savemeAd { gap: 8px; font-size: 16px; padding-inline: 12px; }
+#savemeAd[hidden], #savemeYes[hidden] { display: none; }
+.over-ad { gap: 6px; margin-top: 4px; }
+.over-ad[hidden] { display: none; }
+.over-ad .k-coin { width: 16px; height: 16px; }
+/* The dev server's stand-in for a rewarded ad (see core/ads.ts). */
+.fake-ad { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(8, 14, 28, .92); color: #fff; }
+.fake-ad div { display: grid; gap: 12px; justify-items: center; font-size: 18px; }
+.fake-ad b { font-size: 32px; }
+.fake-ad button { padding: 8px 18px; border-radius: 999px; border: 2px solid #fff; background: none; color: #fff; font: inherit; cursor: pointer; }
 .perk[data-kind="turbo"] .perk-bar div { background: #ff9f43; }
 
 /* ---------- Sea Hearts (spent on "Save me" and divers) */

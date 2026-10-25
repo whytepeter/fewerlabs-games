@@ -20,6 +20,7 @@ import { HUNT, hunt, type HuntPrize } from './game/hunt';
 import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from './game/daily';
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
+import { ads, type ShowAd } from './core/ads';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 
@@ -161,6 +162,31 @@ const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
 /** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
+/** Game over: once a rewarded ad is ready, offer to pay the dive's coins again for watching it. */
+function offerDoubleCoins(n: number) {
+  const b = $('overAd') as HTMLButtonElement;
+  b.hidden = true;
+  b.onclick = null;
+  if (n <= 0) return;
+  void ads.rewarded('double-coins').then(show => {
+    if (!show || $('over').hidden) return;
+    b.disabled = false;
+    b.innerHTML = `${icon('play')}Watch an ad: double your coins <span class="price-chip">+${coinTag(n)}</span>`;
+    b.hidden = false;
+    b.onclick = () => {
+      buzz(10);
+      b.disabled = true;
+      void show().then(watched => {
+        if (!watched) { b.hidden = true; return; }
+        coins.add(n);
+        b.innerHTML = `${coinTag(n)} added!`;
+        sfx.tone(880, 0.15, { vol: 0.08 }); sfx.tone(1318, 0.3, { vol: 0.08, delay: 0.1 });
+        buzz([15, 25, 15]);
+      });
+    };
+  });
+}
+
 /** Treasure chests on the game-over screen: each shakes open on its own, one after another, to show its prize (a tap opens it sooner). */
 function renderChests(el: HTMLElement, prizes: ChestPrize[]) {
   el.hidden = !prizes.length;
@@ -503,7 +529,8 @@ export const ui = {
    * so it's asked once). Accept stays off until the slider has been moved. Then `next`.
    */
   askAge(next: () => void) {
-    if (store.get<number | null>('age', null) !== null) { next(); return; }
+    const age = store.get<number | null>('age', null);
+    if (age !== null) { ads.init(age); next(); return; }
     const el = $('ageGate'), range = $('ageRange') as HTMLInputElement, ok = $('ageOk') as HTMLButtonElement;
     range.addEventListener('input', () => {
       $('ageValue').textContent = range.value === range.max ? `${range.value}+` : range.value;
@@ -513,6 +540,7 @@ export const ui = {
     ok.addEventListener('click', () => {
       buzz(6);
       store.set('age', Number(range.value));
+      ads.init(Number(range.value));
       el.hidden = true;
       next();
     });
@@ -888,12 +916,16 @@ export const ui = {
   },
 
   /**
-   * Out of lives: "Save me?" with a five-second countdown. Resolves true if the player spends Golden
-   * Shells to keep diving (the scene spends them), false if they decline or time runs out.
-   * (A "watch an ad" option can sit beside the shell button later.)
+   * Out of lives: "Save me?" with a five-second countdown. Resolves 'shell' if the player spends Sea
+   * Hearts to keep diving (the scene spends them), 'ad' once they've watched a rewarded ad to the end,
+   * or null if they decline or time runs out. `ad` (if offered) shows its button once an ad is ready;
+   * without Sea Hearts enough and no ad, the screen closes straight away.
    */
-  saveMe(reason: string, cost: number, have: number): Promise<boolean> {
+  saveMe(reason: string, cost: number, have: number, ad: Promise<ShowAd | null> | null): Promise<'shell' | 'ad' | null> {
     this.screen('saveme');
+    const canPay = have >= cost;
+    $('savemeYes').hidden = !canPay;
+    $('savemeAd').hidden = true;
     $('savemeReason').textContent = reason;
     $('savemeCost').innerHTML = shellTag(cost);
     $('savemeHave').innerHTML = `You have ${shellTag(have)}`;
@@ -906,16 +938,30 @@ export const ui = {
         left--;
         count.textContent = String(Math.max(0, left));
         if (left > 0) sfx.tone(660, 0.06, { type: 'triangle', vol: 0.05 });
-        else done(false);
+        else done(null);
       }, 1000);
-      const done = (yes: boolean) => {
+      let over = false;
+      const done = (choice: 'shell' | 'ad' | null) => {
+        if (over) return;
+        over = true;
         clearInterval(tick);
-        $('savemeYes').onclick = $('savemeNo').onclick = null;
-        if (yes) this.screen(null);
-        resolve(yes);
+        $('savemeYes').onclick = $('savemeNo').onclick = $('savemeAd').onclick = null;
+        if (choice) this.screen(null);
+        resolve(choice);
       };
-      $('savemeYes').onclick = () => { buzz(10); done(true); };
-      $('savemeNo').onclick = () => { buzz(6); done(false); };
+      $('savemeYes').onclick = () => { buzz(10); done('shell'); };
+      $('savemeNo').onclick = () => { buzz(6); done(null); };
+      void (ad ?? Promise.resolve(null)).then(show => {
+        if (over) return;
+        if (!show) { if (!canPay) done(null); return; }
+        $('savemeAd').hidden = false;
+        $('savemeAd').onclick = () => {
+          buzz(10);
+          clearInterval(tick); // the countdown stops while the ad plays
+          ring.style.animationPlayState = 'paused';
+          void show().then(watched => done(watched ? 'ad' : null));
+        };
+      });
     });
   },
 
@@ -934,6 +980,8 @@ export const ui = {
     today: { results: DailyResult[]; bonus: BoosterId | null };
     /** Divers this dive earned (their goal was just reached). */
     newDivers: string[];
+    /** Coins the dive itself paid (not missions): a rewarded ad can pay them again. 0: no offer. */
+    adCoins: number;
   }) {
     diveEnded = true;
     store.set('divesDone', store.get('divesDone', 0) + 1);
@@ -955,6 +1003,7 @@ export const ui = {
     $('overClose').textContent = o.close;
     renderEarned($('overEarned'), o.earned);
     renderChests($('overChests'), o.chests);
+    offerDoubleCoins(o.adCoins);
     renderMissions($('overMissions'), [], o.results);
     const gained = hunt.pearls - o.hunt.before;
     $('overHunt').hidden = gained <= 0 && !o.hunt.won.length;
