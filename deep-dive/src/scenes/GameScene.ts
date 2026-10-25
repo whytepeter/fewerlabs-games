@@ -20,6 +20,7 @@ import { saveCost, shells } from '../game/shells';
 import { DOUBLE_TAP, PUFF_RANGE, SPECIAL_PEARLS, SPECIAL_START, specialOf, STEADY_RATE } from '../game/specials';
 import { BOOSTER_UNTIL, BOOSTER_WINDOW, boosterById, boosters, MEGA_TURBO, type BoosterId } from '../game/boosters';
 import { hunt } from '../game/hunt';
+import { purchases } from '../game/purchases';
 import { daily as dailyRun, dailyMissions } from '../game/daily';
 import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
@@ -1962,7 +1963,8 @@ export class GameScene extends Phaser.Scene {
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus * this.def.pay * (this.perk === 'coins' ? DIVER_PERK.coins : 1); // harder caves (and Royal) pay more
-    const twice = this.doubler ? 2 : 1; // the Coin Doubler booster
+    // The Coin Doubler booster and the bought Coin Doubler each add ×1, so both together make ×3.
+    const twice = 1 + (this.doubler ? 1 : 0) + (purchases.has('coinDoubler') ? 1 : 0);
     const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus) * twice; // ~25–45 for a good dive at x1
     const closeCoins = Math.round(this.runBonus * bonus) * twice;
     coins.add(runCoins + closeCoins);
@@ -1991,7 +1993,7 @@ export class GameScene extends Phaser.Scene {
         close: soClose(depth, prevBest, ' m'), results, rankUp, opened: opened?.name ?? null, chests,
         hunt: { before: huntBefore, won: huntWon }, daily: this.daily, today, newDivers,
         adCoins: dev.on ? 0 : runCoins + closeCoins,
-        earned: [{ label: `Dive ×${(bonus * twice).toFixed(1)}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily Dive', n: dailyBonus }],
+        earned: [{ label: `Dive ×${(bonus * twice).toFixed(1)}${twice > 1 ? ' (Coin Doubler)' : ''}`, n: runCoins }, { label: 'Close calls', n: closeCoins }, { label: 'Missions', n: missionCoins }, { label: 'Daily Dive', n: dailyBonus }],
       });
     });
   }

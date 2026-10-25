@@ -2,7 +2,7 @@ import { cloud } from '../core/cloud';
 import { coins } from '../core/meta';
 import { store } from '../core/settings';
 import { BOOSTERS, boosters } from './boosters';
-import { packById, type Pack } from './packs';
+import { packById, type Pack, type Perk } from './packs';
 import { shells } from './shells';
 
 /**
@@ -21,6 +21,8 @@ export const purchases = {
   get available() { return cloud.enabled; },
   /** A one-time pack this account already bought. */
   owns: (id: string) => store.get<string[]>(BOUGHT, []).includes(id),
+  /** A lasting perk this account bought (saved, so it follows the cloud save). */
+  has: (perk: Perk) => store.get(perk, false),
 
   async buy(pack: Pack): Promise<BuyResult> {
     const token = await cloud.idToken();
@@ -68,6 +70,7 @@ export const purchases = {
       if (Number(data.coins) > 0) coins.add(Number(data.coins));
       const b = Number(data.boosters) || 0;
       if (b > 0) BOOSTERS.forEach(x => boosters.add(x.id, b));
+      if (pack.perk && data.perk === pack.perk) store.set(pack.perk, true);
       if (pack.once) store.set(BOUGHT, [...store.get<string[]>(BOUGHT, []), pack.id]);
       given.push(pack);
     }

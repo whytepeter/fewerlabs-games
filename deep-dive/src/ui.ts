@@ -21,7 +21,7 @@ import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from 
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
-import { PACKS, type Pack } from './game/packs';
+import { isCoinPack, PACKS, type Pack } from './game/packs';
 import { purchases } from './game/purchases';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
@@ -152,7 +152,7 @@ function treasureLine(c: CaveDef) {
 const drawTreasures = () => { const el = document.getElementById('treasuresCount'); if (el) el.textContent = `${treasureLog.found()}/${TREASURES.length}`; };
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' = 'upgrades';
+let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' | 'coins' = 'upgrades';
 let shownSpecial = '';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
@@ -166,7 +166,8 @@ const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
 /** What a pack holds, in a few words. */
 function packText(p: Pack) {
-  const parts = [`${p.hearts} Sea Hearts`];
+  if (p.perk === 'coinDoubler') return 'The Coin Doubler';
+  const parts = p.hearts ? [`${p.hearts} Sea Hearts`] : [];
   if (p.coins) parts.push(`${p.coins.toLocaleString()} coins`);
   if (p.boosters) parts.push(`${p.boosters === 1 ? 'one' : p.boosters} of every booster`);
   return parts.join(', ');
@@ -190,6 +191,29 @@ function parentCheck(): Promise<boolean> {
     };
     $('parentCancel').onclick = () => done(false);
   });
+}
+
+/** A real-money pack's shop row: its picture, what it holds, and its price (or Owned). */
+function packRow(p: Pack, pic: string, text: string) {
+  const owned = !!p.once && (purchases.owns(p.id) || (!!p.perk && purchases.has(p.perk)));
+  const btn = owned ? '<span class="shop-max">Owned</span>'
+    : `<button type="button" class="k-btn k-btn--green k-btn--sm" data-pack="${p.id}" aria-label="Buy ${p.name} for $${p.usd}">$${p.usd}</button>`;
+  return `<li class="shop-item pack-item${owned ? ' equipped' : ''}">${pic}
+    <div class="shop-body"><b>${p.name}</b><span>${text}</span>${p.note && !owned ? `<small>${p.note}</small>` : ''}</div>${btn}</li>`;
+}
+
+/** Wire the shop's pack buttons: a grown-up check if needed, then off to the Bachs checkout. */
+function wirePacks() {
+  $('shopList').querySelectorAll<HTMLButtonElement>('[data-pack]').forEach(b => b.addEventListener('click', async () => {
+    const pack = PACKS.find(p => p.id === b.dataset.pack)!;
+    buzz(8);
+    if (!(await parentCheck())) return;
+    b.disabled = true;
+    b.textContent = '…';
+    const r = await purchases.buy(pack);
+    if (r !== 'leaving') { b.disabled = false; b.textContent = `$${pack.usd}`; $('gadgetInfo').textContent = r.error; $('gadgetInfo').classList.add('warn'); }
+    else window.setTimeout(() => { b.disabled = false; b.textContent = `$${pack.usd}`; }, 4000); // checkout opened in another tab
+  }));
 }
 
 /** A purchase arrived: say thanks and what was added. */
@@ -877,11 +901,15 @@ export const ui = {
   },
 
   renderShop() {
+    // Coins are only sold for money, so the tab shows only where purchases work.
+    if (shopTab === 'coins' && !purchases.available) shopTab = 'upgrades';
+    document.querySelector<HTMLButtonElement>('[data-tab="coins"]')!.hidden = !purchases.available;
     document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === shopTab)));
     $('gadgetInfo').hidden = shopTab === 'upgrades';
     if (shopTab === 'gadgets') { this.renderGadgets(); return; }
     if (shopTab === 'boosters') { this.renderBoosters(); return; }
     if (shopTab === 'shells') { this.renderShells(); return; }
+    if (shopTab === 'coins') { this.renderCoins(); return; }
     const list = $('shopList');
     list.innerHTML = UPGRADES.map(u => {
       const l = upgrades.level(u.id), cost = upgrades.cost(u.id);
@@ -944,10 +972,8 @@ export const ui = {
     const bought = shellShop.bought;
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
-    const packs = purchases.available ? PACKS.filter(p => !(p.once && purchases.owns(p.id))) : [];
-    $('shopList').innerHTML = packs.map(p => `<li class="shop-item pack-item"><img src="${portraits.shell ?? ''}" alt="">
-        <div class="shop-body"><b>${p.name}</b><span>${p.coins || p.boosters ? packText(p) : 'For Save me and divers'}</span>${p.note ? `<small>${p.note}</small>` : ''}</div>
-        <button type="button" class="k-btn k-btn--green k-btn--sm" data-pack="${p.id}" aria-label="Buy ${p.name} for $${p.usd}">$${p.usd}</button></li>`).join('')
+    const packs = purchases.available ? PACKS.filter(p => !isCoinPack(p) && !(p.once && purchases.owns(p.id))) : [];
+    $('shopList').innerHTML = packs.map(p => packRow(p, `<img src="${portraits.shell ?? ''}" alt="">`, p.coins || p.boosters ? packText(p) : 'For Save me and divers')).join('')
     + SHELL_PRICES.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
@@ -959,16 +985,17 @@ export const ui = {
       const b = e.currentTarget as HTMLButtonElement;
       if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
     });
-    $('shopList').querySelectorAll<HTMLButtonElement>('[data-pack]').forEach(b => b.addEventListener('click', async () => {
-      const pack = PACKS.find(p => p.id === b.dataset.pack)!;
-      buzz(8);
-      if (!(await parentCheck())) return;
-      b.disabled = true;
-      b.textContent = '…';
-      const r = await purchases.buy(pack);
-      if (r !== 'leaving') { b.disabled = false; b.textContent = `$${pack.usd}`; $('gadgetInfo').textContent = r.error; $('gadgetInfo').classList.add('warn'); }
-      else window.setTimeout(() => { b.disabled = false; b.textContent = `$${pack.usd}`; }, 4000); // checkout opened in another tab
-    }));
+    wirePacks();
+  },
+
+  /** Coins for real money, and the Coin Doubler (which stays once bought, shown as Owned). */
+  renderCoins() {
+    $('gadgetInfo').innerHTML = `Coins buy upgrades, gadgets, boosters and divers. Every dive earns them too.`;
+    $('gadgetInfo').classList.remove('warn');
+    $('shopList').innerHTML = PACKS.filter(isCoinPack).map(p => p.perk
+      ? packRow(p, `<img src="${portraits['bs-doubler'] ?? ''}" alt="">`, purchases.has(p.perk) ? 'On: every dive pays twice the coins' : 'Twice the coins from every dive. With a Coin Doubler booster, three times.')
+      : packRow(p, `<span class="pack-coin">${coinIcon()}</span>`, 'For upgrades, gadgets and divers')).join('');
+    wirePacks();
   },
 
   /**
