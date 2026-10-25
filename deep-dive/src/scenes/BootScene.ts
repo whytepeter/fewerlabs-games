@@ -453,6 +453,29 @@ export class BootScene extends Phaser.Scene {
       hand((20 / 60) * TAU, 6.6, 1.2);
       ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-5, -4, 2.4, 1.2, -0.7, 0, TAU); ctx.fill();
     });
+    canvasTexture(this, 'tr-comb', 36, 36, ctx => {
+      setup(ctx); ctx.translate(18, 16); ctx.rotate(-0.12);
+      // A pink shell comb: a scalloped back and a row of teeth.
+      ctx.beginPath(); ctx.moveTo(-13, 0); ctx.quadraticCurveTo(-12, -13, 0, -13); ctx.quadraticCurveTo(12, -13, 13, 0); ctx.closePath();
+      const g = ctx.createLinearGradient(0, -13, 0, 0); g.addColorStop(0, '#ffe0f0'); g.addColorStop(1, '#ff8ac4');
+      fillOut(ctx, g, 2.4);
+      ctx.strokeStyle = 'rgba(180,60,120,.5)'; ctx.lineWidth = 1.2;
+      for (const a of [-0.9, -0.45, 0, 0.45, 0.9]) { ctx.beginPath(); ctx.moveTo(0, -1); ctx.lineTo(Math.sin(a) * 11, -1 - Math.cos(a) * 10); ctx.stroke(); }
+      roundRect(ctx, -13, -1, 26, 5, 2); fillOut(ctx, '#ffb3d6', 2);
+      for (let x = -11; x <= 11; x += 3.6) { roundRect(ctx, x - 1.2, 3, 2.4, 7, 1.1); fillOut(ctx, '#ffd0e6', 1.4); }
+      ctx.beginPath(); ctx.arc(0, -6, 2.4, 0, TAU); fillOut(ctx, '#fff7e8', 1.4);
+    });
+    canvasTexture(this, 'tr-crown', 36, 36, ctx => {
+      setup(ctx); ctx.translate(18, 20);
+      // A gold crown with three points, set with sea-green stones.
+      ctx.beginPath(); ctx.moveTo(-13, 8); ctx.lineTo(-14, -8); ctx.lineTo(-7, -2); ctx.lineTo(0, -13); ctx.lineTo(7, -2); ctx.lineTo(14, -8); ctx.lineTo(13, 8); ctx.closePath();
+      const g = ctx.createLinearGradient(0, -13, 0, 8); g.addColorStop(0, '#fff3a8'); g.addColorStop(0.5, '#ffd23f'); g.addColorStop(1, '#d99a12');
+      fillOut(ctx, g, 2.4);
+      roundRect(ctx, -14, 3, 28, 6, 2); fillOut(ctx, '#e0a21a', 2);
+      for (const [x, y, r] of [[0, -6, 2.8], [-9, 6, 1.8], [0, 6, 2], [9, 6, 1.8]] as const) { ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); fillOut(ctx, '#3fe0b0', 1.3); }
+      for (const [x, y] of [[-14, -8], [0, -13], [14, -8]] as const) { ctx.beginPath(); ctx.arc(x, y, 1.8, 0, TAU); fillOut(ctx, '#fff7d6', 1.2); }
+      ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.ellipse(-8, -2, 1.4, 3, 0.4, 0, TAU); ctx.fill();
+    });
     canvasTexture(this, 'tr-compass', 36, 36, ctx => {
       setup(ctx); ctx.translate(18, 18);
       // A brass compass: case, glass face, a red-and-white needle, and the ring on top.

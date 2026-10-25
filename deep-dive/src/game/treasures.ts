@@ -59,6 +59,16 @@ export const TREASURES: Treasure[] = [
     from: 250, to: 1000, chance: 30, first: 3, again: 1,
   },
   {
+    id: 'comb', name: "Mermaid's Comb", cave: 'riptide', glow: 0xff9fd6,
+    story: 'Carved from pink shell and lost in the surf. The currents always seem to carry it back.',
+    from: 300, to: 1100, chance: 30, first: 2, again: 1,
+  },
+  {
+    id: 'crown', name: 'Atlantean Crown', cave: 'sunken', glow: 0x7fffd4,
+    story: 'Gold set with sea-green stones, worn by the last ruler of the drowned city.',
+    from: 500, to: 1300, chance: 45, first: 3, again: 1,
+  },
+  {
     id: 'heart', name: 'Heart of the Sea', cave: 'titanic', glow: 0x5fb8ff, legendary: true,
     story: 'A great blue diamond on a silver chain, lost with the ship. The rarest thing in the deep.',
     from: 650, to: 1400, chance: 70, first: 5, again: 2,

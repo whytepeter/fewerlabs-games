@@ -234,3 +234,111 @@ export const LINER_SONG: Song = {
   fx: { delay: 0.34, delayBeats: 1.5, feedback: 0.45, reverb: 0.6, reverbSecs: 5, lowpass: 3600 },
   gain: 1.1,
 };
+
+/**
+ * "Riptide Run": Riptide Canyon's tune. Bright surf in D: a driving bouncy bass, twangy plucked
+ * arpeggios through a slap-back echo, a tin-whistle hook and clappy drums, like riding a wave.
+ */
+export const RIPTIDE_SONG: Song = {
+  bpm: 126,
+  root: 50, // D3
+  swing: 0.08,
+  // Lead notes: D E F# A B.
+  scale: [0, 2, 4, 7, 9],
+  // D – C – G – D – D – C – G – A
+  progression: [
+    [0, 4, 7, 12], [-2, 2, 5, 10], [-7, -3, 0, 5], [0, 4, 7, 12],
+    [0, 4, 7, 12], [-2, 2, 5, 10], [-7, -3, 0, 5], [-5, -1, 2, 7],
+  ],
+  bass:  [1, 0, 0, 1, 0, 0, 2, 0, 1, 0, 0, 1, 0, 0, 3, 0],
+  arp:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+  kick:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+  hat:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+  snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+  lead:  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0,
+          0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+  hook: {
+    at: 0.3,
+    cycle: 16,
+    bars: [0, 8],
+    // Over D then C: D' B A B D' E' D' | C' A G A C' · B A
+    notes: [
+      12, null, 9, null, 7, null, 9, null, 12, null, 14, null, 12, null, null, null,
+      10, null, 7, null, 5, null, 7, null, 10, null, null, null, 9, null, 7, null,
+    ],
+  },
+  arp2: {
+    at: 0.7,
+    octave: 2,
+    pattern: [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+  },
+  tense: {
+    at: 0.88,
+    bass:  [1, 0, 1, 1, 0, 1, 2, 0, 1, 0, 1, 1, 0, 1, 3, 0],
+    hat:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1],
+    snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0],
+  },
+  layers: { bass: 0.2, arp: 0.3, drums: 0.45, lead: 0.7 },
+  instruments: { pad: 'triangle', bass: 'bounce', arp: 'pluck', hook: 'whistle', lead: 'kalimba', arp2: 'glass' },
+  drums: 'pop',
+  arpOctave: 0,
+  bassLen: 1.4,
+  leadOctave: 1,
+  fx: { delay: 0.26, delayBeats: 0.75, feedback: 0.32, reverb: 0.28, reverbSecs: 2, lowpass: 6500 },
+  gain: 0.95,
+};
+
+/**
+ * "Tide of Atlantis": the Sunken City's tune. Stately A dorian with harp runs, a temple-bell melody
+ * and a big soft kick on every beat from the very start: the city's gates and spears move on that
+ * beat, so you can hear when they will.
+ */
+export const SUNKEN_SONG: Song = {
+  bpm: 96,
+  root: 57, // A3
+  swing: 0,
+  // Lead notes: A B C E F#.
+  scale: [0, 2, 3, 7, 9],
+  // Am – G – F – E – Am – Dm – F – E
+  progression: [
+    [0, 3, 7, 12], [-2, 2, 5, 10], [-4, 0, 3, 8], [-5, -1, 2, 7],
+    [0, 3, 7, 12], [-7, -4, 0, 5], [-4, 0, 3, 8], [-5, -1, 2, 7],
+  ],
+  bass:  [1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0],
+  arp:   [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+  kick:  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+  hat:   [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+  snare: [0],
+  lead:  [1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+          1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+  hook: {
+    at: 0.3,
+    cycle: 16,
+    bars: [0, 8],
+    // Over Am then G: E · A' · G · E | D · G · F# E D
+    notes: [
+      7, null, null, null, 12, null, null, null, 10, null, null, null, 7, null, null, null,
+      5, null, null, null, 10, null, null, null, 9, null, 7, null, 5, null, null, null,
+    ],
+  },
+  arp2: {
+    at: 0.7,
+    octave: 2,
+    pattern: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  },
+  tense: {
+    at: 0.88,
+    arp:   [1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0],
+    hat:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+  },
+  layers: { bass: 0.2, arp: 0.3, drums: 0, lead: 0.72 },
+  instruments: { pad: 'warm', bass: 'sub', arp: 'pluck', hook: 'bell', lead: 'glass', arp2: 'bell' },
+  drums: 'soft',
+  arpOctave: 1,
+  bassLen: 6,
+  leadOctave: 1,
+  fx: { delay: 0.2, delayBeats: 1, feedback: 0.3, reverb: 0.5, reverbSecs: 4, lowpass: 5000 },
+  gain: 1,
+};

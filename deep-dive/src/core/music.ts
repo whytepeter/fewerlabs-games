@@ -106,6 +106,7 @@ let leadNote = 0;
 let chord: number[] = [0];
 let stopTimer = 0;
 let stopping = false;
+let beatStep = 0, beatTime = 0; // the last step scheduled and when it plays, for music.beat()
 
 const midiHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 /** Pattern lookup that works for any pattern length. */
@@ -186,6 +187,7 @@ function start() {
   step = 0;
   leadNote = 0;
   nextTime = ctx.currentTime + 0.1;
+  beatStep = 0; beatTime = nextTime;
   clearInterval(timer);
   timer = window.setInterval(tick, 25);
 }
@@ -199,6 +201,7 @@ function tick() {
   while (nextTime < ctx.currentTime + LOOKAHEAD) {
     const swing = step % 2 ? (song.swing ?? 0) * s16 : 0;
     playStep(song, step, nextTime + swing, s16);
+    beatStep = step; beatTime = nextTime;
     nextTime += s16;
     step++;
   }
@@ -463,6 +466,14 @@ export const music = {
   /** 0..1: which layers play (see the header). */
   setIntensity(level: number) { intensity = Math.max(0, Math.min(1, level)); },
   get intensity() { return intensity; },
+  /**
+   * How far into the song `s` we are, in beats (quarter notes), by the audio clock, so the game can
+   * move things in time with what you hear. Null when that song isn't playing (or audio is locked).
+   */
+  beat(s: Song) {
+    if (!ctx || song !== s || !timer || stopping) return null;
+    return (beatStep + (ctx.currentTime - beatTime) / (60 / s.bpm / 4)) / 4;
+  },
   stop(fade = 0.6) {
     if (!song) return;
     stopping = true;
