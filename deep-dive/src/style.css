@@ -41,6 +41,17 @@ body {
 #ui { position: fixed; inset: 0; pointer-events: none; }
 #ui button, #ui a { pointer-events: auto; }
 
+/* Installed on an iPhone (iOS 26, WebKit bug 301108) the viewport comes out shorter than the
+   screen by the status bar height, leaving a strip of body colour under the game. Stretch the
+   full-screen layers to the real screen height; anywhere else this is just the viewport. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root { --app-h: min(100lvh, 100dvh + env(safe-area-inset-top, 0px)); }
+  html, body, #ui { bottom: auto; height: var(--app-h); }
+  /* Landscape: full height. Portrait: #game is turned 90°, so its width runs down the screen. */
+  #game { bottom: auto; height: var(--app-h); }
+  @media (orientation: portrait) { #game { width: var(--app-h); height: 100vw; } }
+}
+
 /* ---------- HUD */
 .hud {
   position: absolute; top: 0; left: 0;
