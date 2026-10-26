@@ -451,6 +451,8 @@ body {
 /* Settings > Privacy: the same switches as dev mode, on a plain card. */
 .privacy { margin-top: 14px; display: grid; gap: 8px; text-align: left; }
 .privacy h3 { margin: 0; font-size: 15px; color: var(--k-ink-soft); }
+.cookie-text a, .privacy-link { color: var(--k-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+.privacy-link { font-size: 13px; justify-self: start; }
 .privacy .pref-toggle { margin-top: 0; background: rgba(22, 35, 59, .06); box-shadow: none; }
 /* The cookie banner: a card along the bottom edge, its two answers side by side and equally easy. */
 .cookie-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 32; display: flex; justify-content: center; padding: 0 12px calc(var(--safe-b) + 12px); pointer-events: none; animation: sheet-up .35s cubic-bezier(.2, 1.1, .4, 1) both; }

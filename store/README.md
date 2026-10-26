@@ -22,10 +22,22 @@ In development, the embedded games are loaded from their own dev servers on the 
 
 | Variable | Value |
 |---|---|
-| `VITE_GAME_DEEP_DIVE_URL` | Deep Dive's URL, e.g. `https://deep-dive.vercel.app` |
-| `VITE_GAME_RIPPLE_URL` | Ripple's URL |
-| `VITE_GAME_SKIP_URL` | Skip's URL |
+| `VITE_GAME_DEEP_DIVE_URL` | Optional. Defaults to `https://deepdive.fewerlabs.dev` |
+| `VITE_GAME_RIPPLE_URL` | Optional. Defaults to `https://ripple.fewerlabs.dev` |
+| `VITE_GAME_SKIP_URL` | Optional. Defaults to `https://skip.fewerlabs.dev` |
 | `VITE_GAME_DRAW_AM_URL` | Optional. Defaults to `https://www.drawam.app` |
+
+### Domains
+
+| Domain | Vercel project |
+|---|---|
+| `fewerlabs.dev`, `www.fewerlabs.dev` | the homepage (separate `site` repo); it also serves `ads.txt` and redirects `/privacy`, `/about`, `/contact` here |
+| `games.fewerlabs.dev` | this store |
+| `deepdive.fewerlabs.dev` | Deep Dive |
+| `ripple.fewerlabs.dev` | Ripple |
+| `skip.fewerlabs.dev` | Skip |
+
+Add each one under the project's Settings → Domains, then create the DNS record Vercel shows (a `CNAME` to `cname.vercel-dns.com` for the subdomains). Also add the game domains to Firebase (Authentication → Settings → Authorized domains), or Google sign-in won't work there.
 
 A game without a URL still appears in the store; its player shows a "not connected yet" message.
 

@@ -2,13 +2,15 @@ import '@fontsource-variable/inter';
 import './style.css';
 import { gameById } from './catalog';
 import { gamePage, homePage, type Page } from './pages';
+import { aboutPage, contactPage, privacyPage } from './legal';
 import { openPlayer } from './player';
 import { icon } from './core/icons';
 import { initPWA } from './core/pwa';
 import { profile } from './profile';
 
 /**
- * A tiny router over real URLs: "/" (store front), "/game/<id>" (details) and "/play/<id>"
+ * A tiny router over real URLs: "/" (store front), "/game/<id>" (details), "/play/<id>"
+ * and the plain pages "/privacy", "/about" and "/contact"
  * (the game, embedded). Links marked data-link navigate without a page load; the browser's
  * back button and the phone back gesture work as expected.
  */
@@ -38,6 +40,9 @@ function render() {
   let page: Page;
   if (!section) page = homePage();
   else if (section === 'game' && game) page = gamePage(game);
+  else if (section === 'privacy' && !id) page = privacyPage();
+  else if (section === 'about' && !id) page = aboutPage();
+  else if (section === 'contact' && !id) page = contactPage();
   else page = { title: 'Not found · Fewer Labs Games', html: `<div class="wrap notfound"><h1>Page not found</h1><p>This page doesn't exist, but the games do.</p><a class="btn btn-primary" href="/" data-link>Browse games</a></div>` };
 
   document.title = page.title;

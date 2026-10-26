@@ -34,7 +34,8 @@ export interface Game {
   poster?: boolean;
 }
 
-const dev = (port: number) => (import.meta.env.DEV ? `http://${location.hostname}:${port}` : '');
+/** A game's own site: its local dev server in `npm run dev`, its fewerlabs.dev subdomain otherwise. */
+const dev = (port: number, live: string) => (import.meta.env.DEV ? `http://${location.hostname}:${port}` : live);
 const clean = (u: string | undefined, fallback: string) => (u || fallback).replace(/\/+$/, '');
 
 export const GAMES: Game[] = [
@@ -81,7 +82,7 @@ export const GAMES: Game[] = [
     color: '#2b8cff',
     bg: 'linear-gradient(180deg, #2ec4f0 0%, #0e74ad 55%, #0b1c4c 100%)',
     landscapeFirst: false,
-    url: clean(import.meta.env.VITE_GAME_DEEP_DIVE_URL, dev(5181)),
+    url: clean(import.meta.env.VITE_GAME_DEEP_DIVE_URL, dev(5181, 'https://deepdive.fewerlabs.dev')),
   },
   {
     id: 'ripple',
@@ -102,7 +103,7 @@ export const GAMES: Game[] = [
     color: '#3fb6a0',
     bg: 'linear-gradient(180deg, #a9c48a 0%, #5fb3c6 45%, #1f3d6b 100%)',
     landscapeFirst: false,
-    url: clean(import.meta.env.VITE_GAME_RIPPLE_URL, dev(5182)),
+    url: clean(import.meta.env.VITE_GAME_RIPPLE_URL, dev(5182, 'https://ripple.fewerlabs.dev')),
   },
   {
     id: 'skip',
@@ -123,7 +124,7 @@ export const GAMES: Game[] = [
     color: '#ff9e7a',
     bg: 'linear-gradient(180deg, #ff9e7a 0%, #ffd27a 50%, #5aa6c4 100%)',
     landscapeFirst: false,
-    url: clean(import.meta.env.VITE_GAME_SKIP_URL, dev(5183)),
+    url: clean(import.meta.env.VITE_GAME_SKIP_URL, dev(5183, 'https://skip.fewerlabs.dev')),
   },
 ];
 

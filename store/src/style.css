@@ -234,6 +234,19 @@ body.home main { padding-top: 0; }
 .kv dd { text-align: right; font-weight: 500; }
 
 .notfound { text-align: center; padding: 100px 0; }
+.footer-links { display: flex; gap: 16px; }
+.footer-links a { color: var(--muted); }
+.footer-links a:hover { color: var(--text); }
+/* Privacy policy, About and Contact: one readable column. */
+.legal article { max-width: 720px; margin: 0 auto; padding: 48px 0 72px; line-height: 1.65; }
+.legal h1 { font-size: 34px; margin-bottom: 6px; }
+.legal h2 { font-size: 20px; margin: 32px 0 8px; }
+.legal p, .legal li { color: var(--muted); }
+.legal ul { padding-left: 20px; display: grid; gap: 8px; }
+.legal b { color: var(--text); }
+.legal a:not(.btn) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.legal-updated { font-size: 13px; }
+.legal-mail { margin: 20px 0; }
 .notfound h1 { font-size: 34px; }
 .notfound p { color: var(--muted); margin: 8px 0 22px; }
 
