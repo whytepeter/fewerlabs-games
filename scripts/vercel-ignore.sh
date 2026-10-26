@@ -12,10 +12,10 @@ if [ -n "$base" ]; then
     echo "Last deployed commit $base is not in the clone. Building."
     exit 1
   fi
-elif git rev-parse --quiet --verify "HEAD^" >/dev/null; then
-  base="HEAD^"
 else
-  echo "No earlier commit to compare against. Building."
+  # No earlier deploy (a new project, or its first deploy from git): always build, or a
+  # project whose folder didn't change in the latest commit would never deploy at all.
+  echo "No earlier deployment to compare against. Building."
   exit 1
 fi
 
