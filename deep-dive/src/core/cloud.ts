@@ -17,9 +17,13 @@ import type { Firestore } from 'firebase/firestore/lite';
 import { NAMESPACE, PREFIX, onStoreWrite, store } from './settings';
 
 const env = import.meta.env;
+/** On the live domain, sign-in runs on the game's own address (Google shows "continue to
+ *  deepdive.fewerlabs.dev"); vercel.json proxies /__/auth/* to Firebase. Elsewhere (localhost,
+ *  preview deploys) it falls back to the project's firebaseapp.com domain. */
+const LIVE_HOST = 'deepdive.fewerlabs.dev';
 const config = env.VITE_FIREBASE_PROJECT_ID ? {
   apiKey: env.VITE_FIREBASE_API_KEY,
-  authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
+  authDomain: location.hostname === LIVE_HOST ? LIVE_HOST : env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: env.VITE_FIREBASE_PROJECT_ID,
   appId: env.VITE_FIREBASE_APP_ID,
 } : null;
