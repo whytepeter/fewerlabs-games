@@ -5,6 +5,9 @@ import { renderEarned, renderMissions } from './core/metaui';
 import { sounds } from './game/audio';
 import { boatShop, rippleMissions } from './game/meta';
 import { SKINS, skinPreview } from './game/skins';
+import { install, installMode, onInstallChange } from './core/pwa';
+import { embedded } from './core/embed';
+import { store } from './core/settings';
 import { PONDS, isUnlocked, markPondSeen, newPonds, type PondDef, type PondId } from './game/ponds';
 
 // DOM overlay built from the shared cartoon kit: HUD pills, pop-up text, toast, hint,
@@ -12,7 +15,7 @@ import { PONDS, isUnlocked, markPondSeen, newPonds, type PondDef, type PondId } 
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export type ScreenName = 'title' | 'info' | 'boats' | 'pause' | 'over' | null;
+export type ScreenName = 'title' | 'info' | 'boats' | 'install' | 'pause' | 'over' | null;
 
 export interface UIHandlers {
   play(): void;
@@ -34,7 +37,7 @@ export interface OverInfo {
 }
 
 
-const screens = { title: $('title'), info: $('info'), boats: $('boats'), pause: $('pause'), over: $('over') };
+const screens = { title: $('title'), info: $('info'), boats: $('boats'), install: $('install'), pause: $('pause'), over: $('over') };
 const hud = $('hud');
 const scorePill = $('scorePill');
 const scoreEl = $('score');
@@ -105,7 +108,7 @@ export const ui = {
         if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLAnchorElement) return;
         e.preventDefault();
         if (current === 'over' || isUnlocked(shownPond)) h.play();
-      } else if (k === 'Escape' && (current === 'info' || current === 'boats')) {
+      } else if (k === 'Escape' && (current === 'info' || current === 'boats' || current === 'install')) {
         this.show('title');
       } else if ((k === 'ArrowLeft' || k === 'ArrowRight') && current === 'title') {
         flipPond(k === 'ArrowLeft' ? -1 : 1);
@@ -114,6 +117,47 @@ export const ui = {
         else if (current === 'pause') h.resume();
       }
     });
+  },
+
+  /**
+   * Install: a "Get app" pill on the title whenever this browser can install, and a card that
+   * offers it by itself once the player has finished a couple of runs (see offerInstall).
+   */
+  initInstall() {
+    const pill = $('getAppBtn');
+    const sync = () => { pill.hidden = embedded || !installMode(); };
+    sync();
+    onInstallChange(sync);
+    on('getAppBtn', () => this.showInstall());
+    on('installLater', () => this.show('title'));
+    on('installGo', async () => {
+      if (installMode() !== 'prompt') { this.show('title'); return; }
+      const ok = await install();
+      if (ok) { store.set('installAsk', { n: 99, at: Date.now() }); this.toast('Ripple', 'is on your home screen!', '#ffd23f'); }
+      this.show('title');
+    });
+  },
+
+  showInstall() {
+    const ios = installMode() === 'ios';
+    $('installSteps').hidden = !ios;
+    $('installGo').hidden = ios;
+    const later = $('installLater');
+    later.textContent = ios ? 'Got it' : 'Not now';
+    later.className = ios ? 'k-btn k-btn--block' : 'install-later'; // on iPhone it's the only button
+    this.show('install');
+  },
+
+  /**
+   * Offer to install, by itself, on the title: only after `runs` finished runs (never on a first
+   * visit), at most three times, three days apart, and never inside the store.
+   */
+  offerInstall(runs: number) {
+    if (embedded || runs < 2 || !installMode() || current !== 'title') return;
+    const ask = store.get('installAsk', { n: 0, at: 0 });
+    if (ask.n >= 3 || Date.now() - ask.at < 3 * 864e5) return;
+    store.set('installAsk', { n: ask.n + 1, at: Date.now() });
+    this.showInstall();
   },
 
   /** Title extras: info tabs, boat style row, missions. */

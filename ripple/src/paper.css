@@ -184,4 +184,17 @@
 .k-mission.moved .k-mission-bar i { background: linear-gradient(90deg, #ff9fb6, var(--r-rose)); }
 .k-mission.done .k-mission-reward { color: var(--r-lantern-lo); }
 
-.k-update { border-width: 2px; box-shadow: var(--r-lift); }
+/* Update: a strip of paper with a lantern, dropped in under the top bar */
+.k-update {
+  top: calc(var(--safe-t) + 64px); gap: 10px; padding: 6px 6px 6px 10px;
+  background: var(--r-paper); border: 2px solid var(--r-ink); box-shadow: var(--r-lift);
+  color: var(--r-ink); font-weight: 700; font-size: 14.5px;
+}
+.k-update-icon {
+  width: 14px; height: 14px; border: 0;
+  background: radial-gradient(circle at 38% 34%, #fff3c4 0 16%, var(--r-lantern-hi) 34%, var(--r-lantern) 80%);
+  box-shadow: 0 0 0 2px var(--r-ink), 0 0 10px 3px rgba(255, 176, 0, .55);
+}
+.k-update-icon svg { display: none; }
+.k-update .k-btn--sm { min-height: 36px; font-size: 14px; padding: 0 16px; }
+.k-update-close { color: var(--r-ink-soft); }

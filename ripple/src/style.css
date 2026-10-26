@@ -187,6 +187,47 @@ body {
 }
 .title-bar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .title-toggles { display: flex; gap: 8px; }
+.title-left { display: flex; align-items: center; gap: 8px; }
+/* "Get app": a glass pill beside the coins whenever this browser can install Ripple */
+.get-app {
+  appearance: none; cursor: pointer; font: inherit; font-size: 14px; font-weight: 700; color: #fff;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 0 14px 0 10px; border-radius: 999px;
+  background: var(--r-glass); border: 1.5px solid var(--r-glass-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 4px 14px rgba(8, 26, 52, .18);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  text-shadow: 0 1px 2px rgba(8, 26, 52, .55); -webkit-tap-highlight-color: transparent;
+  animation: get-app-in .5s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+.get-app svg { width: 18px; height: 18px; fill: var(--r-lantern-hi); filter: drop-shadow(0 1px 1px rgba(8, 26, 52, .5)); }
+.get-app:active { transform: scale(.94); }
+@keyframes get-app-in { from { opacity: 0; transform: translateX(-10px); } }
+
+/* Install card: the app icon pinned above the note, then why, then one lantern button. */
+.k-panel.install-panel { width: min(360px, 100%); padding-top: 52px; }
+.install-icon {
+  position: absolute; left: 50%; top: -36px; width: 72px; height: 72px; margin-left: -36px;
+  border-radius: 18px; border: 2.5px solid var(--r-ink); box-shadow: var(--r-lift); background: #fff;
+}
+.install-panel::before { display: none; }
+.install-panel .k-ribbon { margin-bottom: 8px; }
+.install-panel .k-ribbon::before { display: none; }
+.install-lead { font-size: 15px; line-height: 1.4; font-weight: 500; margin: 0 4px 18px; }
+.install-steps { list-style: none; display: grid; gap: 8px; margin: -4px 0 16px; padding: 0; text-align: left; counter-reset: step; }
+.install-steps li {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 14px;
+  background: rgba(22, 35, 59, .045); font-size: 15px; color: var(--r-ink-soft); font-weight: 500;
+}
+.install-steps b { color: var(--r-ink); }
+.install-step-ico {
+  flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
+  background: #fff; border: 2px solid var(--r-ink); color: #1677ff;
+}
+.install-step-ico svg { width: 22px; height: 22px; fill: currentColor; }
+.install-later {
+  appearance: none; cursor: pointer; background: none; border: 0; font: inherit;
+  margin-top: 10px; min-height: 40px; padding: 0 16px; font-size: 15px; font-weight: 700; color: var(--r-ink-soft);
+}
+.install-later:active { color: var(--r-ink); }
 .title-head { text-align: center; margin-top: clamp(10px, 6vh, 64px); }
 .title-tag { margin-top: 10px; font-size: 17px; }
 .title-foot { width: min(420px, 100%); margin-top: auto; display: grid; gap: 22px; justify-items: center; }

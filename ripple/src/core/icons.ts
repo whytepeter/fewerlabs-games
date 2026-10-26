@@ -21,6 +21,9 @@ const PATHS = {
   star: '<path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/>',
   boat: '<path d="M2.5 13h19l-3.2 5.5a2 2 0 0 1-1.7 1H7.4a2 2 0 0 1-1.7-1z"/><path d="M11 3.5v8H5.5z"/><path d="M12.5 5v6.5H18z"/>',
   stone: '<ellipse cx="12" cy="13" rx="9" ry="5.5"/>',
+  install: '<path d="M12 3v11m-4.5-4.5L12 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-3.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>',
+  share: '<path d="M12 3v11.5M8 6.8 12 3l4 3.8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 10H6.5A1.5 1.5 0 0 0 5 11.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5h-2" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
+  'add-box': '<rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 8v8M8 12h8" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>',
   close: '<path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>',
 } as const;
 

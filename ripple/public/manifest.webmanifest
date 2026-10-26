@@ -7,8 +7,8 @@
   "scope": "/",
   "display": "fullscreen",
   "orientation": "any",
-  "background_color": "#a9c48a",
-  "theme_color": "#a9c48a",
+  "background_color": "#24a2d8",
+  "theme_color": "#24a2d8",
   "lang": "en",
   "icons": [
     {
@@ -32,5 +32,8 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "categories": [
+    "games"
   ]
 }

@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="description" content="Tap the pond to make ripples and guide paper lantern boats to the dock of their colour." />
-  <meta name="theme-color" content="#8fd16a" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#23503c" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#24a2d8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0d2453" media="(prefers-color-scheme: dark)" />
   <meta name="color-scheme" content="light dark" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -47,7 +47,10 @@
 
     <section id="title" class="k-screen title-screen" aria-labelledby="logo">
       <div class="title-bar">
-        <div class="k-coins" data-coins aria-label="Coins"></div>
+        <div class="title-left">
+          <div class="k-coins" data-coins aria-label="Coins"></div>
+          <button class="get-app" id="getAppBtn" type="button" hidden><i data-icon="install"></i>Get app</button>
+        </div>
         <div class="title-toggles">
           <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><span class="ico-on"><i data-icon="sound"></i></span><span class="ico-off"><i data-icon="mute"></i></span></button>
           <button class="k-icon-btn k-icon-btn--sm k-btn--pink" data-setting="music" aria-label="Music"><span class="ico-on"><i data-icon="music"></i></span><span class="ico-off"><i data-icon="music-off"></i></span></button>
@@ -111,6 +114,20 @@
         <div class="k-ribbon" id="boatsH">Boats</div>
         <div class="skins" id="skins" role="radiogroup" aria-label="Boat style"></div>
         <button class="k-btn k-btn--block card-close" type="button" data-close>Done</button>
+      </div>
+    </section>
+
+    <section id="install" class="k-screen card-screen" hidden aria-labelledby="installH">
+      <div class="k-panel card-panel install-panel">
+        <img class="install-icon" src="/pwa-192x192.png" alt="" width="72" height="72" />
+        <div class="k-ribbon" id="installH">Take the pond with you</div>
+        <p class="install-lead">Add Ripple to your home screen. It opens full screen, loads in a blink and plays offline.</p>
+        <ol class="install-steps" id="installSteps" hidden>
+          <li><span class="install-step-ico"><i data-icon="share"></i></span><span>Tap <b>Share</b> in Safari's toolbar</span></li>
+          <li><span class="install-step-ico"><i data-icon="add-box"></i></span><span>Choose <b>Add to Home Screen</b></span></li>
+        </ol>
+        <button class="k-btn k-btn--block" id="installGo" type="button"><i data-icon="install"></i>Add to home screen</button>
+        <button class="install-later" id="installLater" type="button">Not now</button>
       </div>
     </section>
 

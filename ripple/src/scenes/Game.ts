@@ -17,6 +17,7 @@ import {
 import { sounds } from '../game/audio';
 import { computePond, hudHeight, readInsets, uiScale, worldScale } from '../game/layout';
 import { embed } from '../core/embed';
+import { store } from '../core/settings';
 import { ui } from '../ui';
 
 type Mode = 'title' | 'play' | 'paused' | 'over';
@@ -157,6 +158,7 @@ export class Game extends Phaser.Scene {
     };
     ui.init(handlers);
     ui.initMeta(handlers);
+    ui.initInstall();
     ui.showTab(this.best > 0 ? 'missions' : 'howto');
     this.toTitle(true);
   }
@@ -175,6 +177,8 @@ export class Game extends Phaser.Scene {
     this.setWind(false);
     this.setRain();
     ui.show('title');
+    // a returning player may get the install card, once the title has settled
+    this.time.delayedCall(1200, () => { if (this.mode === 'title') ui.offerInstall(store.get('runs', 0)); });
   }
 
   /**
@@ -237,6 +241,7 @@ export class Game extends Phaser.Scene {
     if (isNew) { this.best = score; setPondBest(this.pond.id, score); }
     const opened = locked.find(isUnlocked);
     embed.score(score, overallBest());
+    store.set('runs', store.get('runs', 0) + 1);
 
     // meta progression: run coins (harder ponds pay more) and missions
     const stats = {

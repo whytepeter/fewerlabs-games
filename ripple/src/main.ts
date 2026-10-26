@@ -98,5 +98,6 @@ if (import.meta.env.DEV) {
   };
 }
 
-initPWA();
+// an update waits until the player is off the water (title, pause or game over)
+initPWA({ busy: () => (game.scene.getScene('game') as Game | null)?.mode === 'play' });
 initEmbed('ripple');
