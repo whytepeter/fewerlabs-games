@@ -67,7 +67,7 @@ export async function grant(checkoutId: string): Promise<string | null> {
     if ((await t.get(ref)).exists) return;
     t.set(ref, {
       pack: pack.id, hearts: pack.hearts, coins: pack.coins ?? 0, boosters: pack.boosters ?? 0, perk: pack.perk ?? null,
-      usd: pack.usd, applied: false, createdAt: FieldValue.serverTimestamp(),
+      usd: pack.usd, ngn: pack.ngn, applied: false, createdAt: FieldValue.serverTimestamp(),
     });
   });
   return uid;

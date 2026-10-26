@@ -13,6 +13,8 @@ export interface Pack {
   name: string;
   /** Price in US dollars, as Bachs wants it (a decimal string, at least 1.00). Bachs shows it in the buyer's own currency. */
   usd: string;
+  /** A fixed price in naira (decimal string) for buyers who pay in NGN, instead of Bachs converting the dollars. */
+  ngn: string;
   hearts: number;
   coins?: number;
   /** One of each booster, this many times. */
@@ -26,14 +28,14 @@ export interface Pack {
 }
 
 export const PACKS: Pack[] = [
-  { id: 'starter',  name: 'Starter Pack',    usd: '1.00', hearts: 5, coins: 2000, boosters: 1, once: true, note: 'One time only' },
-  { id: 'hearts5',  name: '5 Sea Hearts',    usd: '1.00', hearts: 5 },
-  { id: 'hearts12', name: '12 Sea Hearts',   usd: '1.99', hearts: 12, note: 'Best seller' },
-  { id: 'hearts30', name: '30 Sea Hearts',   usd: '4.99', hearts: 30, note: 'Best value' },
-  { id: 'coinDoubler', name: 'Coin Doubler', usd: '2.99', hearts: 0, perk: 'coinDoubler', once: true, note: 'Yours for good' },
-  { id: 'coins5k',  name: '5,000 coins',     usd: '1.00', hearts: 0, coins: 5000 },
-  { id: 'coins20k', name: '20,000 coins',    usd: '2.99', hearts: 0, coins: 20000, note: 'Best seller' },
-  { id: 'coins40k', name: '40,000 coins',    usd: '4.99', hearts: 0, coins: 40000, note: 'Best value' },
+  { id: 'starter',  name: 'Starter Pack',    usd: '1.00', ngn: '1000.00', hearts: 5, coins: 2000, boosters: 1, once: true, note: 'One time only' },
+  { id: 'hearts5',  name: '5 Sea Hearts',    usd: '1.00', ngn: '1000.00', hearts: 5 },
+  { id: 'hearts12', name: '12 Sea Hearts',   usd: '1.99', ngn: '2500.00', hearts: 12, note: 'Best seller' },
+  { id: 'hearts30', name: '30 Sea Hearts',   usd: '4.99', ngn: '7500.00', hearts: 30, note: 'Best value' },
+  { id: 'coinDoubler', name: 'Coin Doubler', usd: '2.99', ngn: '4000.00', hearts: 0, perk: 'coinDoubler', once: true, note: 'Yours for good' },
+  { id: 'coins5k',  name: '5,000 coins',     usd: '1.00', ngn: '1000.00', hearts: 0, coins: 5000 },
+  { id: 'coins20k', name: '20,000 coins',    usd: '2.99', ngn: '4000.00', hearts: 0, coins: 20000, note: 'Best seller' },
+  { id: 'coins40k', name: '40,000 coins',    usd: '4.99', ngn: '7500.00', hearts: 0, coins: 40000, note: 'Best value' },
 ];
 
 /** Packs that are coins or a coin perk (the shop's Coins tab); the rest go under Sea Hearts. */

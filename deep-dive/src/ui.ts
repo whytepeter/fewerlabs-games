@@ -193,11 +193,23 @@ function parentCheck(): Promise<boolean> {
   });
 }
 
+/**
+ * Players in Nigeria see the naira price (what Bachs charges them in NGN); everyone else sees dollars.
+ * Display only: the checkout carries both prices and charges by how the buyer pays.
+ */
+const inNigeria = (() => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone === 'Africa/Lagos'
+      || navigator.languages.some(l => /-NG$/i.test(l));
+  } catch { return false; }
+})();
+const packPrice = (p: Pack) => (inNigeria ? `₦${Number(p.ngn).toLocaleString('en-NG')}` : `$${p.usd}`);
+
 /** A real-money pack's shop row: its picture, what it holds, and its price (or Owned). */
 function packRow(p: Pack, pic: string, text: string) {
   const owned = !!p.once && (purchases.owns(p.id) || (!!p.perk && purchases.has(p.perk)));
   const btn = owned ? '<span class="shop-max">Owned</span>'
-    : `<button type="button" class="k-btn k-btn--green k-btn--sm" data-pack="${p.id}" aria-label="Buy ${p.name} for $${p.usd}">$${p.usd}</button>`;
+    : `<button type="button" class="k-btn k-btn--green k-btn--sm" data-pack="${p.id}" aria-label="Buy ${p.name} for ${packPrice(p)}">${packPrice(p)}</button>`;
   return `<li class="shop-item pack-item${owned ? ' equipped' : ''}">${pic}
     <div class="shop-body"><b>${p.name}</b><span>${text}</span>${p.note && !owned ? `<small>${p.note}</small>` : ''}</div>${btn}</li>`;
 }
@@ -211,8 +223,8 @@ function wirePacks() {
     b.disabled = true;
     b.textContent = '…';
     const r = await purchases.buy(pack);
-    if (r !== 'leaving') { b.disabled = false; b.textContent = `$${pack.usd}`; $('gadgetInfo').textContent = r.error; $('gadgetInfo').classList.add('warn'); }
-    else window.setTimeout(() => { b.disabled = false; b.textContent = `$${pack.usd}`; }, 4000); // checkout opened in another tab
+    if (r !== 'leaving') { b.disabled = false; b.textContent = packPrice(pack); $('gadgetInfo').textContent = r.error; $('gadgetInfo').classList.add('warn'); }
+    else window.setTimeout(() => { b.disabled = false; b.textContent = packPrice(pack); }, 4000); // checkout opened in another tab
   }));
 }
 

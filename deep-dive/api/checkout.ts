@@ -22,7 +22,8 @@ export async function POST(req: Request) {
       method: 'POST',
       idempotencyKey: ref,
       body: {
-        pricing: { currency: 'USD', amount: pack.usd },
+        // Dollars, with a set naira price for buyers paying in NGN (Bachs converts any other currency).
+        pricing: { currency: 'USD', amount: pack.usd, currency_options: { NGN: pack.ngn } },
         metadata: { game: GAME, uid, pack: pack.id },
         reference: ref,
         success_url: `${site}/`, // Bachs adds ?checkout_id=…
