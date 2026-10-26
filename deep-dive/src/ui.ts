@@ -406,11 +406,15 @@ export const ui = {
 
     const syncOrientation = () => {
       // Touch the side you want to move toward: left/right in portrait (the dive runs down the screen), top/bottom in landscape.
-      $('howHold').textContent = 'Touch';
-      $('howHoldText').textContent = portrait() ? 'left / right to steer' : 'top / bottom to steer';
+      // On a computer, say so with the mouse and the arrow keys too (↑/↓ always steer, see GameScene.steering).
+      const keys = !isTouch();
+      $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
+      $('howHoldText').textContent = keys ? (portrait() ? 'left / right, or the arrow keys' : 'top / bottom, or the arrow keys')
+        : portrait() ? 'left / right to steer' : 'top / bottom to steer';
       // First-dive guide: in portrait the "up" half is on the right (the world is turned 90°).
-      $('guideUp').textContent = portrait() ? 'Tap here to steer right' : 'Tap here to swim up';
-      $('guideDown').textContent = portrait() ? 'Tap here to steer left' : 'Tap here to go down';
+      const tap = keys ? 'Click' : 'Tap';
+      $('guideUp').textContent = portrait() ? `${tap} here to steer right` : keys ? 'Click here or press ↑ to swim up' : 'Tap here to swim up';
+      $('guideDown').textContent = portrait() ? `${tap} here to steer left` : keys ? 'Click here or press ↓ to go down' : 'Tap here to go down';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
