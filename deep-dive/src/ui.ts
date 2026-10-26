@@ -564,8 +564,9 @@ export const ui = {
     // Back from a Google redirect whose account already had progress: ask what to keep.
     // Also back from a redirect that linked the account: its sign-up shell (only once the save has synced).
     // Back from a Bachs checkout (or anything paid and not yet given): hand it over with a thank-you.
-    const deliver = () => void purchases.sync().then(given => { if (given.length) thank(given); });
-    void cloud.start().then(() => purchases.claim()).then(deliver);
+    const deliver = () => void purchases.claim().then(() => purchases.sync()).then(given => { if (given.length) thank(given); });
+    void cloud.start().then(deliver);
+    // Also when the game tab comes back to the front: the checkout may have run in another tab.
     document.addEventListener('visibilitychange', () => { if (!document.hidden && purchases.available) deliver(); });
     void cloud.start().then(() => {
       if (!cloud.account.guest && claimSignupGift() && this.isOpen('settings')) renderAccount(giftNote('Saved!', true));

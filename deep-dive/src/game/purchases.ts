@@ -13,6 +13,11 @@ import { shells } from './shells';
  * too, so a player who closes the tab still gets it the next time the game opens.
  */
 const BOUGHT = 'packsBought';
+/** Checkouts this device opened and hasn't seen recorded yet (device-only, see cloud.ts LOCAL_ONLY). */
+const PENDING = 'pendingCheckouts';
+const PENDING_FOR = 24 * 3600e3; // after a day, leave it to the webhook
+type Pending = { id: string; at: number };
+const pending = () => store.get<Pending[]>(PENDING, []).filter(p => Date.now() - p.at < PENDING_FOR);
 
 export type BuyResult = 'leaving' | { error: string };
 
@@ -33,8 +38,10 @@ export const purchases = {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ pack: pack.id }),
       });
-      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { url?: string; checkout_id?: string; error?: string };
       if (!res.ok || !body.url) return { error: body.error ?? 'Checkout is unavailable right now.' };
+      // Remembered so claim() can check it on return, even if the address comes back without it.
+      if (body.checkout_id) store.set(PENDING, [...pending(), { id: body.checkout_id, at: Date.now() }]);
       // Inside the store's frame, the checkout opens in its own tab; otherwise the game hands over to it.
       if (window.top !== window.self) window.open(body.url, '_blank', 'noopener');
       else window.location.assign(body.url);
@@ -44,20 +51,30 @@ export const purchases = {
     }
   },
 
-  /** Back from a checkout: the id Bachs added to the address, sent to the server to record the purchase. */
+  /**
+   * Back from a checkout: send the server each checkout this device opened (and any id Bachs added
+   * to the address) so it records the paid ones. Unpaid ones are kept for the next try.
+   */
   async claim() {
-    const url = new URL(window.location.href), id = url.searchParams.get('checkout_id');
-    if (!url.searchParams.has('checkout_id') && !url.searchParams.has('paid')) return;
-    url.searchParams.delete('checkout_id');
-    url.searchParams.delete('paid');
-    history.replaceState(null, '', url);
-    const token = id && (await cloud.idToken());
+    const url = new URL(window.location.href), fromUrl = url.searchParams.get('checkout_id');
+    if (url.searchParams.has('checkout_id') || url.searchParams.has('paid')) {
+      url.searchParams.delete('checkout_id');
+      url.searchParams.delete('paid');
+      history.replaceState(null, '', url);
+    }
+    const ids = new Set([...(fromUrl ? [fromUrl] : []), ...pending().map(p => p.id)]);
+    const token = ids.size ? await cloud.idToken() : null;
     if (!token) return;
-    await fetch('/api/claim', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ checkout_id: id }),
-    }).catch(() => undefined);
+    const done = new Set<string>();
+    await Promise.all([...ids].map(async id => {
+      const res = await fetch('/api/claim', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkout_id: id }),
+      }).catch(() => null);
+      if (res?.status === 200) done.add(id); // recorded (or not this player's): nothing more to do
+    }));
+    store.set(PENDING, pending().filter(p => !done.has(p.id)));
   },
 
   /** Apply every recorded, unapplied purchase; returns what was given. Each is marked applied first, so it's never given twice. */
