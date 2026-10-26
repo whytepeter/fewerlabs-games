@@ -56,5 +56,15 @@ export const audio = {
   },
   /** Tutorial cue while the game is in slow motion. */
   tick() { sfx.tone(1318.51, 0.05, { type: 'triangle', vol: 0.05 }); },
+  /** The meter is full: a rising two-note chime. */
+  charged() { sfx.tone(880, 0.08, { type: 'triangle', vol: 0.08 }); sfx.tone(1318.51, 0.14, { type: 'triangle', vol: 0.08, delay: 0.08 }); },
+  /** Each ability's own sound. */
+  ability(id: string) {
+    if (id === 'heavy') { sfx.tone(140, 0.4, { vol: 0.4, slideTo: 60 }); sfx.noise(0.35, 0.2, 400, 0.9); }
+    else if (id === 'flat') { sfx.noise(0.35, 0.18, 2400, 0.4); sfx.tone(500, 0.3, { type: 'sawtooth', vol: 0.06, slideTo: 1600 }); }
+    else if (id === 'bouncy') { sfx.tone(200, 0.45, { vol: 0.32, slideTo: 1200 }); }
+    else if (id === 'lucky') { [1046, 1318, 1568, 2093].forEach((f, i) => sfx.tone(f, 0.12, { type: 'triangle', vol: 0.07, delay: i * 0.06 })); }
+    else { sfx.noise(0.25, 0.15, 900, 0.8); sfx.tone(400, 0.25, { vol: 0.2, slideTo: 900 }); }
+  },
   click() { sfx.tone(620, 0.05, { type: 'triangle', vol: 0.05 }); },
 };

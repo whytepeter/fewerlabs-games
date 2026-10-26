@@ -85,11 +85,11 @@ a.k-icon-btn { text-decoration: none; }
 .streak-pill.hot { background: linear-gradient(180deg, #ff9a2e, #e8551e); }
 .hud-right { display: flex; justify-content: flex-end; }
 .stone-ico { display: grid; place-items: center; width: 44px; height: 34px; margin-left: 2px; }
-.stone-ico svg { width: 42px; height: 28px; filter: drop-shadow(0 2px 0 rgba(22, 35, 59, .6)); }
+.stone-ico img { display: block; width: 34px; height: 31px; filter: drop-shadow(0 2px 0 rgba(22, 35, 59, .6)); }
 .streak-pill .stone-ico { width: 36px; height: 30px; }
-.streak-pill .stone-ico svg { width: 34px; height: 23px; }
-.streak-pill.bump .stone-ico svg { animation: stoneHop .45s cubic-bezier(.2, 1.6, .4, 1); }
-.streak-pill.hot .stone-ico svg { filter: drop-shadow(0 0 6px #ffb02e) drop-shadow(0 2px 0 rgba(22, 35, 59, .6)); }
+.streak-pill .stone-ico img { width: 28px; height: 26px; }
+.streak-pill.bump .stone-ico img { animation: stoneHop .45s cubic-bezier(.2, 1.6, .4, 1); }
+.streak-pill.hot .stone-ico img { filter: drop-shadow(0 0 6px #ffb02e) drop-shadow(0 2px 0 rgba(22, 35, 59, .6)); }
 @keyframes stoneHop { 0% { transform: translateY(0) scale(1.3, .7); } 45% { transform: translateY(-7px) scale(.9, 1.1); } 100% { transform: none; } }
 
 .hint {
@@ -193,10 +193,10 @@ a.k-icon-btn { text-decoration: none; }
   background: rgba(255, 248, 234, .92); box-shadow: 0 3px 0 rgba(22, 35, 59, .55);
   color: var(--k-ink); font-weight: 700; font-size: 11px;
 }
-.stone-pick svg { width: 40px; height: 27px; }
+.stone-pick img { display: block; width: 40px; height: 37px; }
 .stone-pick span { display: inline-flex; align-items: center; gap: 2px; }
 .stone-pick .k-coin { width: 12px; height: 12px; }
-.stone-pick.locked svg { filter: grayscale(.45); opacity: .8; }
+.stone-pick.locked img { filter: grayscale(.45); opacity: .8; }
 .stone-pick.locked { background: rgba(214, 219, 230, .9); }
 .stone-pick.selected { transform: translateY(-3px); }
 .stone-pick.equipped { background: linear-gradient(180deg, #ffe58f, #ffc43d); box-shadow: 0 3px 0 var(--k-outline); }
@@ -266,7 +266,7 @@ a.k-icon-btn { text-decoration: none; }
   .hud { padding-top: calc(var(--safe-t) + 8px); }
   .dist-pill { min-height: 40px; font-size: 21px; }
   .dist-pill .stone-ico { width: 36px; height: 28px; }
-  .dist-pill .stone-ico svg { width: 34px; height: 23px; }
+  .dist-pill .stone-ico img { width: 28px; height: 26px; }
   .streak-pill { left: calc(100% + 8px); top: 0; min-height: 40px; }
   .hint { bottom: calc(var(--safe-b) + 10px); font-size: 13px; padding: 5px 12px 7px 9px; }
   .banner { top: calc(var(--safe-t) + 58px); }
@@ -308,3 +308,29 @@ a.k-icon-btn { text-decoration: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* ---------- Ability button (bottom-right during a throw): the meter fills round the character's face */
+.ability-btn {
+  position: fixed; right: calc(var(--safe-r, 0px) + 16px); bottom: calc(var(--safe-b, 0px) + 16px); z-index: 6;
+  width: 76px; height: 76px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+  background: rgba(22, 35, 59, .55); display: grid; place-items: center; touch-action: manipulation;
+  transition: transform .15s;
+}
+.ability-btn[hidden] { display: none; }
+.ab-ring { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ab-ring circle { fill: none; stroke-width: 6; }
+.ab-track { stroke: rgba(255, 255, 255, .25); }
+.ab-fill { stroke: #ffd23f; stroke-linecap: round; stroke-dasharray: 176; stroke-dashoffset: 176; transition: stroke-dashoffset .25s; }
+.ab-face { position: relative; width: 50px; height: 46px; opacity: .55; filter: grayscale(.6); transition: opacity .2s, filter .2s; }
+.ab-face img { width: 100%; height: 100%; }
+.ab-name {
+  position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); white-space: nowrap;
+  padding: 2px 8px; border-radius: 999px; background: #16233b; color: #fff; font-size: 11px; font-weight: 700; opacity: .7;
+}
+.ability-btn.ready { background: rgba(255, 210, 63, .35); animation: abReady 1s ease-in-out infinite alternate; }
+.ability-btn.ready .ab-face { opacity: 1; filter: none; }
+.ability-btn.ready .ab-name { background: #ffd23f; color: #16233b; opacity: 1; }
+.ability-btn.bump { animation: k-bump .35s cubic-bezier(.2, 1.6, .4, 1); }
+.ability-btn:active { transform: scale(.92); }
+@keyframes abReady { to { box-shadow: 0 0 0 6px rgba(255, 210, 63, .35), 0 0 24px rgba(255, 210, 63, .6); } }
+@media (prefers-reduced-motion: reduce) { .ability-btn.ready { animation: none; } }

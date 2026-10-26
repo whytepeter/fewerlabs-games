@@ -32,21 +32,34 @@ export const MISSION_POOL: MissionDef[] = [
   { id: 'throws', text: 'Throw {n} stones', stat: 'throws', kind: 'total', targets: [5, 15, 40, 100], reward: 20 },
 ];
 
-/** Stones in shop order. Ids match STONES in sim.ts. */
-export const STONE_ITEMS: (ShopItem & { blurb: string })[] = [
-  { id: 'pebble', name: 'Pebble', price: 0, blurb: 'All-rounder' },
-  { id: 'flat', name: 'Flat', price: 200, blurb: 'Fast, tight timing' },
-  { id: 'heavy', name: 'Heavy', price: 350, blurb: 'Forgiving, slower' },
-  { id: 'bouncy', name: 'Bouncy', price: 500, blurb: 'Big hops, hoops' },
-  { id: 'lucky', name: 'Lucky', price: 300, blurb: 'Saves one streak' },
+/** Characters (the stones you throw) in shop order. Ids match STONES in sim.ts and are saved. */
+export const STONE_ITEMS: (ShopItem & { blurb: string; bio: string })[] = [
+  { id: 'pebble', name: 'Pip', price: 0, blurb: 'All-rounder', bio: 'Small, grey and absolutely sure of itself.' },
+  { id: 'flat', name: 'Zip', price: 200, blurb: 'Fast, tight timing', bio: 'Flat as a pancake, quick as a rumour.' },
+  { id: 'heavy', name: 'Bruno', price: 350, blurb: 'Forgiving, slower', bio: 'Big, grumpy and very hard to stop.' },
+  { id: 'bouncy', name: 'Boing', price: 500, blurb: 'Big hops, hoops', bio: 'Made of something springy. Nobody asks.' },
+  { id: 'lucky', name: 'Clover', price: 300, blurb: 'Saves one streak', bio: 'Found in a field of four-leaf clovers.' },
 ];
 
-/** How each stone looks: body / highlight colours and shape. `null` colours use the theme's stone. */
-export interface StoneLook { body: string | null; hi: string | null; rx: number; ry: number; clover?: boolean; band?: string }
+/**
+ * How each character looks: a painted river stone. Smooth and speckled, with a simple face painted
+ * on (ink-dot eyes, rosy cheeks), a painted pattern, and one lakeside accessory each. rx/ry: stone
+ * size. `null` colours use the theme's stone colour.
+ */
+export interface StoneLook {
+  body: string | null; hi: string | null; rx: number; ry: number;
+  eyes: 'dot' | 'sleepy' | 'wide';
+  mouth: 'smile' | 'o' | 'grin' | 'flat';
+  /** The painted design on its side, in `paint`. */
+  pattern: 'none' | 'waves' | 'dots' | 'zigzag' | 'clover';
+  paint: string;
+  /** Its one accessory. */
+  extra: 'hat' | 'goggles' | 'moss' | 'lilypad' | 'ladybug';
+}
 export const STONE_LOOKS: Record<string, StoneLook> = {
-  pebble: { body: null, hi: null, rx: 13, ry: 7.4 },
-  flat: { body: '#86b7d6', hi: '#dff1fb', rx: 14.5, ry: 5.4 },
-  heavy: { body: '#6d6880', hi: '#b2adc6', rx: 13.5, ry: 8.8 },
-  bouncy: { body: '#ff7aa8', hi: '#ffd0e0', rx: 12.5, ry: 8, band: '#ffd23f' },
-  lucky: { body: '#5ccf7d', hi: '#c4f5d1', rx: 13, ry: 7.4, clover: true },
+  pebble: { body: null, hi: null, rx: 14.5, ry: 11, eyes: 'dot', mouth: 'smile', pattern: 'none', paint: '#ff6b6b', extra: 'hat' },
+  flat: { body: '#7fb3d9', hi: '#e2f2fc', rx: 17, ry: 8.5, eyes: 'wide', mouth: 'grin', pattern: 'waves', paint: '#ffffff', extra: 'goggles' },
+  heavy: { body: '#8f86a8', hi: '#d3cde6', rx: 16.5, ry: 13.5, eyes: 'sleepy', mouth: 'flat', pattern: 'dots', paint: '#ffd23f', extra: 'moss' },
+  bouncy: { body: '#f7a8c4', hi: '#ffe0ec', rx: 14, ry: 12.5, eyes: 'wide', mouth: 'o', pattern: 'zigzag', paint: '#ffffff', extra: 'lilypad' },
+  lucky: { body: '#8fd6a2', hi: '#dcf7e3', rx: 14.5, ry: 11, eyes: 'dot', mouth: 'grin', pattern: 'clover', paint: '#2f8f4e', extra: 'ladybug' },
 };

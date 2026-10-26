@@ -2,7 +2,8 @@ import { onSettings, setSetting, settings, type Settings } from './core/settings
 import { hydrateIcons, icon, wobbleLetters, STAR_SVG } from './core/icons';
 import { mountCoins, renderMissions, renderEarned, coinIcon } from './core/metaui';
 import type { Mission, MissionResult } from './core/meta';
-import { STONE_LOOKS, STONE_ITEMS } from './game/progress';
+import { STONE_ITEMS } from './game/progress';
+import { portrait } from './game/skipper';
 
 // The DOM layer: HUD, hint, title / pause / game-over screens, built from the shared cartoon kit.
 // The Game scene drives it.
@@ -17,18 +18,9 @@ hydrateIcons();
 wobbleLetters($('logo'));
 $('overStars').innerHTML = STAR_SVG.repeat(3);
 
-/** The in-game stone (outlined, with its face) as SVG, so the UI matches the lake art. */
+/** A character's portrait for the menus and HUD, drawn by the same code as the lake sprite. */
 export function stoneSvg(id: string, face: 'eyes' | 'squint' = 'eyes') {
-  const L = STONE_LOOKS[id] ?? STONE_LOOKS.pebble;
-  const ry = L.ry, eyeRy = Math.min(2.8, ry * 0.42);
-  const eyes = face === 'eyes'
-    ? [21, 26.6].map(x => `<ellipse cx="${x}" cy="12.2" rx="2.4" ry="${eyeRy}" fill="#fff" stroke="#16233b" stroke-width="1.2"/><ellipse cx="${x + 0.7}" cy="12.5" rx="1.35" ry="${Math.min(1.7, ry * 0.26)}" fill="#16233b"/>`).join('')
-    : '<path d="M18.8 13l2.2-2.2 2.2 2.2M24.4 13l2.2-2.2 2.2 2.2" fill="none" stroke="#16233b" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<ellipse cx="19.5" cy="15" rx="1.8" ry="1" fill="rgba(255,110,150,.6)"/><ellipse cx="28.5" cy="15" rx="1.8" ry="1" fill="rgba(255,110,150,.6)"/>';
-  const band = L.band ? `<rect x="${18 - L.rx + 1.5}" y="10.6" width="${L.rx * 2 - 3}" height="2.8" fill="${L.band}"/>` : '';
-  const clover = L.clover ? [[0, -1.6], [1.6, 0], [0, 1.6], [-1.6, 0]].map(([dx, dy]) => `<circle cx="${12 + dx}" cy="${13 + dy}" r="1.5" fill="#fff"/>`).join('') : '';
-  return `<svg viewBox="0 0 36 24" aria-hidden="true"><ellipse cx="18" cy="12" rx="${L.rx}" ry="${ry}" fill="${L.body ?? 'var(--stone)'}" stroke="#16233b" stroke-width="2.6"/>` +
-    `${band}<ellipse cx="13" cy="${12 - ry * 0.52}" rx="5.5" ry="2" fill="${L.hi ?? 'var(--stone-hi)'}"/>${clover}${eyes}</svg>`;
+  return `<img class="sk-portrait" src="${portrait(id, face === 'squint')}" alt="">`;
 }
 const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="#16233b" stroke-width="2"><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
 
@@ -43,7 +35,7 @@ const el = {
   overStars: $('overStars'), overDist: $('overDist'), overTag: $('overTag'), overSkips: $('overSkips'),
   overStreak: $('overStreak'), overGlass: $('overGlass'), againBtn: $('againBtn'), overMenuBtn: $('overMenuBtn'), overHoops: $('overHoops'),
   banner: $('banner'), bannerSmall: $('bannerSmall'), bannerBig: $('bannerBig'), fever: $('fever'),
-  luckyPip: $('luckyPip'),
+  luckyPip: $('luckyPip'), abilityBtn: $('abilityBtn'), abilityFill: $('abilityFill'), abilityFace: $('abilityFace'), abilityName: $('abilityName'),
   howto: $('howto'), titleMissionsBox: $('titleMissionsBox'), titleMissions: $('titleMissions'),
   picker: $('stonePicker'), caption: $('stoneCaption'),
   overClose: $('overClose'), overEarned: $('overEarned'), overMissions: $('overMissions'),
@@ -56,6 +48,8 @@ export interface UiHandlers {
   /** Tap on a stone in the picker: equips an owned stone, otherwise previews it for buying. */
   stone(id: string): void;
   buy(id: string): void;
+  /** The ability button (or E / Shift): fire the character's ability. */
+  ability(): void;
   /** Any UI button press, so the scene can unlock audio and click. */
   press(): void;
 }
@@ -66,7 +60,7 @@ export interface OverStats {
 }
 export interface PickerState { equipped: string; selected: string; owned: (id: string) => boolean; balance: number }
 
-let shownDist = -1, shownStreak = -1;
+let shownDist = -1, shownStreak = -1, abilityShown = '';
 
 const bump = (e: HTMLElement) => { e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); };
 
@@ -80,6 +74,8 @@ export const ui = {
     on(el.menuBtn, h.menu);
     on(el.againBtn, h.again);
     on(el.overMenuBtn, h.menu);
+    // the ability fires on press, not click, so it never misses a fast throw
+    el.abilityBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); h.ability(); });
     el.picker.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stone]');
       if (b) { e.preventDefault(); h.press(); h.stone(b.dataset.stone!); }
@@ -144,6 +140,24 @@ export const ui = {
     b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
   },
   /** HUD pills show the equipped stone. */
+  /**
+   * The ability button: hidden (null) outside a throw; otherwise the meter fills round the
+   * character's face, and it glows and says its move's name once it's ready.
+   */
+  setAbility(a: { id: string; name: string; charge: number; ready: boolean } | null) {
+    el.abilityBtn.hidden = !a;
+    if (!a) { abilityShown = ''; return; }
+    if (abilityShown !== a.id) {
+      abilityShown = a.id;
+      el.abilityFace.innerHTML = stoneSvg(a.id, 'eyes');
+      el.abilityName.textContent = a.name;
+      el.abilityBtn.setAttribute('aria-label', `${a.name} (E)`);
+    }
+    el.abilityFill.style.strokeDashoffset = String(176 * (1 - a.charge));
+    if (el.abilityBtn.classList.contains('ready') !== a.ready) el.abilityBtn.classList.toggle('ready', a.ready);
+  },
+  /** The meter just filled: a little pop. */
+  abilityCharged() { bump(el.abilityBtn); },
   setHudStone(id: string) {
     document.querySelectorAll<HTMLElement>('.stone-ico').forEach(e => { e.innerHTML = stoneSvg(id, e.dataset.face === 'squint' ? 'squint' : 'eyes'); });
   },

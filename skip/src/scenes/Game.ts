@@ -4,8 +4,9 @@ import { TEX_SCALE } from '../core/tex';
 import { sfx } from '../core/sfx';
 import { buzz } from '../core/haptics';
 import { store } from '../core/settings';
-import { Sim, STONES, aimVelocity, previewThrow, RING_T, REST_Y, FEVER, PX_PER_M, type Obj, type SimEvent, type Grade } from '../game/sim';
+import { ABILITIES, Sim, STONES, aimVelocity, previewThrow, RING_T, REST_Y, FEVER, PX_PER_M, type AbilityId, type Obj, type SimEvent, type Grade } from '../game/sim';
 import { coins, missions, shop, soClose } from '../core/meta';
+import { SK_CX, SK_CY, SK_H, SK_W } from '../game/skipper';
 import { GAME_ID, MISSION_POOL, STONE_ITEMS, coinsForRun, type RunStats } from '../game/progress';
 import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE, OUTLINE_N, type StripKey } from '../game/art';
 import { P, N, A, onTheme } from '../game/palette';
@@ -25,7 +26,7 @@ const STRIP_DEPTH: Record<StripKey, number> = { clouds: 3, hillFar: 4, hillMid: 
 const FONT = 'Fredoka, ui-rounded, system-ui, sans-serif';
 const TAU = Math.PI * 2;
 /** The stone is drawn a little larger than its physics size so its face reads on a phone. */
-const STONE_DRAW = TEX_SCALE * 1.3;
+const STONE_DRAW = TEX_SCALE * 1.2;
 
 /** The lake changes as you go further: each new stretch is announced and re-tints the scene. */
 const ZONES = [
@@ -126,7 +127,7 @@ export class Game extends Phaser.Scene {
     this.shadow = this.add.image(0, 0, 'shadow').setScale(TEX_SCALE).setDepth(D.shadow).setVisible(false);
     this.front = this.add.graphics().setDepth(D.front);
     this.aura = this.add.image(0, 0, 'glow').setDepth(D.aura).setVisible(false);
-    this.stone = this.add.sprite(0, 0, 'stone-pebble', 0).setScale(TEX_SCALE).setDepth(D.stone);
+    this.stone = this.add.sprite(0, 0, 'stone-pebble', 0).setOrigin(SK_CX / SK_W, SK_CY / SK_H).setScale(TEX_SCALE).setDepth(D.stone);
     this.flag = this.add.image(0, 0, 'flag').setOrigin(8 / 40, 70 / 74).setScale(TEX_SCALE).setDepth(D.objs).setVisible(false);
     this.flagLabel = this.add.text(0, 0, '', {
       fontFamily: FONT, fontStyle: '700', fontSize: '13px', color: '#ffffff', stroke: OUTLINE, strokeThickness: 4,
@@ -159,6 +160,7 @@ export class Game extends Phaser.Scene {
       again: () => this.newThrow(),
       stone: id => this.pickStone(id),
       buy: id => this.buyStone(id),
+      ability: () => this.useAbility(),
     });
     this.toTitle();
     music.play(SKIP_SONG, MUSIC.calm);
@@ -404,6 +406,7 @@ export class Game extends Phaser.Scene {
     if (this.mode === 'aiming') { this.aim = null; this.mode = 'ready'; }
     this.scene.pause();
     sfx.suspend(); // silences music and effects together
+    ui.setAbility(null); // the loop stops while paused, so hide it here (it comes back on resume)
     ui.screen('pause');
   }
 
@@ -489,6 +492,8 @@ export class Game extends Phaser.Scene {
       if (e.repeat) return;
       if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'Enter') {
         if (this.mode === 'flying') { sfx.unlock(); this.sim.tap(); e.preventDefault(); }
+      } else if (e.code === 'KeyE' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        this.useAbility();
       } else if (e.code === 'Escape' || e.code === 'KeyP') this.pause();
     });
   }
@@ -590,7 +595,36 @@ export class Game extends Phaser.Scene {
         case 'over':
           this.time.delayedCall(350, () => { if (this.mode === 'sinking') this.gameOver(); });
           break;
+        case 'charged':
+          audio.charged();
+          buzz([6, 30, 6]);
+          ui.abilityCharged();
+          break;
+        case 'ability': this.abilityFx(e.id, e.x, wy + e.y); break;
       }
+    }
+  }
+
+  /** Fire the character's ability, if the meter is full and it's flying. */
+  private useAbility() {
+    if (this.mode !== 'flying' || this.scene.isPaused()) return;
+    sfx.unlock();
+    this.sim.ability();
+  }
+
+  /** What each ability looks and sounds like when it fires. */
+  private abilityFx(id: AbilityId, x: number, y: number) {
+    const wy = this.waterY;
+    audio.ability(id);
+    buzz([10, 20, 18]);
+    this.popup(x, this.topY - 6, ABILITIES[id].name.toUpperCase() + '!', '#ffffff', 22, true);
+    this.squintT = 0.8;
+    switch (id) {
+      case 'pebble': this.fx.splash.explode(14, x, wy - 2); this.addRipple(x, 1); this.squish(0.7, 1.4); break;
+      case 'flat': this.fx.flame.explode(18, x - 10, y); this.squish(1.5, 0.7); break;
+      case 'heavy': this.shake = 10; this.squish(1.3, 0.75); break;
+      case 'bouncy': this.fx.sparkle.explode(16, x, y); this.squish(0.6, 1.5); break;
+      case 'lucky': this.fx.sparkle.explode(24, x, y); this.addRipple(x, 1.2); break;
     }
   }
 
@@ -729,6 +763,7 @@ export class Game extends Phaser.Scene {
     this.timeScale += (slowTarget - this.timeScale) * Math.min(1, dt * 14);
     sim.step(dt * this.timeScale);
     this.handle(sim.drain());
+    ui.setAbility(this.mode === 'flying' ? { id: sim.stone.id, name: ABILITIES[sim.stone.id as AbilityId].name, charge: sim.charge, ready: sim.ready } : null);
     if (this.mode === 'flying') {
       ui.setStreak(sim.streak);
       this.checkProgress();

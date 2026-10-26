@@ -62,6 +62,22 @@ export const STONES: Record<string, StoneDef> = {
   // forgives one broken streak per throw, a touch slower
   lucky: { id: 'lucky', power: 0.95, perfect: PERFECT, good: GOOD, hop: HOP_V, maxVx: 1250, drag: 0.022, missKeep: 0, logKeep: 0.62, duckKeep: 0.75, lucky: 1, hoopReach: 1 },
 };
+/**
+ * Each character's ability, one move each: a meter fills with Perfects, then a
+ * tap on the ability button fires it mid-throw. Ids are the stone ids.
+ */
+export type AbilityId = 'pebble' | 'flat' | 'heavy' | 'bouncy' | 'lucky';
+export const ABILITIES: Record<AbilityId, { name: string; text: string }> = {
+  pebble: { name: 'Second Wind', text: 'Kicks off the water again, full speed, wherever you are.' },
+  flat: { name: 'Zoom', text: 'A burst of speed that bowls through ducks.' },
+  heavy: { name: 'Belly Flop', text: 'Slams down for a sure Perfect and clears logs and ducks ahead.' },
+  bouncy: { name: 'Boing', text: 'A huge hop, right up to the hoops.' },
+  lucky: { name: 'Glass Magnet', text: 'Pulls in every piece of lake glass nearby for a few seconds.' },
+};
+/** Perfects that fill the meter from empty, and how full it starts each throw. */
+export const CHARGE_PERFECTS = 6, CHARGE_START = 0.5;
+const ZOOM_V = 420, ZOOM_T = 1.2, MAGNET_T = 4, MAGNET_REACH = 4, FLOP_CLEAR = 650;
+
 export type SimState = 'ready' | 'flying' | 'sinking' | 'over';
 
 export interface Obj {
@@ -90,6 +106,8 @@ export type SimEvent =
   | { type: 'glass'; obj: Obj }
   | { type: 'hoop'; obj: Obj }
   | { type: 'lucky'; x: number }
+  | { type: 'ability'; id: AbilityId; x: number; y: number }
+  | { type: 'charged' }
   | { type: 'early'; x: number; y: number }
   | { type: 'queued' }
   | { type: 'plunk'; x: number }
@@ -163,6 +181,14 @@ export class Sim {
   pads = 0;
   ducks = 0;
   fevers = 0;
+  /** Ability meter, 0..1; full means the ability can fire. */
+  charge = CHARGE_START;
+  abilities = 0;
+  /** Seconds left of Zoom (bowls through ducks) and Glass Magnet. */
+  zoomT = 0;
+  magnetT = 0;
+  /** Belly Flop on its way down: the next water contact is a sure Perfect. */
+  flop = false;
   objs: Obj[] = [];
   viewW = 430;
   private nextX = 560;
@@ -180,6 +206,7 @@ export class Sim {
     this.t = 0; this.x = 0; this.y = REST_Y; this.vx = 0; this.vy = 0; this.rot = 0; this.sinkT = 0;
     this.skips = 0; this.streak = 0; this.bestStreak = 0; this.glass = 0; this.perfects = 0; this.hoops = 0;
     this.luckyLeft = this.stone.lucky; this.luckySaves = 0; this.pads = 0; this.ducks = 0; this.fevers = 0;
+    this.charge = CHARGE_START; this.abilities = 0; this.zoomT = 0; this.magnetT = 0; this.flop = false;
     this.plunked = false; this.flightTime = 0;
     this.pendingTap = null; this.fumbled = false; this.late = null;
     for (const o of this.objs) this.emit({ type: 'despawn', obj: o });
@@ -236,7 +263,50 @@ export class Sim {
     this.emit({ type: 'early', x: this.x, y: this.y });
   }
 
+  /** Can the ability fire right now? */
+  get ready() { return this.state === 'flying' && this.charge >= 1; }
+
+  /** Fire this character's ability; false if the meter isn't full or the stone isn't flying. */
+  ability() {
+    if (!this.ready) return false;
+    this.charge = 0;
+    this.abilities++;
+    const id = this.stone.id as AbilityId;
+    switch (id) {
+      case 'pebble': // off the water again, as if from a fresh Perfect
+        this.vx = Math.max(this.vx, Math.min(this.stone.maxVx, 620));
+        this.vy = -this.stone.hop * 1.1;
+        break;
+      case 'flat':
+        this.vx = Math.min(this.stone.maxVx * 1.3, this.vx + ZOOM_V);
+        this.zoomT = ZOOM_T;
+        break;
+      case 'heavy': {
+        this.vy = Math.max(this.vy, 900);
+        this.flop = true;
+        // the splash it's about to make clears the way ahead
+        for (const o of this.objs) {
+          if (o.x < this.x || o.x > this.x + FLOP_CLEAR) continue;
+          if (o.type === 'log') { o.x = -1e6; }
+          else if (o.type === 'duck' && !o.fly) { o.fly = true; o.vy = -90; this.ducks++; this.emit({ type: 'duck', obj: o }); }
+        }
+        break;
+      }
+      case 'bouncy':
+        this.vy = -this.stone.hop * 1.85;
+        break;
+      case 'lucky':
+        this.magnetT = MAGNET_T;
+        break;
+    }
+    this.clearTiming();
+    this.emit({ type: 'ability', id, x: this.x, y: this.y });
+    return true;
+  }
+
   step(dt: number) {
+    if (this.zoomT > 0) this.zoomT = Math.max(0, this.zoomT - dt);
+    if (this.magnetT > 0) this.magnetT = Math.max(0, this.magnetT - dt);
     if (this.state === 'flying') {
       const n = Math.max(1, Math.ceil(dt / STEP)), h = dt / n;
       for (let i = 0; i < n; i++) {
@@ -246,6 +316,7 @@ export class Sim {
         this.x += this.vx * h;
         this.y += this.vy * h;
         this.vx *= 1 - this.stone.drag * h;
+        if (this.vx > this.stone.maxVx && this.zoomT <= 0) this.vx = Math.max(this.stone.maxVx, this.vx - 600 * h); // Zoom wears off
         this.rot += this.vx * h * 0.06;
         if (this.late && this.t - this.late.t > this.stone.good) {
           // no late tap came: a Lucky stone saves the streak instead
@@ -352,7 +423,7 @@ export class Sim {
           this.emit({ type: 'hoop', obj: o });
         }
       } else if (o.type === 'glass') {
-        const reach = this.fever ? 1.6 : 1;
+        const reach = this.magnetT > 0 ? MAGNET_REACH : this.fever ? 1.6 : 1;
         if (!o.got && Math.abs(dx) < 22 * reach && Math.abs(this.y + o.h) < 24 * reach) {
           o.got = true;
           this.vx = Math.min(this.stone.maxVx, this.vx + 8);
@@ -361,7 +432,7 @@ export class Sim {
         }
       } else if (o.type === 'duck' && !o.fly && Math.abs(dx) < 18 && this.y > -30) {
         o.fly = true; o.vy = -90;
-        this.vx *= this.stone.duckKeep;
+        if (this.zoomT <= 0) this.vx *= this.stone.duckKeep; // Zoom bowls straight through
         this.ducks++;
         this.emit({ type: 'duck', obj: o });
       }
@@ -412,6 +483,7 @@ export class Sim {
     }
     const a = this.skips === 0 ? angle : Math.min(angle, 20);
     let grade: Grade = 'miss';
+    if (this.flop) { this.flop = false; this.pendingTap = this.t; this.fumbled = false; } // Belly Flop: a sure Perfect
     if (!this.fumbled && this.pendingTap !== null) {
       const err = this.t - this.pendingTap;
       grade = err <= this.stone.perfect ? 'perfect' : err <= this.stone.good ? 'good' : 'miss';
@@ -445,6 +517,10 @@ export class Sim {
     if (grade === 'perfect') {
       this.streak = before + 1;
       this.perfects++;
+      if (this.charge < 1) {
+        this.charge = Math.min(1, this.charge + 1 / CHARGE_PERFECTS);
+        if (this.charge >= 1) this.emit({ type: 'charged' });
+      }
       if (this.streak === FEVER) this.fevers++;
     }
     else if (grade === 'good') this.streak = before;

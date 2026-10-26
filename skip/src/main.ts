@@ -27,7 +27,7 @@ async function start() {
       new Promise(r => setTimeout(r, 1500)),
     ]);
   } catch { /* fall back to system font */ }
-  createGame({
+  const game = createGame({
     type: Phaser.AUTO,
     backgroundColor: P['sky-bot'],
     banner: false,
@@ -36,6 +36,8 @@ async function start() {
     render: { antialias: true, roundPixels: false },
     scene: [Boot, Game],
   });
+  // Dev-only handle for debugging and scripted playtests.
+  if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
 }
 void start();
 
