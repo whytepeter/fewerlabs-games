@@ -3,15 +3,15 @@ import { fitCamera, view } from '../core/view';
 import { TEX_SCALE } from '../core/tex';
 import { sfx } from '../core/sfx';
 import { buzz } from '../core/haptics';
-import { store } from '../core/settings';
 import { music } from '../core/music';
 import { coins, soClose } from '../core/meta';
-import { Sim, RIP_LIFE, RIP_SPEED, GOLD_POINTS, PICKUP_R, WHIRL_R, type Boat, type Dock, type Rock, type Pad, type Mote, type Pickup, type Rect, type Twist, type WallPad } from '../game/sim';
+import { Sim, RIP_SPEED, GOLD_POINTS, BARGE_POINTS, PICKUP_R, WHIRL_R, type Boat, type Dock, type Koi, type Rock, type Pad, type Mote, type Pickup, type Rect, type Twist, type WallPad } from '../game/sim';
 import { rippleMissions, runCoins } from '../game/meta';
-import { MUSIC, RIPPLE_SONG } from '../game/song';
+import { MUSIC } from '../game/song';
+import { PONDS, applyPondTheme, currentPond, firstVisit, isUnlocked, overallBest, pondBest, selectPond, setPondBest, type PondDef, type PondId } from '../game/ponds';
 import { C, P, LANE_NAMES, OUTLINE_N, isDark, laneKey, onTheme } from '../game/palette';
 import {
-  DOCK_TEX_R, DOT_R, DROP_R, GLOW_SIZE, PAD_R, REED_H, RING_R, ROCK_ORIGIN, ROCK_R, SHIMMER_LEN, SHOCK_R,
+  DOCK_TEX_R, DOT_R, DROP_R, FLOE_R, GLOW_SIZE, PAD_R, REED_H, RING_R, ROCK_ORIGIN, ROCK_R, SHIMMER_LEN, SHOCK_R,
   buildBackground, buildThemedTextures, hash, inPond, setBoatSkin,
 } from '../game/art';
 import { sounds } from '../game/audio';
@@ -38,13 +38,16 @@ interface Shimmer { img: Img; x: number; y: number; i: number }
 export const STAR_THRESHOLDS = [5, 15, 30];
 const GOLD = 0xffd23f;
 /** Wave banner text for each pond twist. */
-const TWIST_LABEL: Record<Twist, string> = { none: '', calm: 'Calm waters', wind: 'Windy!', whirl: 'Whirlpool!', lilies: 'Lily wall!' };
+const TWIST_LABEL: Record<Twist, string> = {
+  none: '', calm: 'Calm waters', wind: 'Windy!', whirl: 'Whirlpool!', lilies: 'Lily wall!',
+  school: 'A school of koi!', downpour: 'Downpour!', floes: 'Ice floes!',
+};
 const ICE = 0x9be7ff;
 
 const D = {
-  bg: 0, shimmer: 1, pad: 2, flower: 2.1, dockShadow: 2.5, dockFill: 2.6, dockGlow: 2.7, dockRing: 3,
+  bg: 0, shimmer: 1, pad: 2, flower: 2.1, koi: 2.3, dockShadow: 2.5, dockFill: 2.6, dockGlow: 2.7, dockRing: 3,
   ripples: 4, wind: 4.6, wake: 4.5, splash: 5, rock: 6, wallPad: 5.8, pickup: 6.2, boatShadow: 6.5, boatGlow: 7, boat: 7.1, arcs: 7.5,
-  burst: 8, shock: 8.1, mote: 9, hint: 10, reed: 11,
+  floe: 5.9, burst: 8, shock: 8.1, mote: 9, rain: 9.5, hint: 10, reed: 11,
 };
 
 export class Game extends Phaser.Scene {
@@ -53,6 +56,8 @@ export class Game extends Phaser.Scene {
   /** Dev hook only: hold the simulation still while still rendering (for screenshots). */
   frozen = false;
   private best = 0;
+  /** The pond picked on the title screen. */
+  private pond: PondDef = currentPond();
   private clock = 0;
   private demoT = 1;
   private movedToastShown = false;
@@ -78,6 +83,9 @@ export class Game extends Phaser.Scene {
   private moteViews = new Map<Mote, Img>();
   private pickupViews = new Map<Pickup, PickupView>();
   private wallViews = new Map<WallPad, Img>();
+  private floeViews = new Map<WallPad, Img>();
+  private koiViews = new Map<Koi, Img>();
+  private rain!: Phaser.GameObjects.Particles.ParticleEmitter;
   private twistG!: Phaser.GameObjects.Graphics;
   private windStreaks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private windLeaves!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -105,10 +113,11 @@ export class Game extends Phaser.Scene {
   create() {
     this.fitWorldCamera();
     this.cameras.main.setBackgroundColor(P.shore);
-    this.best = store.get('best', 0) || 0;
+    this.best = pondBest(this.pond.id);
     ui.setBest(this.best);
 
     this.sim = new Sim();
+    this.sim.setRules(this.pond.rules);
     this.sim.setPond(...this.measurePond());
     this.sim.prepare();
 
@@ -144,6 +153,7 @@ export class Game extends Phaser.Scene {
       menu: () => this.toTitle(),
       pause: () => this.pause(),
       skin: (id: string) => { setBoatSkin(id); this.onTheme(); },
+      pond: (id: PondId) => this.showPond(id),
     };
     ui.init(handlers);
     ui.initMeta(handlers);
@@ -156,17 +166,36 @@ export class Game extends Phaser.Scene {
   private toTitle(keepWorld = false) {
     if (!keepWorld) { this.clearWorldViews(); this.sim.prepare(); }
     this.mode = 'title';
-    music.play(RIPPLE_SONG, MUSIC.title);
+    music.play(this.pond.song, MUSIC.title);
     music.setIntensity(MUSIC.title);
     this.setFrost(false);
-    ui.setBest(this.best);
+    ui.setPond(this.pond, this.best);
     ui.clearToast();
     ui.refreshTitle();
     this.setWind(false);
+    this.setRain();
     ui.show('title');
   }
 
+  /**
+   * Flip to another pond on the title screen: new colours, hazards, song and best, live behind the
+   * menu. A locked pond is only a preview: it isn't remembered, and Play stays locked.
+   */
+  private showPond(id: PondId) {
+    const next = PONDS.find(p => p.id === id);
+    if (!next || next === this.pond) return;
+    selectPond(id);
+    this.pond = next;
+    this.best = pondBest(this.pond.id);
+    this.sim.setRules(this.pond.rules);
+    this.clearWorldViews();
+    this.sim.prepare();
+    applyPondTheme(this.pond); // the palette observer rebuilds the themed art (onTheme)
+    this.toTitle(true);
+  }
+
   startRun() {
+    if (!isUnlocked(this.pond)) return;
     const keep = this.mode === 'title' && this.sim.phase === 'idle';
     if (!keep) this.clearWorldViews();
     this.killParticles();
@@ -174,7 +203,7 @@ export class Game extends Phaser.Scene {
     this.sim.setRng(Math.random);
     this.sim.start(keep);
     this.mode = 'play';
-    music.play(RIPPLE_SONG, MUSIC.forRun(0));
+    music.play(this.pond.song, MUSIC.forRun(0));
     music.setIntensity(MUSIC.forRun(0));
     this.movedToastShown = false;
     ui.setScore(0);
@@ -183,6 +212,8 @@ export class Game extends Phaser.Scene {
     ui.setBest(this.best);
     ui.clearToast();
     ui.show(null);
+    this.setRain();
+    if (this.pond.tip && firstVisit(this.pond.id)) ui.toast(...this.pond.tip);
   }
 
   pause() {
@@ -202,15 +233,17 @@ export class Game extends Phaser.Scene {
     const sim = this.sim;
     const prevBest = this.best;
     const isNew = score > this.best && score > 0;
-    if (isNew) { this.best = score; store.set('best', score); }
-    embed.score(score, this.best);
+    const locked = PONDS.filter(p => !isUnlocked(p));
+    if (isNew) { this.best = score; setPondBest(this.pond.id, score); }
+    const opened = locked.find(isUnlocked);
+    embed.score(score, overallBest());
 
-    // meta progression: run coins and missions
+    // meta progression: run coins (harder ponds pay more) and missions
     const stats = {
-      score, docked: sim.docked, golden: sim.goldDocked, combo: sim.bestCombo, wave: sim.wave,
+      score, docked: sim.docked, golden: sim.goldDocked, barges: sim.bargesDocked, combo: sim.bestCombo, wave: sim.wave,
       freezes: sim.freezes, hearts: sim.hearts, perfectWaves: sim.perfectWaves,
     };
-    const run = runCoins(stats);
+    const run = Math.round(runCoins(stats) * this.pond.pay);
     coins.add(run);
     const results = rippleMissions.report(stats);
     const missionCoins = results.filter(r => r.done).reduce((n, r) => n + r.mission.reward, 0);
@@ -229,7 +262,9 @@ export class Game extends Phaser.Scene {
       earned: [{ label: 'Run', n: run }, { label: 'Missions', n: missionCoins }],
       missions: results,
       close: soClose(score, prevBest),
+      opened: opened?.name ?? '',
     });
+    if (opened) sounds.unlock();
   }
 
   /* ---------- layout */
@@ -252,6 +287,7 @@ export class Game extends Phaser.Scene {
     this.killParticles();
     this.buildScenery();
     if (this.sim.twist === 'wind' && this.mode !== 'title' && this.mode !== 'over') this.setWind(true);
+    this.setRain();
   }
 
   private onTheme() {
@@ -268,7 +304,7 @@ export class Game extends Phaser.Scene {
 
   private killParticles() {
     this.splash.killAll(); this.wake.killAll(); this.confetti.killAll(); this.stars.killAll();
-    this.windStreaks?.killAll(); this.windLeaves?.killAll();
+    this.windStreaks?.killAll(); this.windLeaves?.killAll(); this.rain?.killAll();
   }
 
   /** Background, shimmer lines and edge reeds: everything that depends only on the screen and pond rect. */
@@ -335,6 +371,10 @@ export class Game extends Phaser.Scene {
     this.pickupViews.clear();
     for (const v of this.wallViews.values()) v.destroy();
     this.wallViews.clear();
+    for (const v of this.floeViews.values()) v.destroy();
+    this.floeViews.clear();
+    for (const v of this.koiViews.values()) v.destroy();
+    this.koiViews.clear();
     this.boatViews.clear(); this.dockViews.clear(); this.rockViews.clear(); this.padViews.clear(); this.moteViews.clear();
   }
 
@@ -349,6 +389,10 @@ export class Game extends Phaser.Scene {
       angle: { onEmit: () => this.windDeg + Phaser.Math.Between(-12, 12) }, rotate: { start: 0, end: 300 },
       scale: TEX_SCALE * 1.1, alpha: { start: 0.95, end: 0, ease: 'Quad.In' },
     }).setDepth(D.wind);
+    this.rain = this.add.particles(0, 0, 'raindrop', {
+      emitting: false, frequency: 40, lifespan: 700, speedY: { min: 420, max: 520 }, speedX: { min: -70, max: -50 },
+      scale: { min: TEX_SCALE * 0.9, max: TEX_SCALE * 1.3 }, alpha: { start: 0.85, end: 0.3 }, tint: 0xe8f4ff,
+    }).setDepth(D.rain);
     const drop = TEX_SCALE / DROP_R;
     this.splash = this.add.particles(0, 0, 'drop', {
       emitting: false, lifespan: 420, speed: { min: 25, max: 75 },
@@ -398,6 +442,18 @@ export class Game extends Phaser.Scene {
     } else {
       this.windStreaks.stop(); this.windLeaves.stop();
     }
+  }
+
+  /** Rain falling over the whole view in a rainy pond: heavier in a downpour, none elsewhere. */
+  private setRain() {
+    if (!this.rain) return;
+    if (!this.sim.rules.rain) { this.rain.stop(); return; }
+    const W = view.w / this.ws, H = view.h / this.ws;
+    this.rain.clearEmitZones();
+    this.rain.addEmitZone({ type: 'random', source: new Phaser.Geom.Rectangle(0, -60, W + 80, H * 0.85), quantity: 1 });
+    const heavy = this.sim.twist === 'downpour' && this.mode !== 'title' && this.mode !== 'over';
+    this.rain.frequency = (heavy ? 9 : 34) * Math.max(0.5, 430 * 930 / (W * H));
+    this.rain.start();
   }
 
   private setFrost(on: boolean) {
@@ -465,6 +521,8 @@ export class Game extends Phaser.Scene {
           if (ev.boat.gold) {
             this.stars.explode(10, ev.dock.x, ev.dock.y);
             this.popAt(ev.dock.x, ev.dock.y - 18, `+${GOLD_POINTS}`, '#ffd23f', true);
+          } else if (ev.boat.heavy) {
+            this.popAt(ev.dock.x, ev.dock.y - 18, `+${BARGE_POINTS}`, P[laneKey(ev.dock.ci)], true);
           } else this.popAt(ev.dock.x, ev.dock.y - 18, '+1', P[laneKey(ev.dock.ci)]);
           if (sim.combo >= 2) this.popAt(ev.dock.x, ev.dock.y - 52, `Combo x${sim.combo + 1}!`, '#ffd23f', true);
           break;
@@ -498,6 +556,19 @@ export class Game extends Phaser.Scene {
             this.popAt(p.x + p.w / 2, p.y + p.h * 0.45, 'Perfect wave!', '#8ff0ff', true);
           }
           this.setWind(ev.twist === 'wind');
+          this.setRain();
+          break;
+        case 'rain':
+          this.splash.explode(2, ev.x, ev.y);
+          if (this.mode === 'play') sounds.rain();
+          break;
+        case 'spook':
+          this.splash.explode(4, ev.x, ev.y);
+          sounds.spook();
+          break;
+        case 'koi':
+          sounds.bump();
+          buzz(6);
           break;
         case 'pickupSpawn': sounds.pickupSpawn(); break;
         case 'pickup': {
@@ -585,7 +656,12 @@ export class Game extends Phaser.Scene {
     const rg = this.rippleG, rc = C.ripple, oa = dark ? 0.6 : 0.5;
     rg.clear();
     for (const r of sim.ripples) {
-      const rad = Math.max(1, r.age * RIP_SPEED), fade = 1 - r.age / RIP_LIFE;
+      const rad = Math.max(1, r.age * RIP_SPEED), fade = 1 - r.age / r.life;
+      if (r.k < 1) { // a raindrop: one thin ring, no outline
+        rg.lineStyle(2.4, rc.n, rc.a * fade * 0.8).strokeCircle(r.x, r.y, rad);
+        if (rad > 12) rg.lineStyle(1.4, rc.n, rc.a * fade * 0.35).strokeCircle(r.x, r.y, rad - 10);
+        continue;
+      }
       rg.lineStyle(7.5, OUTLINE_N, oa * fade).strokeCircle(r.x, r.y, rad);
       rg.lineStyle(3.8, rc.n, rc.a * fade).strokeCircle(r.x, r.y, rad);
       if (rad > 14) rg.lineStyle(2, rc.n, rc.a * fade * 0.45).strokeCircle(r.x, r.y, rad - 13);
@@ -614,9 +690,9 @@ export class Game extends Phaser.Scene {
       const col = b.gold ? { n: GOLD, a: 1 } : C[laneKey(b.ci)];
       if (!v) {
         v = {
-          shadow: this.add.image(b.x, b.y, 'boatsh').setTint(OUTLINE_N).setDepth(D.boatShadow),
+          shadow: this.add.image(b.x, b.y, b.heavy ? 'bargesh' : 'boatsh').setTint(OUTLINE_N).setDepth(D.boatShadow),
           glow: this.add.image(b.x, b.y, 'glow').setTint(col.n).setDepth(D.boatGlow).setBlendMode(glowBlend),
-          body: this.add.image(b.x, b.y, b.gold ? 'boatG' : 'boat' + b.ci).setDepth(D.boat),
+          body: this.add.image(b.x, b.y, b.gold ? 'boatG' : (b.heavy ? 'barge' : 'boat') + b.ci).setDepth(D.boat),
           born: this.skipFadeIn ? 1 : 0, sq: { x: 1, y: 1 }, pushed: false, sparkT: 0,
         };
         if (!this.skipFadeIn) this.tweens.add({ targets: v, born: 1, duration: 500, ease: 'Back.Out' });
@@ -684,6 +760,26 @@ export class Game extends Phaser.Scene {
       const pop = Math.min(1, w.age * 4) * (1 - w.sinking * 0.5);
       img.setPosition(w.x, w.y).setRotation(w.a + Math.sin(t * 0.8 + w.id) * 0.08)
         .setScale(TEX_SCALE * w.r / PAD_R * Math.max(0.01, pop)).setAlpha(1 - w.sinking);
+    }
+
+    // ice floes: slow spin, melt away at the end of a Floes wave
+    this.sweep(sim.floes, this.floeViews, v => v.destroy());
+    for (const f of sim.floes) {
+      let img = this.floeViews.get(f);
+      if (!img) { img = this.add.image(f.x, f.y, 'floe' + (f.variant ?? 0)).setDepth(D.floe); this.floeViews.set(f, img); }
+      const pop = Math.min(1, f.age * 3) * (1 - f.sinking * 0.4);
+      img.setPosition(f.x, f.y).setRotation(f.a + Math.sin(t * 0.3 + f.id) * 0.06)
+        .setScale(TEX_SCALE * f.r / FLOE_R * Math.max(0.01, pop)).setAlpha(1 - f.sinking);
+    }
+
+    // koi swim just under the surface: a little see-through, tail swishing faster when they dash
+    this.sweep(sim.koi, this.koiViews, v => v.destroy());
+    for (const f of sim.koi) {
+      let img = this.koiViews.get(f);
+      if (!img) { img = this.add.image(f.x, f.y, 'koi' + f.variant).setDepth(D.koi).setOrigin(0.55, 0.5); this.koiViews.set(f, img); }
+      const swish = Math.sin(f.ph * (6 + f.spook * 10)) * (0.12 + f.spook * 0.12);
+      img.setPosition(f.x, f.y).setRotation(f.ang + swish)
+        .setScale(TEX_SCALE * 1.25 * (1 - Math.abs(swish) * 0.3), TEX_SCALE * 1.25).setAlpha(dark ? 0.8 : 0.9);
     }
 
     // power-up bubbles: bob, pulse, and blink in their last two seconds

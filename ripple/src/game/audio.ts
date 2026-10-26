@@ -4,7 +4,7 @@ import { sfx } from '../core/sfx';
 
 const NOTES = [392, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
 
-let lastBump = 0;
+let lastBump = 0, lastRain = 0;
 
 export const sounds = {
   drop() {
@@ -33,6 +33,15 @@ export const sounds = {
   gold() { [0, 4, 7, 12].forEach((k, i) => sfx.tone(NOTES[5] * Math.pow(2, k / 12), 0.5, { vol: 0.09, delay: 0.05 + i * 0.05 })); },
   /** Wave banner fanfare. */
   wave() { [0, 0.12, 0.24, 0.42].forEach((d, i) => sfx.tone(NOTES[[2, 4, 5, 7][i]], i === 3 ? 0.6 : 0.22, { type: 'triangle', vol: 0.12, delay: d })); },
+  /** A raindrop landing: a tiny high plink, kept quiet and rare so a downpour doesn't drown the pond. */
+  rain() {
+    const now = performance.now();
+    if (now - lastRain < 180) return;
+    lastRain = now;
+    sfx.tone(1400 + Math.random() * 500, 0.06, { type: 'sine', vol: 0.025, slideTo: 900 });
+  },
+  /** A koi darting off. */
+  spook() { sfx.noise(0.14, 0.04, 2400); sfx.tone(520, 0.1, { type: 'triangle', vol: 0.05, slideTo: 760 }); },
   pickupSpawn() { sfx.tone(NOTES[7], 0.25, { vol: 0.06, slideTo: NOTES[9] }); },
   freeze() { [0, 0.07, 0.14, 0.21].forEach((d, i) => sfx.tone(NOTES[9] * (1 + i * 0.12), 0.4, { vol: 0.07, delay: d })); sfx.noise(0.5, 0.04, 6000, 2); },
   life() { [0, 0.09, 0.18].forEach((d, i) => sfx.tone(NOTES[4 + i * 2], 0.35, { type: 'triangle', vol: 0.12, delay: d })); },

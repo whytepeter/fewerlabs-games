@@ -1,6 +1,6 @@
 # Ripple
 
-Tap anywhere on the pond to send out ripples that push paper boats home to the dock that matches their lantern before their timer runs out. Waves bring golden boats, power-up bubbles and pond twists (wind, whirlpool, lily wall). Missions and boat styles to buy.
+Tap anywhere on the pond to send out ripples that push paper boats home to the dock that matches their lantern before their timer runs out. Waves bring golden boats, heavy barges, power-up bubbles and pond twists (wind, whirlpool, lily wall). Four ponds, flipped through live on the title: the Lily Pond, then the Koi Garden (koi bump boats), the Rainy Marsh (raindrops make ripples) and the Frozen Lake (slippery water, ice floes), each opened by scoring 15 in the one before. Missions and boat styles to buy.
 
 A standalone Phaser 3 + TypeScript + Vite project, shipped as an installable PWA that plays offline after the first visit and prompts players when an update is ready.
 

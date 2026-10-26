@@ -14,6 +14,9 @@ const MAX_RIPPLES = 16;
 export const WAVE_SIZE = 6;
 /** Points for a golden boat (it may use any dock). */
 export const GOLD_POINTS = 3;
+/** Points for a barge: heavy, so ripples push it less than half as far. */
+export const BARGE_POINTS = 2;
+const BARGE_PUSH = 0.45, BARGE_LIFE = 1.35;
 /** Seconds that a freeze power-up stops every boat's timer. */
 export const FREEZE_TIME = 5;
 export const PICKUP_R = 15;
@@ -22,7 +25,7 @@ const PICKUP_LIFE = 9;
 const BOAT_LIFE = 32, BOAT_LIFE_MIN = 21;
 
 /* ---------- pond twists: one per wave from wave 2, announced in the wave banner */
-export type Twist = 'none' | 'calm' | 'wind' | 'whirl' | 'lilies';
+export type Twist = 'none' | 'calm' | 'wind' | 'whirl' | 'lilies' | 'school' | 'downpour' | 'floes';
 /** Wind: constant push (px/s^2). With DRAG 0.75 boats drift at most ~WIND_F / 0.75 = 9 px/s. */
 export const WIND_F = 7;
 /** Whirlpool: radius, tangential pull at the centre (px/s^2, fading to 0 at the rim), and a slight inward tug. */
@@ -30,6 +33,51 @@ export const WHIRL_R = 125, WHIRL_SPIN = 34, WHIRL_PULL = 7;
 /** Lily wall pad radius and spacing (pads touch, so boats can't slip between until rippled apart). */
 export const WALL_R = 17;
 const WALL_STEP = 31, WALL_DRAG = 1.3, WALL_PUSH = 0.75;
+
+/* ---------- what makes each pond different (see ponds.ts) */
+export interface PondRules {
+  /** Twists wave 2 may bring, and the ones after it. */
+  gentle: Twist[];
+  twists: Twist[];
+  /** How fast boats coast to a stop (DRAG normally; lower is slipperier). */
+  drag: number;
+  /** Lily pads drawn on the water (scenery). */
+  pads: number;
+  /** Koi swimming from the start; one more joins at wave 4. */
+  koi: number;
+  /** Seconds between raindrops (each makes a weak ripple), 0 for a dry pond. */
+  rain: number;
+  /** Ice floes drifting from the start. */
+  floes: number;
+}
+export type PondId = 'lily' | 'koi' | 'marsh' | 'frost';
+export const POND_RULES: Record<PondId, PondRules> = {
+  lily: {
+    gentle: ['wind', 'whirl', 'calm'], twists: ['wind', 'whirl', 'lilies', 'calm'],
+    drag: DRAG, pads: 7, koi: 0, rain: 0, floes: 0,
+  },
+  koi: {
+    gentle: ['wind', 'school', 'calm'], twists: ['wind', 'whirl', 'lilies', 'school', 'calm'],
+    drag: DRAG, pads: 4, koi: 2, rain: 0, floes: 0,
+  },
+  marsh: {
+    gentle: ['downpour', 'wind', 'calm'], twists: ['downpour', 'wind', 'whirl', 'lilies', 'calm'],
+    drag: DRAG, pads: 9, koi: 0, rain: 1.3, floes: 0,
+  },
+  frost: {
+    gentle: ['floes', 'wind', 'calm'], twists: ['floes', 'wind', 'whirl', 'calm'],
+    drag: 0.32, pads: 0, koi: 0, rain: 0, floes: 3,
+  },
+};
+
+/** Koi: they wander, nudge any boat they swim into, and dart away from a ripple. */
+export const KOI_R = 13;
+const KOI_SPEED = 30, KOI_SHOVE = 0.7;
+/** Rain ripples: weaker and shorter-lived than a tap. */
+export const RAIN_K = 0.6, RAIN_LIFE = 1;
+const MAX_RAIN = 4;
+/** Ice floes: big, slow, pushed a little by ripples. */
+const FLOE_DRAG = 0.9, FLOE_PUSH = 0.38;
 
 export interface Rect { x: number; y: number; w: number; h: number; r: number }
 export type BoatState = 'in' | 'dock' | 'sink';
@@ -41,6 +89,8 @@ export interface Boat {
   push: number;
   /** Golden boats are worth GOLD_POINTS, dock anywhere, and have shorter timers. */
   gold: boolean;
+  /** Barges are worth BARGE_POINTS, take longer, and ripples push them less. */
+  heavy: boolean;
 }
 export type PickupKind = 'freeze' | 'life';
 /** A floating power-up bubble; tap it to collect. */
@@ -51,10 +101,16 @@ export interface Dock {
 }
 export interface Rock { id: number; x: number; y: number; r: number; variant: number; isNew: boolean }
 export interface Pad { x: number; y: number; r: number; a: number; flower: boolean }
-export interface Ripple { x: number; y: number; age: number }
+/** `k` scales the push (1 for a tap, RAIN_K for a raindrop). */
+export interface Ripple { x: number; y: number; age: number; life: number; k: number }
 export interface Mote { x: number; y: number; ph: number; sp: number }
-/** A floating lily pad from a Lily wall twist: boats bounce off it, ripples push it. */
-export interface WallPad { id: number; x: number; y: number; vx: number; vy: number; r: number; a: number; age: number; sinking: number }
+/**
+ * A floating lily pad from a Lily wall twist, or an ice floe: boats bounce off it, ripples push it.
+ * `extra` ones belong to the current twist and sink (or melt) when the wave ends.
+ */
+export interface WallPad { id: number; x: number; y: number; vx: number; vy: number; r: number; a: number; age: number; sinking: number; extra?: boolean; variant?: number }
+/** A koi. `spook` (0..1) is a dash away from a ripple; `leaving` ones swim off the pond. */
+export interface Koi { id: number; x: number; y: number; ang: number; turn: number; spook: number; ph: number; variant: number; extra: boolean; leaving: boolean; bumpT: number }
 
 export type SimEvent =
   | { type: 'drop'; x: number; y: number }
@@ -69,6 +125,9 @@ export type SimEvent =
   | { type: 'wave'; wave: number; twist: Twist; perfect: boolean }
   | { type: 'pickup'; pickup: Pickup }
   | { type: 'pickupSpawn'; pickup: Pickup }
+  | { type: 'rain'; x: number; y: number }
+  | { type: 'spook'; x: number; y: number }
+  | { type: 'koi'; x: number; y: number }
   | { type: 'hud' };
 
 /** idle = title backdrop, play = running, ending = last life lost (no scoring), over = finished. */
@@ -104,6 +163,7 @@ export class Sim {
   bestCombo = 0;
   /** Run stats reported to missions. */
   goldDocked = 0;
+  bargesDocked = 0;
   freezes = 0;
   hearts = 0;
   perfectWaves = 0;
@@ -113,6 +173,11 @@ export class Sim {
   wind = { x: 0, y: 0 };
   whirl = { x: 0, y: 0, dir: 1 };
   wall: WallPad[] = [];
+  /** The pond being played (see setRules). */
+  rules: PondRules = POND_RULES.lily;
+  koi: Koi[] = [];
+  floes: WallPad[] = [];
+  private rainT = 1;
   /** Title-screen backdrop: a few timer-less boats drift about while idle. */
   demo = false;
   private demoT = 0;
@@ -134,6 +199,9 @@ export class Sim {
 
   /** Swap the random source (e.g. a seeded generator for reproducible test runs). */
   setRng(rng: () => number) { this.rng = rng; }
+
+  /** Play a different pond. Takes effect at the next prepare() or start(). */
+  setRules(r: PondRules) { this.rules = r; this.laidOut = false; }
 
   private rand(a: number, b: number) { return a + this.rng() * (b - a); }
 
@@ -161,7 +229,7 @@ export class Sim {
       o.x = p.x + (o.x - old.x) / old.w * p.w;
       o.y = p.y + (o.y - old.y) / old.h * p.h;
     };
-    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples, this.pickups, this.wall] as { x: number; y: number }[][]) list.forEach(fit);
+    for (const list of [this.rocks, this.pads, this.docks, this.motes, this.boats, this.ripples, this.pickups, this.wall, this.koi, this.floes] as { x: number; y: number }[][]) list.forEach(fit);
     this.relax();
     for (const b of this.boats) {
       b.x = clamp(b.x, p.x + BOAT_R, p.x + p.w - BOAT_R);
@@ -229,6 +297,7 @@ export class Sim {
 
   private layout() {
     this.boats = []; this.docks = []; this.rocks = []; this.ripples = []; this.pads = []; this.motes = [];
+    this.koi = []; this.floes = [];
     this.addDock(0);
     const p = this.safe;
     const nRocks = clamp(Math.round(p.w * p.h / 90000), 2, 5);
@@ -236,22 +305,39 @@ export class Sim {
       const pt = this.placeInPond(50, [...this.rocks, ...this.docks], 90);
       this.rocks.push({ id: this.nextId++, x: pt.x, y: pt.y, r: this.rand(14, 24), variant: Math.floor(this.rng() * 4), isNew: false });
     }
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < this.rules.pads; i++) {
       const pt = this.placeInPond(30, [...this.rocks, ...this.docks, ...this.pads], 40);
       this.pads.push({ x: pt.x, y: pt.y, r: this.rand(12, 20), a: this.rng() * 6, flower: this.rng() < 0.3 });
     }
     for (let i = 0; i < 18; i++) {
       this.motes.push({ x: this.rand(p.x, p.x + p.w), y: this.rand(p.y, p.y + p.h), ph: this.rng() * 6, sp: this.rand(4, 10) });
     }
+    for (let i = 0; i < this.rules.koi; i++) this.addKoi(false);
+    // bigger ponds get a floe or two more
+    const floes = Math.round(this.rules.floes * clamp(p.w * p.h / 280000, 0.8, 1.5));
+    for (let i = 0; i < floes; i++) this.addFloe(false);
     this.laidOut = true;
+  }
+
+  private addKoi(extra: boolean) {
+    const pt = this.placeInPond(40, [...this.docks, ...this.rocks], 40);
+    this.koi.push({ id: this.nextId++, x: pt.x, y: pt.y, ang: this.rng() * Math.PI * 2, turn: 0, spook: 0, ph: this.rng() * 6, variant: Math.floor(this.rng() * 3), extra, leaving: false, bumpT: 0 });
+  }
+
+  private addFloe(extra: boolean) {
+    const r = this.rand(22, 32);
+    const pt = this.placeInPond(r + 10, [...this.docks.map(d => ({ x: d.x, y: d.y, r: d.r + 30 })), ...this.rocks, ...this.floes, ...this.boats.map(o => ({ x: o.x, y: o.y, r: 30 }))], r + 8);
+    this.floes.push({ id: this.nextId++, x: pt.x, y: pt.y, vx: 0, vy: 0, r, a: this.rng() * 6, age: 0, sinking: 0, extra, variant: Math.floor(this.rng() * 3) });
   }
 
   private resetCounters() {
     this.score = 0; this.lives = LIVES; this.t = 0; this.nextSpawn = 0.8; this.colors = 1;
     this.docked = 0; this.wave = 1; this.freezeT = 0; this.pickups = []; this.pickupT = 20; this.nextRockAt = 12;
     this.combo = 0; this.lastDock = -9; this.endT = 0; this.tapped = false; this.bestCombo = 0;
-    this.goldDocked = 0; this.freezes = 0; this.hearts = 0; this.perfectWaves = 0; this.lostThisWave = false;
-    this.twist = 'none'; this.wall = [];
+    this.goldDocked = 0; this.bargesDocked = 0; this.freezes = 0; this.hearts = 0; this.perfectWaves = 0; this.lostThisWave = false;
+    this.twist = 'none'; this.wall = []; this.rainT = 1;
+    this.koi = this.koi.filter(f => !f.extra);
+    this.floes = this.floes.filter(f => !f.extra);
     this.events.length = 0;
   }
 
@@ -292,10 +378,12 @@ export class Sim {
       if (!this.farFrom(x, y, this.docks, 50) && attempt < 11) continue;
       // one boat in 7 is golden once the player has the hang of it (never two at once, not in the title demo)
       const gold = this.phase === 'play' && this.docked >= 4 && !this.boats.some(o => o.gold && o.state === 'in') && this.rng() < 1 / 7;
+      // one in 6 is a barge once six boats are home (again never two at once)
+      const heavy = !gold && this.phase === 'play' && this.docked >= 6 && !this.boats.some(o => o.heavy && o.state === 'in') && this.rng() < 1 / 6;
       // Bigger ponds (tablets, desktop) mean longer trips, so timers stretch with the pond's size.
       const size = Math.min(1.6, Math.max(1, Math.hypot(p.w, p.h) / 800));
-      const life = Math.max(BOAT_LIFE_MIN, BOAT_LIFE - this.docked * 0.35) * size * (gold ? 0.8 : 1);
-      this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0, gold });
+      const life = Math.max(BOAT_LIFE_MIN, BOAT_LIFE - this.docked * 0.35) * size * (gold ? 0.8 : heavy ? BARGE_LIFE : 1);
+      this.boats.push({ id: this.nextId++, x, y, vx, vy, ang: Math.atan2(vy, vx), ci, life, age: 0, state: 'in', k: 0, wake: 0, noped: -9, dock: null, push: 0, gold, heavy });
       return;
     }
   }
@@ -309,7 +397,7 @@ export class Sim {
     const pk = this.pickups.find(o => Math.hypot(o.x - x, o.y - y) < PICKUP_R + 16);
     if (pk) { this.collect(pk); this.tapped = true; return true; }
     if (this.ripples.length >= MAX_RIPPLES) this.ripples.shift();
-    this.ripples.push({ x, y, age: 0 });
+    this.ripples.push({ x, y, age: 0, life: RIP_LIFE, k: 1 });
     this.tapped = true;
     this.events.push({ type: 'drop', x, y });
     return true;
@@ -320,7 +408,7 @@ export class Sim {
     const p = this.pond;
     if (this.phase !== 'idle' || x < p.x || x > p.x + p.w || y < p.y || y > p.y + p.h) return;
     if (this.ripples.length >= MAX_RIPPLES) this.ripples.shift();
-    this.ripples.push({ x, y, age: 0 });
+    this.ripples.push({ x, y, age: 0, life: RIP_LIFE, k: 1 });
   }
 
   private dockBoat(b: Boat, d: Dock) {
@@ -328,9 +416,10 @@ export class Sim {
     this.combo = this.t - this.lastDock < 4 ? this.combo + 1 : 0;
     this.lastDock = this.t;
     this.bestCombo = Math.max(this.bestCombo, this.combo + 1);
-    this.score += b.gold ? GOLD_POINTS : 1; this.docked++; d.got++;
+    this.score += b.gold ? GOLD_POINTS : b.heavy ? BARGE_POINTS : 1; this.docked++; d.got++;
     if (b.gold) this.goldDocked++;
-    this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.docked / 10)) + (b.gold ? 2 : 0) });
+    if (b.heavy) this.bargesDocked++;
+    this.events.push({ type: 'dock', boat: b, dock: d, note: this.combo + Math.min(4, Math.floor(this.docked / 10)) + (b.gold ? 2 : b.heavy ? 1 : 0) });
     this.events.push({ type: 'hud' });
     // progression: more colours, more rocks, docks that move, waves
     if (this.docked >= 8 && this.colors < 2) { this.colors = 2; this.addDock(1); this.events.push({ type: 'unlock', ci: 1 }); }
@@ -343,6 +432,7 @@ export class Sim {
       this.wave = wave;
       this.nextSpawn = Math.max(this.nextSpawn, 2.5); // a short breather between waves
       this.setTwist(this.pickTwist());
+      if (wave === 4 && this.rules.koi > 0) this.addKoi(false);
       this.events.push({ type: 'wave', wave, twist: this.twist, perfect });
     }
     if (this.docked >= this.nextRockAt) {
@@ -355,9 +445,9 @@ export class Sim {
     if (d.got >= 4 && !d.moving) { d.moving = true; this.events.push({ type: 'dockMove', dock: d }); }
   }
 
-  /** Wave 2 gets a gentle twist (never the wall); later waves any of four, never the same twice running. */
+  /** Wave 2 gets one of the pond's gentle twists; later waves any of its twists, never the same twice running. */
   private pickTwist(): Twist {
-    const opts: Twist[] = this.wave <= 2 ? ['wind', 'whirl', 'calm'] : ['wind', 'whirl', 'lilies', 'calm'];
+    const opts = this.wave <= 2 ? this.rules.gentle : this.rules.twists;
     const choices = opts.filter(t => t !== this.twist);
     return choices[Math.floor(this.rng() * choices.length)];
   }
@@ -365,6 +455,9 @@ export class Sim {
   setTwist(t: Twist) {
     // last wave's lily wall sinks away
     for (const w of this.wall) w.sinking = Math.max(w.sinking, 0.001);
+    // and the extra floes melt, the visiting school of koi swims off
+    for (const f of this.floes) if (f.extra) f.sinking = Math.max(f.sinking, 0.001);
+    for (const f of this.koi) if (f.extra) f.leaving = true;
     this.twist = t;
     const p = this.safe;
     if (t === 'wind') {
@@ -386,6 +479,10 @@ export class Sim {
         if (this.rocks.some(k => Math.hypot(k.x - x, k.y - y) < k.r + WALL_R)) continue;
         this.wall.push({ id: this.nextId++, x, y, vx: 0, vy: 0, r: WALL_R, a: this.rng() * 6, age: 0, sinking: 0 });
       }
+    } else if (t === 'school') {
+      for (let i = 0; i < 3; i++) this.addKoi(true);
+    } else if (t === 'floes') {
+      for (let i = 0; i < 2; i++) this.addFloe(true);
     }
   }
 
@@ -457,38 +554,110 @@ export class Sim {
     return { x: 0, y: 0 };
   }
 
-  private updateWall(dt: number) {
-    if (!this.wall.length) return;
-    const p = this.pond, damp = Math.exp(-WALL_DRAG * dt);
-    for (const w of this.wall) {
+  /** Push from every ripple front passing (x, y), before any mass scaling. */
+  private rippleForce(x: number, y: number) {
+    let fx = 0, fy = 0;
+    for (const r of this.ripples) {
+      const dx = x - r.x, dy = y - r.y, d = Math.hypot(dx, dy) || 0.001;
+      const off = Math.abs(d - r.age * RIP_SPEED);
+      if (off < RIP_BAND) {
+        const fade = Math.pow(1 - r.age / r.life, 1.4) * (1 - off / RIP_BAND) * (d < 26 ? 1.6 : 1) * r.k;
+        fx += dx / d * RIP_PUSH * fade; fy += dy / d * RIP_PUSH * fade;
+      }
+    }
+    return { x: fx, y: fy };
+  }
+
+  /** Lily wall pads and ice floes: pushed by ripples, kept off docks, rocks and each other. */
+  private updateFloaters(list: WallPad[], dt: number, drag: number, push: number, drift: boolean): WallPad[] {
+    if (!list.length) return list;
+    const p = this.pond, damp = Math.exp(-drag * dt);
+    for (const w of list) {
       w.age += dt;
       if (w.sinking) { w.sinking += dt * 1.4; continue; }
-      let fx = 0, fy = 0;
-      for (const r of this.ripples) {
-        const dx = w.x - r.x, dy = w.y - r.y, d = Math.hypot(dx, dy) || 0.001;
-        const off = Math.abs(d - r.age * RIP_SPEED);
-        if (off < RIP_BAND) {
-          const fade = Math.pow(1 - r.age / RIP_LIFE, 1.4) * (1 - off / RIP_BAND) * (d < 26 ? 1.6 : 1);
-          fx += dx / d * RIP_PUSH * WALL_PUSH * fade; fy += dy / d * RIP_PUSH * WALL_PUSH * fade;
-        }
+      const rf = this.rippleForce(w.x, w.y);
+      let fx = rf.x * push, fy = rf.y * push;
+      if (drift) {
+        const tw = this.twistForce(w.x, w.y);
+        fx += Math.sin(w.y * 0.012 + this.t * 0.3) * 2 + tw.x * 0.5;
+        fy += Math.cos(w.x * 0.012 + this.t * 0.25) * 2 + tw.y * 0.5;
       }
       w.vx = (w.vx + fx * dt) * damp; w.vy = (w.vy + fy * dt) * damp;
       w.x += w.vx * dt; w.y += w.vy * dt;
       w.x = clamp(w.x, p.x + w.r, p.x + p.w - w.r); w.y = clamp(w.y, p.y + w.r, p.y + p.h - w.r);
-      // keep clear of docks and rocks
-      for (const o of [...this.docks, ...this.rocks]) {
+      // keep clear of docks (floes leave a boat's width so a dock is never walled in) and rocks
+      const gap = drift ? 14 : 0;
+      for (const o of [...this.docks.map(d => ({ x: d.x, y: d.y, r: d.r + gap })), ...this.rocks]) {
         const dx = w.x - o.x, dy = w.y - o.y, d = Math.hypot(dx, dy) || 0.001, md = o.r + w.r;
         if (d < md) { w.x = o.x + dx / d * md; w.y = o.y + dy / d * md; }
       }
     }
-    // pads don't overlap each other
-    for (let i = 0; i < this.wall.length; i++) for (let j = i + 1; j < this.wall.length; j++) {
-      const a = this.wall[i], b = this.wall[j];
+    // they don't overlap each other
+    for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
       if (a.sinking || b.sinking) continue;
       const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.001, md = a.r + b.r - 3;
       if (d < md) { const o = (md - d) / 2, nx = dx / d, ny = dy / d; a.x -= nx * o; a.y -= ny * o; b.x += nx * o; b.y += ny * o; }
     }
-    if (this.wall.some(w => w.sinking >= 1)) this.wall = this.wall.filter(w => w.sinking < 1);
+    return list.some(w => w.sinking >= 1) ? list.filter(w => w.sinking < 1) : list;
+  }
+
+  /** Koi wander, steer clear of the bank, docks and rocks, and dart away from a ripple's front. */
+  private updateKoi(dt: number) {
+    if (!this.koi.length) return;
+    const p = this.safe, cx = p.x + p.w / 2, cy = p.y + p.h / 2;
+    const turnTo = (f: Koi, want: number, k: number) => ((want - f.ang + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
+    for (const f of this.koi) {
+      f.ph += dt; f.bumpT = Math.max(0, f.bumpT - dt);
+      f.turn = clamp(f.turn + (this.rng() - 0.5) * 4 * dt, -0.8, 0.8);
+      let steer = f.turn;
+      if (f.leaving) {
+        // head for the nearest bank and away
+        const ex = f.x - cx, ey = f.y - cy;
+        steer = turnTo(f, Math.abs(ex) / p.w > Math.abs(ey) / p.h ? (ex > 0 ? 0 : Math.PI) : (ey > 0 ? Math.PI / 2 : -Math.PI / 2), 2.5);
+      } else {
+        const ax = f.x + Math.cos(f.ang) * 46, ay = f.y + Math.sin(f.ang) * 46, m = 24;
+        if (ax < p.x + m || ax > p.x + p.w - m || ay < p.y + m || ay > p.y + p.h - m) steer = turnTo(f, Math.atan2(cy - f.y, cx - f.x), 2.6);
+        else for (const o of [...this.docks, ...this.rocks]) {
+          const dx = ax - o.x, dy = ay - o.y;
+          if (Math.hypot(dx, dy) < o.r + 22) {
+            const side = Math.cos(f.ang) * (o.y - f.y) - Math.sin(f.ang) * (o.x - f.x);
+            steer = side > 0 ? -2.2 : 2.2;
+            break;
+          }
+        }
+        // a ripple's front startles a koi into a dash away from it (rain doesn't bother them)
+        if (f.spook < 0.4) for (const r of this.ripples) {
+          if (r.k < 0.6) continue;
+          const dx = f.x - r.x, dy = f.y - r.y, d = Math.hypot(dx, dy);
+          if (Math.abs(d - r.age * RIP_SPEED) < RIP_BAND && r.age < r.life * 0.7) {
+            f.ang = Math.atan2(dy, dx); f.spook = 1; f.turn = 0;
+            this.events.push({ type: 'spook', x: f.x, y: f.y });
+            break;
+          }
+        }
+      }
+      f.ang += steer * dt;
+      f.spook = Math.max(0, f.spook - dt * 0.9);
+      const sp = KOI_SPEED * (1 + f.spook * 2.6) * (f.leaving ? 1.8 : 1);
+      f.x += Math.cos(f.ang) * sp * dt; f.y += Math.sin(f.ang) * sp * dt;
+      if (!f.leaving) {
+        const q = this.pond;
+        f.x = clamp(f.x, q.x + KOI_R, q.x + q.w - KOI_R); f.y = clamp(f.y, q.y + KOI_R, q.y + q.h - KOI_R);
+      }
+    }
+    const q = this.pond;
+    if (this.koi.some(f => f.leaving)) this.koi = this.koi.filter(f => !f.leaving || (f.x > q.x - 40 && f.x < q.x + q.w + 40 && f.y > q.y - 40 && f.y < q.y + q.h + 40));
+  }
+
+  /** Raindrops: every so often a weak ripple somewhere on the pond (much more often in a downpour). */
+  private updateRain(dt: number) {
+    if (!this.rules.rain || (this.rainT -= dt) > 0) return;
+    this.rainT = this.rules.rain * (this.twist === 'downpour' ? 0.33 : 1) * this.rand(0.6, 1.4);
+    if (this.ripples.filter(r => r.k < 1).length >= MAX_RAIN || this.ripples.length >= MAX_RIPPLES) return;
+    const p = this.pond, x = this.rand(p.x + 10, p.x + p.w - 10), y = this.rand(p.y + 10, p.y + p.h - 10);
+    this.ripples.push({ x, y, age: 0, life: RAIN_LIFE, k: RAIN_K });
+    this.events.push({ type: 'rain', x, y });
   }
 
   update(dt: number) {
@@ -522,30 +691,24 @@ export class Sim {
       if (this.endT <= 0) { this.phase = 'over'; this.events.push({ type: 'over', score: this.score }); }
     }
 
+    if (playing || this.phase === 'idle') this.updateRain(dt);
     for (const r of this.ripples) r.age += dt;
-    if (this.ripples.length && this.ripples[0].age >= RIP_LIFE) this.ripples = this.ripples.filter(r => r.age < RIP_LIFE);
+    if (this.ripples.some(r => r.age >= r.life)) this.ripples = this.ripples.filter(r => r.age < r.life);
 
     const p = this.pond;
     for (const b of this.boats) {
       if (b.state === 'in') {
         // ripple forces: each expanding ring pushes boats outward as its front passes; rings simply add
-        let fx = 0, fy = 0;
-        for (const r of this.ripples) {
-          const dx = b.x - r.x, dy = b.y - r.y, d = Math.hypot(dx, dy) || 0.001;
-          const front = r.age * RIP_SPEED, off = Math.abs(d - front);
-          if (off < RIP_BAND) {
-            const fade = Math.pow(1 - r.age / RIP_LIFE, 1.4) * (1 - off / RIP_BAND);
-            const near = d < 26 ? 1.6 : 1;
-            fx += dx / d * RIP_PUSH * fade * near; fy += dy / d * RIP_PUSH * fade * near;
-          }
-        }
-        b.push = Math.hypot(fx, fy);
+        const mass = b.heavy ? BARGE_PUSH : 1;
+        const rf = this.rippleForce(b.x, b.y);
+        let fx = rf.x * mass, fy = rf.y * mass;
+        b.push = Math.hypot(fx, fy) / mass;
         // gentle swirling current so the pond feels alive
         fx += Math.sin(b.y * 0.012 + this.t * 0.3) * 3; fy += Math.cos(b.x * 0.012 + this.t * 0.25) * 3;
         const tw = this.twistForce(b.x, b.y);
-        fx += tw.x; fy += tw.y;
+        fx += tw.x * mass; fy += tw.y * mass;
         b.vx += fx * dt; b.vy += fy * dt;
-        const damp = Math.exp(-DRAG * dt); b.vx *= damp; b.vy *= damp;
+        const damp = Math.exp(-this.rules.drag * dt); b.vx *= damp; b.vy *= damp;
         const sp = Math.hypot(b.vx, b.vy);
         if (sp > MAX_V) { b.vx *= MAX_V / sp; b.vy *= MAX_V / sp; }
         b.x += b.vx * dt; b.y += b.vy * dt;
@@ -564,14 +727,25 @@ export class Sim {
             if (vn < 0) { b.vx -= 1.6 * vn * nx; b.vy -= 1.6 * vn * ny; if (-vn > 30) this.events.push({ type: 'bump' }); }
           }
         }
-        // lily wall pads: boats bounce off and shove them a little
-        for (const w of this.wall) {
+        // lily wall pads and ice floes: boats bounce off and shove them a little
+        for (const w of this.wall.length ? [...this.wall, ...this.floes] : this.floes) {
           if (w.sinking) continue;
           const dx = b.x - w.x, dy = b.y - w.y, d = Math.hypot(dx, dy), md = w.r + BOAT_R - 2;
           if (d < md && d > 0) {
             const nx = dx / d, ny = dy / d; b.x = w.x + nx * md; b.y = w.y + ny * md;
             const vn = b.vx * nx + b.vy * ny;
             if (vn < 0) { b.vx -= 1.5 * vn * nx; b.vy -= 1.5 * vn * ny; w.vx += vn * nx * 0.35; w.vy += vn * ny * 0.35; }
+          }
+        }
+        // koi: a fish swimming into a boat carries it along a little
+        for (const f of this.koi) {
+          const dx = b.x - f.x, dy = b.y - f.y, d = Math.hypot(dx, dy), md = KOI_R + BOAT_R;
+          if (d < md && d > 0) {
+            const nx = dx / d, ny = dy / d, sp = KOI_SPEED * (1 + f.spook * 2.6) * KOI_SHOVE * (b.heavy ? 0.5 : 1);
+            b.x = f.x + nx * md; b.y = f.y + ny * md;
+            b.vx += (Math.cos(f.ang) * sp + nx * 25 - b.vx * 0.2) * dt * 8; b.vy += (Math.sin(f.ang) * sp + ny * 25 - b.vy * 0.2) * dt * 8;
+            if (!f.bumpT && playing) { f.bumpT = 0.8; this.events.push({ type: 'koi', x: (b.x + f.x) / 2, y: (b.y + f.y) / 2 }); }
+            f.turn += (nx * Math.sin(f.ang) - ny * Math.cos(f.ang)) > 0 ? 0.6 : -0.6;
           }
         }
         // other boats
@@ -608,7 +782,9 @@ export class Sim {
     }
     if (this.boats.some(b => b.state !== 'in' && b.k >= 1)) this.boats = this.boats.filter(b => !(b.state !== 'in' && b.k >= 1));
 
-    this.updateWall(dt);
+    this.wall = this.updateFloaters(this.wall, dt, WALL_DRAG, WALL_PUSH, false);
+    this.floes = this.updateFloaters(this.floes, dt, FLOE_DRAG, FLOE_PUSH, true);
+    this.updateKoi(dt);
 
     for (const d of this.docks) {
       if (!d.moving) continue;

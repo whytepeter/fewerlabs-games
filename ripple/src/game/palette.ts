@@ -56,4 +56,4 @@ export function onTheme(fn: () => void) {
 }
 const check = () => { if (readPalette()) listeners.forEach(fn => fn()); };
 try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', check); } catch { /* old Safari */ }
-new MutationObserver(check).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+new MutationObserver(check).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-pond'] });

@@ -1,24 +1,29 @@
-import '@fontsource/fredoka/500.css';
-import '@fontsource/fredoka/600.css';
-import '@fontsource/fredoka/700.css';
+import '@fontsource/quicksand/500.css';
+import '@fontsource/quicksand/600.css';
+import '@fontsource/quicksand/700.css';
 import './core/kit.css';
 import './style.css';
+import './paper.css';
 import Phaser from 'phaser';
 import { autoScaleUI, createGame } from './core/view';
 import { sfx } from './core/sfx';
 import { music } from './core/music';
-import { hydrateIcons, wobbleLetters } from './core/icons';
+import { hydrateIcons } from './core/icons';
 import { mountCoins } from './core/metaui';
-import { P } from './game/palette';
+import { P, readPalette } from './game/palette';
+import { applyPondTheme, currentPond } from './game/ponds';
 import { Boot } from './scenes/Boot';
 import { Game } from './scenes/Game';
 import { initPWA } from './core/pwa';
 import { initEmbed } from './core/embed';
 
+// the chosen pond's colours, before any art is drawn
+applyPondTheme(currentPond());
+readPalette();
+
 autoScaleUI();
 hydrateIcons();
 mountCoins();
-wobbleLetters(document.getElementById('logo')!);
 
 // Mobile browsers: no page scroll, pinch, double-tap zoom or long-press menus. Cards may still
 // scroll internally on very small screens.

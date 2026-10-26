@@ -46,49 +46,71 @@
     </div>
 
     <section id="title" class="k-screen title-screen" aria-labelledby="logo">
-      <div class="title-grid">
-        <div class="title-top">
-          <div class="k-coins" data-coins aria-label="Coins"></div>
+      <div class="title-bar">
+        <div class="k-coins" data-coins aria-label="Coins"></div>
+        <div class="title-toggles">
+          <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><span class="ico-on"><i data-icon="sound"></i></span><span class="ico-off"><i data-icon="mute"></i></span></button>
+          <button class="k-icon-btn k-icon-btn--sm k-btn--pink" data-setting="music" aria-label="Music"><span class="ico-on"><i data-icon="music"></i></span><span class="ico-off"><i data-icon="music-off"></i></span></button>
+          <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
         </div>
-        <div class="title-head">
-          <h1 class="k-logo" id="logo">Ripple</h1>
-          <p class="title-tag k-outline">Float the paper boats home!</p>
-        </div>
-        <div class="k-panel info-panel">
-          <div class="k-ribbon info-tabs" role="tablist">
-            <button role="tab" data-tab="missions" aria-pressed="true">Missions</button>
-            <button role="tab" data-tab="howto" aria-pressed="false">How to play</button>
+      </div>
+      <div class="title-head">
+        <h1 class="r-logo" id="logo" aria-label="Ripple">r<span class="r-logo-i" aria-hidden="true">ı<b class="r-logo-dot"><i></i><i></i><i></i></b></span>pple</h1>
+        <p class="title-tag">Float the paper boats home</p>
+      </div>
+      <div class="title-foot">
+        <div class="pond-pick" role="group" aria-label="Pond">
+          <button class="pond-arrow" id="pondPrev" type="button" aria-label="Previous pond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <div class="pond-label" aria-live="polite">
+            <b class="k-outline" id="pondName">Lily Pond</b>
+            <small class="k-outline" id="pondInfo"></small>
+            <span class="pond-meta"><span class="pond-best k-outline" aria-label="Best score here"><i data-icon="trophy"></i><b id="titleBest">0</b></span><span class="pond-dots" id="pondDots"></span></span>
           </div>
-          <ul class="k-missions" id="titleMissions"></ul>
-          <ul class="howto" id="howto" hidden>
-            <li>
-              <span class="howto-ico ico-tap"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="16" cy="16" r="5.5" fill="#fff" stroke="#16233b" stroke-width="2.4"/></svg></span>
-              <span><b>Tap</b> the water: the ripple pushes boats away.</span>
-            </li>
-            <li>
-              <span class="howto-ico ico-dock"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="#16233b" stroke-width="9"/><circle cx="16" cy="16" r="10" fill="none" stroke="#ffb000" stroke-width="5"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="6 9.7" stroke-dashoffset="3"/></svg></span>
-              <span><b>Dock</b> each boat in the ring of its colour.</span>
-            </li>
-            <li>
-              <span class="howto-ico ico-time"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4"/><path d="M16 6a10 10 0 1 1-9.5 13" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></span>
-              <span><b>Hurry</b> before its ring runs out. Lose 3 and it's over.</span>
-            </li>
-            <li>
-              <span class="howto-ico ico-bonus"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 4 3.4 7 7.6 1.1-5.5 5.3 1.3 7.6L16 21.4 9.2 25l1.3-7.6L5 12.1l7.6-1.1z" fill="#ffd23f" stroke="#16233b" stroke-width="2.2" stroke-linejoin="round"/></svg></span>
-              <span><b>Bonus</b> gold boats dock anywhere. Each wave brings a twist.</span>
-            </li>
-          </ul>
+          <button class="pond-arrow" id="pondNext" type="button" aria-label="Next pond"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
-        <div class="title-actions">
-          <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>PLAY</button>
-          <div class="skins" id="skins" role="radiogroup" aria-label="Boat style"></div>
-          <div class="title-row">
-            <div class="k-pill best-pill" aria-label="Best score"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b></div>
-            <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><span class="ico-on"><i data-icon="sound"></i></span><span class="ico-off"><i data-icon="mute"></i></span></button>
-            <button class="k-icon-btn k-icon-btn--sm k-btn--pink" data-setting="music" aria-label="Music"><span class="ico-on"><i data-icon="music"></i></span><span class="ico-off"><i data-icon="music-off"></i></span></button>
-            <button class="k-icon-btn k-icon-btn--sm k-btn--purple" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
-          </div>
+        <button class="k-btn k-btn--lg play-btn" id="playBtn"><span class="play-go"><i data-icon="play"></i>Play</span><span class="play-lock"><i data-icon="lock"></i><span id="lockText">Locked</span></span></button>
+        <nav class="pads" aria-label="More">
+          <button class="ring-btn" id="missionsBtn" type="button" style="--c: var(--r-lantern)"><span class="ring"><i data-icon="star"></i></span><span>Missions</span></button>
+          <button class="ring-btn" id="boatsBtn" type="button" style="--c: var(--r-rose)"><span class="ring"><i data-icon="boat"></i></span><span>Boats</span></button>
+          <button class="ring-btn" id="howBtn" type="button" style="--c: var(--r-violet)"><span class="ring"><b>?</b></span><span>How to play</span></button>
+        </nav>
+      </div>
+    </section>
+
+    <section id="info" class="k-screen card-screen" hidden aria-labelledby="infoH">
+      <div class="k-panel card-panel">
+        <div class="k-ribbon info-tabs" id="infoH" role="tablist">
+          <button role="tab" data-tab="missions" aria-pressed="true">Missions</button>
+          <button role="tab" data-tab="howto" aria-pressed="false">How to play</button>
         </div>
+        <ul class="k-missions" id="titleMissions"></ul>
+        <ul class="howto" id="howto" hidden>
+          <li>
+            <span class="howto-ico ico-tap"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11.5" fill="none" stroke="#fff" stroke-width="3"/><circle cx="16" cy="16" r="5.5" fill="#fff" stroke="#16233b" stroke-width="2.4"/></svg></span>
+            <span><b>Tap</b> the water: the ripple pushes boats away.</span>
+          </li>
+          <li>
+            <span class="howto-ico ico-dock"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="#16233b" stroke-width="9"/><circle cx="16" cy="16" r="10" fill="none" stroke="#ffb000" stroke-width="5"/><circle cx="16" cy="16" r="10" fill="none" stroke="#fff" stroke-width="5" stroke-dasharray="6 9.7" stroke-dashoffset="3"/></svg></span>
+            <span><b>Dock</b> each boat in the ring of its colour.</span>
+          </li>
+          <li>
+            <span class="howto-ico ico-time"><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="10" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="4"/><path d="M16 6a10 10 0 1 1-9.5 13" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/></svg></span>
+            <span><b>Hurry</b> before its ring runs out. Lose 3 and it's over.</span>
+          </li>
+          <li>
+            <span class="howto-ico ico-bonus"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="m16 4 3.4 7 7.6 1.1-5.5 5.3 1.3 7.6L16 21.4 9.2 25l1.3-7.6L5 12.1l7.6-1.1z" fill="#ffd23f" stroke="#16233b" stroke-width="2.2" stroke-linejoin="round"/></svg></span>
+            <span><b>Bonus</b> gold boats dock anywhere, barges score double. Each wave brings a twist.</span>
+          </li>
+        </ul>
+        <button class="k-btn k-btn--block card-close" type="button" data-close>Got it</button>
+      </div>
+    </section>
+
+    <section id="boats" class="k-screen card-screen" hidden aria-labelledby="boatsH">
+      <div class="k-panel card-panel">
+        <div class="k-ribbon" id="boatsH">Boats</div>
+        <div class="skins" id="skins" role="radiogroup" aria-label="Boat style"></div>
+        <button class="k-btn k-btn--block card-close" type="button" data-close>Done</button>
       </div>
     </section>
 
@@ -118,6 +140,7 @@
           <span class="k-tag" id="overNew" hidden>NEW BEST!</span>
           <p class="so-close" id="soClose" hidden></p>
           <div class="k-earned" id="earned" hidden></div>
+          <p class="over-pond" id="overPond" hidden></p>
         </div>
         <div class="over-side">
           <div class="over-chips">

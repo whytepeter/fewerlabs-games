@@ -5,13 +5,14 @@ import { renderEarned, renderMissions } from './core/metaui';
 import { sounds } from './game/audio';
 import { boatShop, rippleMissions } from './game/meta';
 import { SKINS, skinPreview } from './game/skins';
+import { PONDS, isUnlocked, markPondSeen, newPonds, type PondDef, type PondId } from './game/ponds';
 
 // DOM overlay built from the shared cartoon kit: HUD pills, pop-up text, toast, hint,
 // and the title / pause / game-over screens.
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
-export type ScreenName = 'title' | 'pause' | 'over' | null;
+export type ScreenName = 'title' | 'info' | 'boats' | 'pause' | 'over' | null;
 
 export interface UIHandlers {
   play(): void;
@@ -21,14 +22,19 @@ export interface UIHandlers {
   pause(): void;
   /** The equipped boat style changed (bought or picked). */
   skin(id: string): void;
+  /** Show another pond behind the title (locked ones too, as a preview). */
+  pond(id: PondId): void;
 }
 
 export interface OverInfo {
   score: number; best: number; isNew: boolean; stars: number; wave: number; bestCombo: number;
   earned: { label: string; n: number }[]; missions: MissionResult[]; close: string;
+  /** Name of a pond this run unlocked, or ''. */
+  opened: string;
 }
 
-const screens = { title: $('title'), pause: $('pause'), over: $('over') };
+
+const screens = { title: $('title'), info: $('info'), boats: $('boats'), pause: $('pause'), over: $('over') };
 const hud = $('hud');
 const scorePill = $('scorePill');
 const scoreEl = $('score');
@@ -46,6 +52,9 @@ let hintSince = 0;
 const HINT_MS = 5000;
 let lastScore = 0;
 let lastLives = 3;
+/** The pond behind the title, which may be a locked one being previewed. */
+let shownPond: PondDef = PONDS[0];
+let flipPond = (_step: number) => {};
 
 function restartAnim(el: HTMLElement, cls: string) {
   el.classList.remove(cls);
@@ -59,12 +68,23 @@ function on(id: string, fn: () => void) {
 
 export const ui = {
   init(h: UIHandlers) {
-    on('playBtn', h.play);
+    $('playBtn').addEventListener('click', () => {
+      if (isUnlocked(shownPond)) { sounds.click(); h.play(); return; }
+      sounds.nope();
+      restartAnim($('playBtn'), 'shake');
+    });
     on('resumeBtn', h.resume);
     on('restartBtn', h.restart);
     on('menuBtn', h.menu);
     on('againBtn', h.play);
     on('overMenuBtn', h.menu);
+    // flip between ponds: the pond itself changes behind the title
+    flipPond = step => {
+      const i = PONDS.findIndex(p => p.id === shownPond.id);
+      h.pond(PONDS[(i + step + PONDS.length) % PONDS.length].id);
+    };
+    on('pondPrev', () => flipPond(-1));
+    on('pondNext', () => flipPond(1));
     $('pauseBtn').addEventListener('click', () => { sounds.click(); h.pause(); });
 
     const toggles = document.querySelectorAll<HTMLButtonElement>('[data-setting]');
@@ -83,7 +103,12 @@ export const ui = {
       const k = e.key;
       if ((k === ' ' || k === 'Enter') && (current === 'title' || current === 'over')) {
         if (document.activeElement instanceof HTMLButtonElement || document.activeElement instanceof HTMLAnchorElement) return;
-        e.preventDefault(); h.play();
+        e.preventDefault();
+        if (current === 'over' || isUnlocked(shownPond)) h.play();
+      } else if (k === 'Escape' && (current === 'info' || current === 'boats')) {
+        this.show('title');
+      } else if ((k === 'ArrowLeft' || k === 'ArrowRight') && current === 'title') {
+        flipPond(k === 'ArrowLeft' ? -1 : 1);
       } else if (k === 'Escape' || k === 'p' || k === 'P') {
         if (current === null) h.pause();
         else if (current === 'pause') h.resume();
@@ -101,6 +126,11 @@ export const ui = {
     };
     tabs.forEach(b => b.addEventListener('click', () => { sounds.click(); showTab(b.dataset.tab!); }));
     this.showTab = showTab;
+    // the lily pads under Play open their cards over the pond
+    on('missionsBtn', () => { showTab('missions'); this.show('info'); });
+    on('howBtn', () => { showTab('howto'); this.show('info'); });
+    on('boatsBtn', () => this.show('boats'));
+    document.querySelectorAll<HTMLButtonElement>('[data-close]').forEach(b => b.addEventListener('click', () => { sounds.click(); this.show('title'); }));
 
     $('skins').addEventListener('click', e => {
       const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-skin]');
@@ -124,6 +154,31 @@ export const ui = {
 
   showTab: (_t: string) => {},
 
+  /**
+   * The pond shown behind the title: its name, what's special about it (or how to open it),
+   * a ring per pond, and a locked Play button while it's still closed.
+   */
+  setPond(p: PondDef, best: number) {
+    shownPond = p;
+    const open = isUnlocked(p);
+    $('pondName').textContent = p.name;
+    const info = $('pondInfo');
+    if (open) info.textContent = p.blurb;
+    else {
+      const from = PONDS.find(x => x.id === p.unlock!.pond)!;
+      info.innerHTML = `${icon('lock')} Score ${p.unlock!.score} in the ${from.name}`;
+    }
+    info.classList.toggle('locked', !open);
+    const fresh = new Set(newPonds().map(x => x.id));
+    $('pondDots').innerHTML = PONDS.map(x => `<i class="${x.id === p.id ? 'on' : ''}${isUnlocked(x) ? '' : ' shut'}${fresh.has(x.id) ? ' fresh' : ''}"></i>`).join('');
+    if (open) markPondSeen(p.id);
+    $('lockText').textContent = open ? '' : 'Locked';
+    $('playBtn').classList.toggle('locked', !open);
+    $('playBtn').setAttribute('aria-label', open ? `Play the ${p.name}` : `${p.name} is locked`);
+    this.setBest(best);
+    restartAnim($('pondName'), 'flip');
+  },
+
   /** Re-render the parts of the title that depend on meta state. */
   refreshTitle() {
     renderMissions($('titleMissions'), rippleMissions.active);
@@ -133,7 +188,7 @@ export const ui = {
       const cls = `skin${on ? ' on' : ''}${owned ? '' : ' locked'}${!owned && bal >= s.price ? ' afford' : ''}`;
       const label = owned ? s.name : `${s.name}, ${s.price} coins`;
       return `<button class="${cls}" data-skin="${s.id}" role="radio" aria-checked="${on}" aria-label="${label}" title="${label}">
-        <img src="${skinPreview(s.id)}" alt="">${owned ? '' : `<small>${icon('lock')}${s.price}</small>`}</button>`;
+        <img src="${skinPreview(s.id)}" alt=""><span>${s.name}</span>${owned ? '' : `<small>${icon('lock')}${s.price}</small>`}</button>`;
     }).join('');
   },
 
@@ -142,7 +197,7 @@ export const ui = {
   show(name: ScreenName) {
     current = name;
     (Object.keys(screens) as Exclude<ScreenName, null>[]).forEach(k => { screens[k].hidden = k !== name; });
-    hud.hidden = name === 'title' || name === 'over';
+    hud.hidden = name !== null && name !== 'pause';
     if (name !== null) this.hint(false);
     (document.activeElement as HTMLElement | null)?.blur?.();
   },
@@ -219,6 +274,9 @@ export const ui = {
     const close = $('soClose');
     close.textContent = o.close; close.hidden = !o.close || o.isNew;
     renderEarned($('earned'), o.earned);
+    const opened = $('overPond');
+    opened.hidden = !o.opened;
+    if (o.opened) opened.innerHTML = `New pond unlocked: <b>${o.opened}</b>! Flip to it on the title screen.`;
     renderMissions($('overMissions'), [], o.missions);
     $('overScore').textContent = String(o.score);
     $('overLine').textContent = o.score === 1 ? 'boat home' : 'boats home';

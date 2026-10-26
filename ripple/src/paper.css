@@ -1,0 +1,187 @@
+/* Ripple's own look, layered over the shared kit (core/kit.css) so the kit stays the same in
+   every game. The language is paper and lanterns on a pond:
+     - text over the water: rounded Quicksand, white with a thin ink edge (no chunky drop)
+     - the one thing to press: a glowing lantern-amber pill
+     - other choices: little life rings, like the docks, in the three lantern colours
+     - small controls over the water: frosted glass
+     - cards: a sheet of paper taped over the pond, with a soft shadow */
+
+:root {
+  --k-font: "Quicksand", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r-ink: #16233b;
+  --r-ink-soft: #5b6680;
+  --r-paper: #fffaf1;
+  --r-paper-2: #f1e7d4;
+  --r-lantern: #ffb000;
+  --r-lantern-hi: #ffd56e;
+  --r-lantern-lo: #e48a00;
+  --r-rose: #ff4f7b;
+  --r-violet: #9b6bff;
+  --r-glass: rgba(10, 34, 64, .26);
+  --r-glass-line: rgba(255, 255, 255, .5);
+  --r-lift: 0 14px 34px rgba(8, 26, 52, .3), 0 2px 6px rgba(8, 26, 52, .18);
+  --k-panel: var(--r-paper);
+  --k-ink: var(--r-ink);
+  --k-ink-soft: var(--r-ink-soft);
+  --k-dim: rgba(8, 24, 48, .42);
+}
+
+/* ---------- Text over the water: a thin ink edge and a soft shadow */
+.k-outline, .r-over {
+  color: #fff; font-weight: 700;
+  -webkit-text-stroke: 3px var(--r-ink); paint-order: stroke fill;
+  text-shadow: 0 2px 8px rgba(8, 26, 52, .35);
+}
+
+/* ---------- Wordmark: lowercase "ripple"; the dot of the i is a lantern sending out rings */
+.r-logo {
+  position: relative; display: inline-block;
+  font-family: var(--k-font); font-weight: 700; font-size: clamp(72px, 23vw, 120px);
+  line-height: .9; letter-spacing: -.035em; color: #fff;
+  -webkit-text-stroke: 5px var(--r-ink); paint-order: stroke fill;
+  text-shadow: 0 6px 0 rgba(8, 26, 52, .18), 0 12px 26px rgba(8, 26, 52, .3);
+}
+.r-logo-i { position: relative; display: inline-block; }
+.r-logo-dot {
+  position: absolute; left: 50%; top: .04em; width: .2em; height: .2em; margin-left: -.1em;
+  border-radius: 50%; background: radial-gradient(circle at 38% 34%, #fff3c4 0 18%, var(--r-lantern-hi) 34%, var(--r-lantern) 70%);
+  box-shadow: 0 0 0 3px var(--r-ink), 0 0 22px 6px rgba(255, 196, 61, .65);
+}
+.r-logo-dot i {
+  position: absolute; inset: 0; border-radius: 50%; border: 2.5px solid #fff;
+  animation: r-ring 3s cubic-bezier(.2, .6, .4, 1) infinite; opacity: 0;
+}
+.r-logo-dot i:nth-child(2) { animation-delay: 1s; }
+.r-logo-dot i:nth-child(3) { animation-delay: 2s; }
+@keyframes r-ring { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(6); opacity: 0; } }
+.title-tag {
+  margin-top: 14px; font-size: 13px; letter-spacing: .22em; text-transform: uppercase;
+  -webkit-text-stroke: 0; color: rgba(255, 255, 255, .95); text-shadow: 0 1px 2px rgba(8, 26, 52, .5), 0 2px 12px rgba(8, 26, 52, .35);
+}
+
+/* ---------- Lantern button (the one thing to press) and paper buttons */
+.k-btn {
+  --c: var(--r-lantern); --hi: var(--r-lantern-hi); --lo: var(--r-lantern-lo);
+  min-height: 54px; padding: 0 28px; border-radius: 999px;
+  border: 2.5px solid var(--r-ink);
+  background: linear-gradient(180deg, var(--hi), var(--c) 60%, var(--lo));
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .6), 0 3px 0 rgba(8, 26, 52, .25), 0 10px 24px color-mix(in srgb, var(--c) 45%, transparent);
+  color: var(--r-ink); text-shadow: none; font-weight: 700; letter-spacing: .02em; font-size: 20px;
+}
+.k-btn::after { display: none; }
+.k-btn svg { fill: currentColor; filter: none; }
+.k-btn:active {
+  transform: translateY(2px) scale(.98);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .6), 0 1px 0 rgba(8, 26, 52, .25), 0 4px 12px color-mix(in srgb, var(--c) 40%, transparent);
+}
+.k-btn--lg { min-height: 66px; font-size: 26px; padding: 0 46px; letter-spacing: .12em; }
+.k-btn--sm { min-height: 46px; font-size: 16px; padding: 0 18px; }
+.k-btn--white, .k-btn--yellow {
+  --c: var(--r-paper); --hi: #fff; --lo: var(--r-paper-2);
+  box-shadow: inset 0 2px 0 #fff, 0 3px 0 rgba(8, 26, 52, .18);
+}
+.k-btn--white:active, .k-btn--yellow:active { box-shadow: inset 0 2px 0 #fff, 0 1px 0 rgba(8, 26, 52, .18); }
+
+/* ---------- Frosted glass: small controls floating over the water */
+.k-icon-btn {
+  --c: transparent; --hi: transparent; --lo: transparent;
+  width: 46px; height: 46px; padding: 0;
+  background: var(--r-glass); border: 1.5px solid var(--r-glass-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 14px rgba(8, 26, 52, .18);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.k-icon-btn::after { display: none; }
+.k-icon-btn svg { fill: #fff; filter: drop-shadow(0 1px 1px rgba(8, 26, 52, .45)); }
+.k-icon-btn:active { transform: scale(.92); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35); }
+.k-icon-btn[aria-pressed="false"] { --c: transparent; --hi: transparent; --lo: transparent; }
+.k-icon-btn[aria-pressed="false"] svg { opacity: .55; }
+/* on paper, the glass becomes a plain paper circle */
+.k-panel .k-icon-btn {
+  background: var(--r-paper); border: 2.5px solid var(--r-ink);
+  box-shadow: inset 0 2px 0 #fff, 0 3px 0 rgba(8, 26, 52, .18);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.k-panel .k-icon-btn svg { fill: var(--r-ink); filter: none; }
+
+.k-pill, .k-coins {
+  min-height: 42px; padding: 3px 14px 3px 4px; gap: 7px;
+  background: var(--r-glass); border: 1.5px solid var(--r-glass-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 4px 14px rgba(8, 26, 52, .18);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  font-size: 20px;
+}
+.k-pill b, .k-coins b { text-shadow: 0 1px 2px rgba(8, 26, 52, .55); }
+.k-pill-icon {
+  width: 32px; height: 32px; border: 2px solid var(--r-ink);
+  background: radial-gradient(circle at 38% 34%, #fff3c4 0 16%, var(--r-lantern-hi) 34%, var(--r-lantern) 80%);
+}
+.k-coins { font-size: 17px; padding-left: 5px; }
+.k-coin { width: 26px; height: 26px; }
+.k-coin circle { stroke-width: 2; }
+
+/* ---------- Paper cards */
+.k-screen { background: radial-gradient(ellipse at 50% 45%, rgba(8, 24, 48, .12), var(--k-dim)); }
+.k-panel {
+  border: 2.5px solid var(--r-ink); border-radius: 22px;
+  background: linear-gradient(180deg, #fff 0, var(--r-paper) 40px, var(--r-paper) 100%);
+  box-shadow: var(--r-lift);
+  padding-top: 22px;
+  animation: r-card .45s cubic-bezier(.2, 1.2, .4, 1) both;
+}
+/* a strip of lantern-coloured paper tape holds each card to the pond */
+.k-panel::before {
+  content: ""; position: absolute; left: 50%; top: -13px; width: 96px; height: 24px; margin-left: -48px;
+  background: rgba(255, 196, 61, .78); transform: rotate(-3deg);
+  box-shadow: 0 1px 3px rgba(8, 26, 52, .2);
+  clip-path: polygon(0 12%, 4% 0, 96% 0, 100% 16%, 97% 50%, 100% 84%, 96% 100%, 4% 100%, 0 88%, 3% 50%);
+}
+@keyframes r-card { 0% { opacity: 0; transform: translateY(24px) rotate(-1.5deg); } 100% { opacity: 1; transform: none; } }
+
+/* the kit's ribbon becomes a quiet heading on the paper, with a lantern dot */
+.k-ribbon {
+  position: static; transform: none; min-width: 0; max-width: none;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  margin: 0 0 16px; padding: 0;
+  background: none; border: 0; box-shadow: none;
+  color: var(--r-ink); text-shadow: none; font-size: 22px; letter-spacing: .01em;
+}
+.k-ribbon::before {
+  content: ""; width: 12px; height: 12px; border-radius: 50%; flex: none;
+  background: var(--r-lantern); box-shadow: 0 0 0 2px var(--r-ink), 0 0 10px 2px rgba(255, 176, 0, .55);
+}
+.k-ribbon.record { color: #d6345c; }
+.k-ribbon.record::before { background: var(--r-rose); box-shadow: 0 0 0 2px var(--r-ink), 0 0 10px 2px rgba(255, 79, 123, .5); }
+
+/* ---------- Results on paper */
+.k-big-num { color: var(--r-ink); text-shadow: none; font-size: 72px; letter-spacing: -.03em; }
+.k-star { filter: none; }
+.k-star path { fill: #e6e0d2; stroke-width: 2; }
+.k-star.on path { fill: var(--r-lantern); }
+.k-star.on { filter: drop-shadow(0 0 8px rgba(255, 176, 0, .55)); }
+.k-tag {
+  border: 2px solid var(--r-ink); box-shadow: none; animation: none;
+  background: var(--r-rose); color: #fff; font-size: 13px; letter-spacing: .12em; padding: 4px 12px;
+}
+.k-stat, .k-mission { background: rgba(22, 35, 59, .045); }
+
+.k-toggle {
+  border: 2px solid var(--r-ink); background: #fff; font-weight: 600; min-height: 42px; padding: 0 14px 0 8px;
+}
+.k-toggle::before {
+  width: 30px; height: 18px; border-radius: 999px; border: 2px solid var(--r-ink);
+  background: radial-gradient(circle at 7px 50%, #fff 0 5px, var(--r-ink) 5px 6.2px, transparent 6.5px), #d9dde6;
+}
+.k-toggle[aria-pressed="true"]::before {
+  box-shadow: none;
+  background: radial-gradient(circle at calc(100% - 7px) 50%, #fff 0 5px, var(--r-ink) 5px 6.2px, transparent 6.5px), var(--r-lantern);
+}
+
+.k-mission-check { border-width: 2px; }
+.k-mission.done .k-mission-check { background: var(--r-lantern); }
+.k-mission-check svg { fill: var(--r-ink); }
+.k-mission-bar i { background: linear-gradient(90deg, var(--r-lantern-hi), var(--r-lantern)); }
+.k-mission.done .k-mission-bar i { background: var(--r-lantern); }
+.k-mission.moved .k-mission-bar i { background: linear-gradient(90deg, #ff9fb6, var(--r-rose)); }
+.k-mission.done .k-mission-reward { color: var(--r-lantern-lo); }
+
+.k-update { border-width: 2px; box-shadow: var(--r-lift); }

@@ -12,8 +12,6 @@
   /* kit theme */
   --k-ribbon: #2fb4ee;
   --k-ribbon-lo: #1678b8;
-  --k-logo-a: #ffc43d;
-  --k-logo-b: #8ff0ff;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -32,6 +30,47 @@
   --rock: #6b7596; --rock-hi: #aeb7d3; --boat: #fffaf0; --boat-fold: #c6c2b6; --mote: rgba(255,232,130,.95);
   --c1: #ffc23d; --c2: #ff6f94; --c3: #b493ff;
   --ink: #eef2fb; --ink-soft: #c4cbe2; --accent: #ffc23d;
+}
+
+/* Ponds (game/ponds.ts) repaint the water and bank; lantern colours stay the same everywhere.
+   Each pond's night set outranks its day set, which outranks the Lily Pond's night set. */
+:root[data-pond="koi"] {
+  --water-in: #8ef0d2; --water-out: #1fae9b; --shore: #9fd36f; --shore-dark: #6fae4a; --reed: #3b8f4f;
+  --pad: #4cc463; --pad-hi: #a6ef86; --rock: #c9bfae; --rock-hi: #f4efe4; --mote: rgba(255,182,208,.95);
+}
+:root[data-pond="marsh"] {
+  --water-in: #9cc9b4; --water-out: #4d7f78; --shimmer: rgba(255,255,255,.5); --shore: #7fa05a; --shore-dark: #57773d;
+  --reed: #4a7d3a; --pad: #5aa85a; --pad-hi: #9fd88a; --rock: #8f98a8; --rock-hi: #d5dbe6; --mote: rgba(230,240,255,.7);
+}
+:root[data-pond="frost"] {
+  --water-in: #d9f6ff; --water-out: #7cc3ea; --shimmer: rgba(255,255,255,.95); --shore: #eef6ff; --shore-dark: #c3d7ee;
+  --reed: #7fa7c4; --pad: #a8dcef; --pad-hi: #e6f8ff; --rock: #9fb3cc; --rock-hi: #f4f9ff; --mote: rgba(255,255,255,.95);
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-pond="koi"]:not([data-theme="light"]) {
+    --water-in: #1f7a7a; --water-out: #0a3340; --shore: #234a35; --shore-dark: #163325; --reed: #3d8a58;
+    --pad: #2f9a5c; --pad-hi: #6fd690; --rock: #7d7468; --rock-hi: #b5ab9c; --mote: rgba(255,170,200,.9);
+  }
+  :root[data-pond="marsh"]:not([data-theme="light"]) {
+    --water-in: #2e5a5f; --water-out: #0e2528; --shimmer: rgba(190,215,255,.35); --shore: #1f3b2b; --shore-dark: #13261b;
+    --reed: #3f7a4a; --pad: #2d7f4e; --pad-hi: #5fbf7f; --rock: #5f6880; --rock-hi: #9aa3bd; --mote: rgba(190,255,150,.9);
+  }
+  :root[data-pond="frost"]:not([data-theme="light"]) {
+    --water-in: #3a6fa8; --water-out: #12284f; --shimmer: rgba(220,240,255,.6); --shore: #2d3f5c; --shore-dark: #1e2c45;
+    --reed: #6f8fb0; --pad: #4f86a8; --pad-hi: #9cc8e0; --rock: #6b7a99; --rock-hi: #b8c4dc; --mote: rgba(220,240,255,.95);
+  }
+}
+:root[data-pond="koi"][data-theme="dark"] {
+  --water-in: #1f7a7a; --water-out: #0a3340; --shore: #234a35; --shore-dark: #163325; --reed: #3d8a58;
+  --pad: #2f9a5c; --pad-hi: #6fd690; --rock: #7d7468; --rock-hi: #b5ab9c; --mote: rgba(255,170,200,.9);
+}
+:root[data-pond="marsh"][data-theme="dark"] {
+  --water-in: #2e5a5f; --water-out: #0e2528; --shimmer: rgba(190,215,255,.35); --shore: #1f3b2b; --shore-dark: #13261b;
+  --reed: #3f7a4a; --pad: #2d7f4e; --pad-hi: #5fbf7f; --rock: #5f6880; --rock-hi: #9aa3bd; --mote: rgba(190,255,150,.9);
+}
+:root[data-pond="frost"][data-theme="dark"] {
+  --water-in: #3a6fa8; --water-out: #12284f; --shimmer: rgba(220,240,255,.6); --shore: #2d3f5c; --shore-dark: #1e2c45;
+  --reed: #6f8fb0; --pad: #4f86a8; --pad-hi: #9cc8e0; --rock: #6b7a99; --rock-hi: #b8c4dc; --mote: rgba(220,240,255,.95);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -139,84 +178,151 @@ body {
 .hint .k-pill-icon svg { width: 16px; height: 16px; }
 .hint.top { bottom: auto; top: calc(var(--safe-t) + 96px); }
 
-/* ---------- Title */
-.title-screen { background: radial-gradient(ellipse at 50% 40%, rgba(10, 18, 40, .02), rgba(10, 18, 40, .38)); }
-.title-grid {
-  width: min(420px, 100%);
-  display: grid; gap: 12px; justify-items: center;
-  grid-template-areas: "top" "head" "info" "actions";
+/* ---------- Title: the pond itself is the menu. Coins and sound sit in the corners, the logo
+   floats near the top, open water in the middle, and everything you touch sits low, in thumb reach. */
+.title-screen {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  padding: calc(var(--safe-t) + 12px) calc(var(--safe-r) + 14px) calc(var(--safe-b) + 18px) calc(var(--safe-l) + 14px);
+  background: radial-gradient(ellipse at 50% 45%, rgba(10, 18, 40, 0), rgba(10, 18, 40, .32));
 }
-.title-top { grid-area: top; display: flex; gap: 8px; align-items: center; justify-content: center; }
-.title-head { grid-area: head; text-align: center; }
-.title-head .k-logo { font-size: clamp(54px, 15vw, 96px); }
+.title-bar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.title-toggles { display: flex; gap: 8px; }
+.title-head { text-align: center; margin-top: clamp(10px, 6vh, 64px); }
 .title-tag { margin-top: 10px; font-size: 17px; }
+.title-foot { width: min(420px, 100%); margin-top: auto; display: grid; gap: 22px; justify-items: center; }
+.play-btn { min-width: 260px; }
 
-.info-panel { grid-area: info; width: 100%; padding: 30px 12px 10px; margin-top: 10px; }
-.info-tabs { display: flex; gap: 4px; padding: 4px 6px 6px; top: -21px; min-width: 0; }
+/* Under Play: little life rings like the docks, one per lantern colour, each opening a card. */
+.pads { display: grid; grid-template-columns: repeat(3, 96px); justify-content: center; }
+.ring-btn {
+  appearance: none; cursor: pointer; background: none; border: 0; padding: 0; font: inherit;
+  display: grid; justify-items: center; gap: 7px;
+  color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(8, 26, 52, .55), 0 2px 10px rgba(8, 26, 52, .3);
+  -webkit-tap-highlight-color: transparent;
+}
+.ring {
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  /* paper centre, an ink edge, then the ring: lantern colour with four white bands */
+  background:
+    radial-gradient(circle, var(--r-paper) 0 49%, var(--r-ink) 49.5% 54%, transparent 54.5%),
+    repeating-conic-gradient(from -20deg, #fff 0 40deg, var(--c) 40deg 90deg);
+  border: 2.5px solid var(--r-ink);
+  box-shadow: 0 3px 0 rgba(8, 26, 52, .25), 0 8px 18px rgba(8, 26, 52, .22);
+  transition: transform .25s cubic-bezier(.2, 1.4, .4, 1);
+}
+.ring svg { width: 22px; height: 22px; fill: var(--r-ink); }
+.ring b { font-size: 22px; line-height: 1; color: var(--r-ink); }
+.ring-btn:hover .ring { transform: rotate(18deg); }
+.ring-btn:active .ring { transform: scale(.9) rotate(30deg); }
+
+/* Cards (Missions / How to play, Boats) float over the pond. */
+.card-panel { width: min(400px, 100%); padding: 24px 16px 16px; }
+.card-panel .k-missions, .card-panel .howto, .card-panel .skins { margin-bottom: 16px; }
+.card-close { margin-top: 2px; }
+.k-ribbon.info-tabs { gap: 4px; padding: 4px; border-radius: 999px; background: rgba(22, 35, 59, .06); width: max-content; margin: 0 auto 16px; }
+.k-ribbon.info-tabs::before { display: none; }
 .info-tabs button {
   appearance: none; border: 0; background: transparent; cursor: pointer;
-  font: inherit; font-family: var(--k-font); font-weight: 700; font-size: 16px; color: #fff;
-  min-height: 32px; padding: 0 12px; border-radius: 10px; opacity: .6; white-space: nowrap;
-  text-shadow: var(--k-text-outline);
+  font: inherit; font-weight: 700; font-size: 15px; color: var(--r-ink-soft);
+  min-height: 34px; padding: 0 16px; border-radius: 999px; white-space: nowrap;
 }
-.info-tabs button[aria-pressed="true"] { opacity: 1; background: rgba(255, 255, 255, .18); }
-.info-panel .k-mission { padding: 6px 9px; font-size: 13.5px; }
+.info-tabs button[aria-pressed="true"] { color: var(--r-ink); background: #fff; box-shadow: 0 0 0 2px var(--r-ink), 0 2px 0 2px rgba(8, 26, 52, .15); }
+.card-panel .k-mission { padding: 7px 10px; font-size: 14px; }
 .howto { list-style: none; display: grid; gap: 6px; text-align: left; }
 .howto li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; line-height: 1.25; color: var(--k-ink-soft); font-weight: 500; }
 .howto b { color: var(--k-ink); font-weight: 700; }
 .howto-ico {
   flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%;
   display: grid; place-items: center;
-  border: 3px solid #16233b; box-shadow: 0 3px 0 #16233b;
+  border: 2px solid #16233b;
 }
 .howto-ico svg { width: 25px; height: 25px; }
 .ico-tap { background: #3aa8ff; }
 .ico-dock { background: #8ff0ff; }
-.ico-time { background: #ff5a7a; }
-.ico-bonus { background: #9b6bff; }
+.ico-time { background: var(--r-rose); }
+.ico-bonus { background: var(--r-violet); }
 
-.title-actions { grid-area: actions; display: grid; gap: 12px; justify-items: center; }
-.play-btn { min-width: 250px; }
 
-/* boat style picker (shop): owned styles are selectable, locked ones show their price */
-.skins { display: flex; gap: 8px; justify-content: center; }
+/* Boats: a 3-wide grid of styles with names; owned ones are picked, locked ones show their price. */
+.skins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 10px; }
 .skin {
-  position: relative; appearance: none; cursor: pointer;
-  width: 52px; height: 44px; padding: 0; border-radius: 14px;
-  display: grid; place-items: center;
-  background: rgba(22, 35, 59, .55); border: 3px solid var(--k-outline); box-shadow: 0 3px 0 var(--k-outline);
+  position: relative; appearance: none; cursor: pointer; font: inherit;
+  display: grid; justify-items: center; gap: 4px; padding: 10px 4px 16px; border-radius: 16px;
+  background: rgba(22, 35, 59, .07); border: 3px solid transparent; color: var(--k-ink);
   transition: transform .1s;
 }
-.skin img { width: 42px; height: auto; pointer-events: none; }
-.skin.on { background: linear-gradient(180deg, #8ff0ff, #3aa8ff); transform: translateY(-2px); box-shadow: 0 5px 0 var(--k-outline); }
+.skin img { width: 64px; height: auto; pointer-events: none; }
+.skin span { font-size: 12.5px; font-weight: 700; line-height: 1.1; text-align: center; }
+.skin { border-width: 2px; }
+.skin.on { background: #fff4d6; border-color: var(--r-lantern); box-shadow: 0 0 0 1px var(--r-lantern), 0 6px 14px rgba(255, 176, 0, .25); }
 .skin.locked img { filter: saturate(.75) brightness(.92); opacity: .85; }
 .skin small {
   position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%);
   display: inline-flex; align-items: center; gap: 2px;
-  padding: 1px 6px; border-radius: 999px; background: #16233b; color: #fff;
-  font-size: 11px; font-weight: 700; white-space: nowrap;
+  padding: 1px 7px; border-radius: 999px; background: #16233b; color: #fff;
+  font-size: 11.5px; font-weight: 700; white-space: nowrap;
 }
 .skin small svg { width: 10px; height: 10px; fill: #fff; }
 .skin.afford small { background: #1e8f45; }
 .skin.shake { animation: skin-shake .35s ease; }
 
-.title-row { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
-.best-pill { min-height: 46px; font-size: 22px; }
-.best-pill .k-pill-icon { width: 34px; height: 34px; }
 [data-setting][aria-pressed="false"] .ico-on,
 [data-setting][aria-pressed="true"] .ico-off,
 [data-setting]:not([aria-pressed]) .ico-off { display: none; }
 .ico-on, .ico-off { display: grid; place-items: center; }
 
+/* Pond flipper: the arrows swap the whole pond behind the title, live. The name sits right on
+   the water like the tagline, with a ring per pond underneath (filled = this one). */
+.pond-pick { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; }
+.pond-arrow {
+  appearance: none; cursor: pointer; flex: none; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  background: var(--r-glass); border: 1.5px solid var(--r-glass-line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 14px rgba(8, 26, 52, .18);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  transition: transform .1s; -webkit-tap-highlight-color: transparent;
+}
+.pond-arrow:active { transform: scale(.9); }
+.pond-arrow svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 1px 1px rgba(8, 26, 52, .5)); }
+.pond-label { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 3px; text-align: center; }
+.pond-label > b { font-size: 30px; line-height: 1.05; color: #fff; white-space: nowrap; }
+.pond-label > b.flip { animation: pond-flip .45s cubic-bezier(.2, 1.4, .4, 1); }
+.pond-label > small { font-size: 13.5px; font-weight: 600; color: #fff; line-height: 1.25; -webkit-text-stroke: 0; text-shadow: 0 1px 2px rgba(8, 26, 52, .6), 0 2px 10px rgba(8, 26, 52, .35); }
+.pond-label > small.locked { color: #ffe08a; }
+.pond-label > small svg { width: 12px; height: 12px; fill: currentColor; vertical-align: -1px; }
+.pond-meta { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.pond-best { display: inline-flex; align-items: center; gap: 5px; font-size: 18px; color: #fff; }
+.pond-best svg { width: 18px; height: 18px; fill: var(--r-lantern-hi); filter: drop-shadow(0 1px 1px rgba(8, 26, 52, .6)); }
+.pond-dots { display: flex; gap: 7px; }
+.pond-dots i {
+  position: relative; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(8, 26, 52, .45);
+}
+.pond-dots i.shut { opacity: .45; }
+.pond-dots i.on { background: var(--r-lantern); opacity: 1; transform: scale(1.3); box-shadow: 0 0 8px 2px rgba(255, 176, 0, .6); }
+.pond-dots i.fresh::after {
+  content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #fff;
+  animation: dot-ripple 1.4s ease-out infinite;
+}
+/* Play on a pond that's still closed: grey, padlocked, and a shake when pressed. */
+.play-go { display: inline-flex; align-items: center; gap: 12px; }
+.play-btn .play-lock { display: none; }
+.play-btn.locked .play-go { display: none; }
+.play-btn.locked .play-lock { display: contents; }
+.play-btn.locked { --c: #dfe5ee; --hi: #f6f8fb; --lo: #c3ccd9; color: var(--r-ink-soft); letter-spacing: .04em; }
+.play-btn.shake { animation: skin-shake .35s ease; }
+.over-pond { margin-top: 8px; padding: 6px 10px; border-radius: 12px; font-size: 14px; font-weight: 600; text-align: center; background: #e3f8ff; box-shadow: inset 0 0 0 2px #2fb4ee; }
+
 /* ---------- Pause */
 .pause-panel { width: min(380px, 100%); }
 .pause-panel > * + * { margin-top: 14px; }
 .pause-panel .k-row { flex-wrap: nowrap; }
-.pause-panel .pause-toggles { margin-top: 18px; flex-wrap: wrap; gap: 8px; }
-.pause-toggles .k-toggle { padding-right: 12px; font-size: 14px; }
+.pause-panel .pause-toggles { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.pause-toggles .k-toggle { justify-content: center; gap: 6px; padding: 0 6px; font-size: 13px; min-width: 0; }
 
 /* ---------- Game over */
-.over-panel { width: min(370px, 100%); padding: 36px 18px 18px; }
+.over-panel { width: min(370px, 100%); padding: 24px 18px 18px; }
 .k-ribbon.record { --k-ribbon: #ff5a7a; --k-ribbon-lo: #c22a4b; }
 .over-main { display: grid; justify-items: center; }
 .over-panel .k-stars { margin-bottom: 2px; }
@@ -252,34 +358,42 @@ body {
   .hint.top { top: calc(var(--safe-t) + 82px); }
 
   .k-screen { padding-top: calc(var(--safe-t) + 26px); padding-bottom: calc(var(--safe-b) + 10px); }
-  .title-screen { padding-top: calc(var(--safe-t) + 10px); }
-  .title-grid {
-    width: min(800px, 100%);
-    grid-template-columns: 1fr 1.1fr;
-    grid-template-areas: "top info" "head info" "actions info";
-    gap: 8px 26px; align-items: center;
+  /* sideways: logo on the left, pond and Play on the right, corners as before */
+  .title-screen {
+    display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; align-items: center; column-gap: 24px;
+    padding: calc(var(--safe-t) + 10px) calc(var(--safe-r) + 16px) calc(var(--safe-b) + 12px) calc(var(--safe-l) + 16px);
   }
-  .title-top { align-self: end; }
-  .title-head .k-logo { font-size: 54px; }
-  .title-tag { margin-top: 6px; font-size: 14px; }
-  .title-actions { align-self: start; gap: 9px; }
-  .play-btn { min-height: 54px; font-size: 24px; min-width: 210px; padding-bottom: 4px; }
-  .info-panel { padding: 28px 12px 10px; align-self: center; }
+  .title-bar { grid-column: 1 / -1; }
+  .title-head { margin-top: 0; }
+  .title-head .r-logo { font-size: 78px; }
+  .title-tag { margin-top: 6px; font-size: 15px; }
+  .title-foot { margin-top: 0; gap: 14px; justify-self: center; }
+  .play-btn { min-height: 54px; font-size: 24px; min-width: 220px; padding-bottom: 4px; }
+  .pond-arrow { width: 40px; height: 40px; }
+  .pond-label > b { font-size: 24px; }
+  .pond-label > small { font-size: 12.5px; }
+  .pond-meta { margin-top: 3px; }
+  .pads { grid-template-columns: repeat(3, 100px); }
+  .ring { width: 48px; height: 48px; }
+  .ring svg { width: 19px; height: 19px; }
+  .card-panel { width: min(560px, 100%); padding: 20px 14px 12px; }
+  .card-panel .k-missions, .card-panel .howto, .card-panel .skins { margin-bottom: 10px; }
   .howto li { font-size: 13.5px; }
   .howto-ico { flex-basis: 34px; width: 34px; height: 34px; }
   .howto-ico svg { width: 22px; height: 22px; }
-  .skins .skin { width: 46px; height: 40px; }
-  .skin img { width: 38px; }
+  .skins { grid-template-columns: repeat(5, 1fr); }
+  .skin img { width: 54px; }
 
-  .pause-panel { padding: 30px 18px 18px; }
+  .pause-panel { padding: 20px 18px 18px; }
   .pause-panel > * + * { margin-top: 10px; }
   .pause-panel .pause-toggles { margin-top: 12px; }
 
   .over-panel {
     width: min(700px, 100%);
     display: grid; grid-template-columns: 1fr 1.3fr; gap: 6px 20px; align-items: center;
-    padding: 30px 18px 14px;
+    padding: 18px 18px 14px;
   }
+  .over-panel > .k-ribbon { grid-column: 1 / -1; margin-bottom: 4px; }
   .over-panel .k-star { width: 42px; height: 42px; }
   .over-panel .k-star:nth-child(2) { width: 54px; height: 54px; margin-bottom: 4px; }
   .over-panel .k-big-num { font-size: 52px; }
@@ -292,7 +406,8 @@ body {
 /* very narrow portrait phones */
 @media (max-width: 360px) {
   .howto li { font-size: 14px; }
-  .play-btn { min-width: 210px; }
+  .play-btn { min-width: 220px; }
+  .pads { grid-template-columns: repeat(3, 86px); }
 }
 
 @keyframes ripple-pop {
@@ -302,6 +417,8 @@ body {
   70% { opacity: 1; }
   100% { transform: translate(-50%, -210%) scale(.95); opacity: 0; }
 }
+@keyframes pond-flip { 0% { transform: scale(.6); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes dot-ripple { 0% { transform: scale(.6); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
 @keyframes skin-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
 @keyframes frost { 50% { opacity: .65; } }
 @keyframes flash { 0% { opacity: 1; } 100% { opacity: 0; } }

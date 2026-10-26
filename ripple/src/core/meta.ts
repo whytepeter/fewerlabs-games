@@ -104,7 +104,9 @@ export function missions(game: string, pool: MissionDef[]) {
     return { id: def.id, text: def.text.replace('{n}', target.toLocaleString()), stat: def.stat, kind: def.kind, target, reward: Math.round(def.reward * (1 + tier * 0.5)), progress: 0, tier };
   };
   const load = (): Mission[] => {
-    let list = persist.get<Mission[]>(key, []).filter(m => pool.some(d => d.id === m.id));
+    // saved missions keep their progress but take the current wording and targets from the pool
+    let list = persist.get<Mission[]>(key, []).filter(m => pool.some(d => d.id === m.id))
+      .map(m => ({ ...make(pool.find(d => d.id === m.id)!), progress: m.progress }));
     // Top up to three, never two of the same template.
     const free = pool.filter(d => !list.some(m => m.id === d.id));
     while (list.length < 3 && free.length) list = [...list, make(free.splice((Math.random() * free.length) | 0, 1)[0])];

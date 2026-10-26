@@ -26,6 +26,8 @@ export const SHIMMER_LEN = 24;
 export const REED_H = 28;
 export const ROCK_ORIGIN = 30 / 64;
 export const DOCK_TEX = DOCK_TEX_R * 2 + 12;
+const KOI_W = 40, KOI_H = 22, KOI_VARIANTS = 3;
+export const FLOE_R = 30, FLOE_VARIANTS = 3;
 
 const OW = 2.5; // outline width in logical px
 
@@ -127,13 +129,64 @@ export function buildNeutralTextures(scene: Phaser.Scene) {
     ctx.fillStyle = '#7fd36a'; ctx.fill(); outline(ctx, 1.3);
     ctx.strokeStyle = '#3f9a44'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(3, 5); ctx.lineTo(13, 5); ctx.stroke();
   });
+  // a slanted rain streak (falls down and a little left)
+  canvasTexture(scene, 'raindrop', 6, 22, ctx => {
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(4.5, 1.5); ctx.lineTo(1.5, 20.5); ctx.stroke();
+  });
+
+  // koi seen from above, nose to +x: white body with orange, red or gold patches, fins and a tail
+  const KOI = [['#fffaf2', '#ff8a2a'], ['#fffaf2', '#e8413a'], ['#ffd23f', '#ff9a1f']];
+  for (let v = 0; v < KOI_VARIANTS; v++) {
+    canvasTexture(scene, 'koi' + v, KOI_W, KOI_H, ctx => {
+      const [body, spot] = KOI[v];
+      ctx.translate(KOI_W / 2 + 2, KOI_H / 2);
+      const fin = (y: number) => { ctx.beginPath(); ctx.ellipse(3, y, 4.5, 2.6, y > 0 ? 0.6 : -0.6, 0, Math.PI * 2); };
+      for (const y of [-6.5, 6.5]) { fin(y); ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fill(); outline(ctx, 1.4); }
+      const tail = () => { ctx.beginPath(); ctx.moveTo(-9, 0); ctx.quadraticCurveTo(-15, -6, -19, -6.5); ctx.quadraticCurveTo(-15, 0, -19, 6.5); ctx.quadraticCurveTo(-15, 6, -9, 0); ctx.closePath(); };
+      tail(); ctx.fillStyle = spot; ctx.fill(); outline(ctx, 1.6);
+      const shape = () => { ctx.beginPath(); ctx.ellipse(1, 0, 12, 5.6, 0, 0, Math.PI * 2); };
+      shape(); ctx.fillStyle = body; ctx.fill();
+      ctx.save(); shape(); ctx.clip();
+      ctx.fillStyle = spot;
+      circle(ctx, 7, -2, 4.2); ctx.fill(); circle(ctx, -2, 2.5, 3.6); ctx.fill(); circle(ctx, -7, -2, 2.4); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(2, -2.8, 7, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      shape(); outline(ctx, 1.8);
+      for (const y of [-2.6, 2.6]) { circle(ctx, 10, y, 1.1); ctx.fillStyle = OUTLINE; ctx.fill(); }
+    });
+  }
+
+  // ice floes: chunky pale slabs with a bright top face and a few cracks
+  for (let v = 0; v < FLOE_VARIANTS; v++) {
+    const S = FLOE_R * 2 + 12;
+    canvasTexture(scene, 'floe' + v, S, S, ctx => {
+      const c = S / 2, n = 7 + v, seed = 1.7 + v * 2.3;
+      const shape = (ox = 0, oy = 0, k = 1) => {
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2 + seed, rr = FLOE_R * k * (0.82 + 0.18 * hash(i * 3.3 + seed));
+          ctx.lineTo(c + ox + Math.cos(a) * rr, c + oy + Math.sin(a) * rr);
+        }
+        ctx.closePath();
+      };
+      ctx.globalAlpha = 0.35; softShadow(ctx, () => shape(2, 4), 3); ctx.globalAlpha = 1;
+      shape(); ctx.fillStyle = '#bfe6f7'; ctx.fill();
+      shape(-1.5, -2.5, 0.84); ctx.fillStyle = '#f4fcff'; ctx.fill();
+      ctx.strokeStyle = 'rgba(95,160,200,.6)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(c - 10, c - 4); ctx.lineTo(c - 2, c + 1); ctx.lineTo(c + 3, c + 9); ctx.moveTo(c - 2, c + 1); ctx.lineTo(c + 9, c - 3); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.ellipse(c - 9, c - 11, 6, 2.2, -0.4, 0, Math.PI * 2); ctx.fill();
+      shape(); outline(ctx);
+    });
+  }
+
   canvasTexture(scene, 'docksh', DOCK_TEX, DOCK_TEX, ctx => {
     const c = DOCK_TEX / 2;
     softShadow(ctx, () => { ctx.beginPath(); ctx.arc(c, c, DOCK_TEX_R, 0, Math.PI * 2); ctx.arc(c, c, DISC_R, 0, Math.PI * 2, true); }, 3, '#fff');
   });
 }
 
-const THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'boatsh', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
+const THEMED = ['boat0', 'boat1', 'boat2', 'boatG', 'boatsh', 'barge0', 'barge1', 'barge2', 'bargesh', 'dock0', 'dock1', 'dock2', 'pad', 'flower', 'reed', 'cattail',
   ...Array.from({ length: ROCK_VARIANTS }, (_, i) => 'rock' + i)];
 
 /** Palette-dependent textures. Callers must destroy images using them before rebuilding. */
@@ -145,6 +198,10 @@ export function buildThemedTextures(scene: Phaser.Scene) {
   canvasTexture(scene, 'boatG', 46, 30, ctx => { ctx.translate(23, 15); drawBoat(ctx, boatSkin, { lamp: P.c1, gold: true }); });
   // soft contact shadow in the style's silhouette (white, tinted dark at runtime)
   canvasTexture(scene, 'boatsh', 50, 36, ctx => softShadow(ctx, () => { ctx.save(); ctx.translate(25, 18); boatSilhouette(ctx, boatSkin); ctx.restore(); }, 2.5, '#fff'));
+
+  // barges: a wooden raft stacked with crates, the same whatever boat style is equipped
+  for (let ci = 0; ci < 3; ci++) canvasTexture(scene, 'barge' + ci, 46, 30, ctx => { ctx.translate(23, 15); drawBarge(ctx, P[laneKey(ci)]); });
+  canvasTexture(scene, 'bargesh', 50, 36, ctx => softShadow(ctx, () => { ctx.save(); ctx.translate(25, 18); bargeHull(ctx); ctx.restore(); }, 2.5, '#fff'));
 
   // life-ring docks: lane colour with four white bands; the inner edge is the capture radius
   for (let ci = 0; ci < 3; ci++) {
@@ -234,6 +291,30 @@ export function buildThemedTextures(scene: Phaser.Scene) {
       shape(); outline(ctx);
     });
   }
+}
+
+function bargeHull(ctx: CanvasRenderingContext2D) {
+  ctx.beginPath();
+  ctx.moveTo(20, -6); ctx.quadraticCurveTo(22, 0, 20, 6); ctx.lineTo(16, 11); ctx.lineTo(-18, 11); ctx.lineTo(-19.5, 0); ctx.lineTo(-18, -11); ctx.lineTo(16, -11); ctx.closePath();
+}
+
+/** A barge at (0, 0), bow to +x: planks, two crates and the lane lantern. */
+function drawBarge(ctx: CanvasRenderingContext2D, lamp: string) {
+  bargeHull(ctx); ctx.fillStyle = '#c98a4b'; ctx.fill();
+  ctx.save(); bargeHull(ctx); ctx.clip();
+  ctx.strokeStyle = '#8f5a2c'; ctx.lineWidth = 1.3;
+  for (const y of [-5.5, 0, 5.5]) { ctx.beginPath(); ctx.moveTo(-20, y); ctx.lineTo(22, y); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(-20, -11, 42, 3);
+  ctx.restore();
+  bargeHull(ctx); outline(ctx);
+  const crate = (x: number, y: number, s: number) => {
+    ctx.beginPath(); ctx.roundRect(x - s, y - s, s * 2, s * 2, 1.5); ctx.fillStyle = '#e8b56a'; ctx.fill(); outline(ctx, 1.8);
+    ctx.strokeStyle = '#a8713a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x - s + 1.5, y - s + 1.5); ctx.lineTo(x + s - 1.5, y + s - 1.5); ctx.stroke();
+  };
+  crate(-11, -4, 4.6); crate(-10.5, 5, 4); crate(-3, -5.5, 3.4);
+  // lantern on a little post near the bow
+  circle(ctx, 9, 0, 5.4); ctx.fillStyle = lamp; ctx.fill(); outline(ctx, 2);
+  ctx.fillStyle = 'rgba(255,255,255,.75)'; circle(ctx, 7.6, -1.6, 1.8); ctx.fill();
 }
 
 function pondPath(ctx: CanvasRenderingContext2D, p: Rect, grow = 0) {
