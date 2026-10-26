@@ -1,13 +1,13 @@
 {
   "version": 1,
   "meta": {
-    "lastScanned": "2026-10-23T09:12:52.414Z",
-    "fileCount": 70,
+    "lastScanned": "2026-10-24T15:30:41.598Z",
+    "fileCount": 72,
     "hits": 0,
     "misses": 0,
-    "renderedHash": "f6db94114ec5dc7ff15876837df9921c5149f2e73e4d37fb98d4bd4eb6a73f6c",
-    "storeUpdatedAt": "2026-10-23T09:12:52.416Z",
-    "rootHash": "ebc9c2a994b22795"
+    "renderedHash": "6a98a65279533a477ed21fc96e62fbcecee0e5a0d3c317fc29fa8044f537af6a",
+    "storeUpdatedAt": "2026-10-24T15:30:41.613Z",
+    "rootHash": "fe6efb5116e0f8b2"
   },
   "files": {
     ".gitignore": {
@@ -3220,6 +3220,82 @@
       "updatedAt": "2026-10-23T09:12:52.309Z",
       "source": "scan",
       "importance": 0.1015
+    },
+    "deep-dive/src/game/chests.ts": {
+      "description": "What's inside a treasure chest.",
+      "tokens": 222,
+      "hash": "2ad0d194823d75c6",
+      "size": 776,
+      "mtimeMs": 1792844796780.6216,
+      "updatedAt": "2026-10-24T12:26:36.911Z",
+      "source": "hook"
+    },
+    "deep-dive/src/scenes/GameScene.ts": {
+      "description": "angler: seconds left in its lunge wind-up / dash; eel: charge cycle offset",
+      "tokens": 19778,
+      "hash": "20946f1ed9ddc52d",
+      "size": 69244,
+      "mtimeMs": 1792855841470.444,
+      "updatedAt": "2026-10-24T15:30:41.596Z",
+      "source": "hook",
+      "symbols": [
+        {
+          "name": "Obstacle",
+          "kind": "section",
+          "startLine": 31,
+          "endLine": 41,
+          "tokens": 168
+        },
+        {
+          "name": "Kelp",
+          "kind": "section",
+          "startLine": 42,
+          "endLine": 47,
+          "tokens": 114
+        },
+        {
+          "name": "Icicle",
+          "kind": "section",
+          "startLine": 48,
+          "endLine": 49,
+          "tokens": 82
+        },
+        {
+          "name": "Pickup",
+          "kind": "section",
+          "startLine": 50,
+          "endLine": 54,
+          "tokens": 64
+        },
+        {
+          "name": "rand",
+          "kind": "fn",
+          "startLine": 55,
+          "endLine": 55,
+          "tokens": 20
+        },
+        {
+          "name": "hash",
+          "kind": "fn",
+          "startLine": 56,
+          "endLine": 84,
+          "tokens": 658
+        },
+        {
+          "name": "portraitView",
+          "kind": "fn",
+          "startLine": 85,
+          "endLine": 91,
+          "tokens": 224
+        },
+        {
+          "name": "GameScene",
+          "kind": "class",
+          "startLine": 92,
+          "endLine": 1490,
+          "tokens": 18014
+        }
+      ]
     }
   },
   "preamble": [

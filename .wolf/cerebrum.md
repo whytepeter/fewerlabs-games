@@ -12,6 +12,8 @@ budget_tokens: 2000
 
 <!-- How the user likes things done. Code style, tools, patterns, communication. -->
 
+- [2026-10-24] Deep Dive tuning requests: improve and rebalance what already exists (spawn rates, gadgets, pacing). Don't add new systems unless asked; treasure (chests, Golden Shells) should stay rare.
+
 ## Key Learnings
 
 - **Project:** fewerlabs-games

@@ -1,7 +1,7 @@
 # anatomy.md
 
-> Auto-maintained by OpenWolf. Last scanned: 2026-10-23T09:12:52.414Z
-> Files: 70 tracked | Anatomy hits: 0 | Misses: 0
+> Auto-maintained by OpenWolf. Last scanned: 2026-10-24T15:30:41.598Z
+> Files: 72 tracked | Anatomy hits: 0 | Misses: 0
 
 > Project structure index. Auto-maintained by OpenWolf hooks and daemon.
 > Run `openwolf scan` to generate, or wait for the first Claude Code session.
@@ -24,6 +24,14 @@
 ## deep-dive/
 
 - `index.html` — Deep Dive (~2290 tok)
+
+## deep-dive/src/game/
+
+- `chests.ts` — What's inside a treasure chest. (~222 tok)
+
+## deep-dive/src/scenes/
+
+- `GameScene.ts` — angler: seconds left in its lunge wind-up / dash; eel: charge cycle offset (~19778 tok)
 
 ## public/
 

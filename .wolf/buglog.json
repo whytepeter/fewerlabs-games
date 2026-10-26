@@ -18,6 +18,95 @@
         "deep-dive/src/scenes/GameScene.ts",
         "deep-dive/src/ui.ts"
       ]
+    },
+    {
+      "id": "deep-dive-icicles-unavoidable",
+      "date": "2026-10-24",
+      "error_message": "Frozen Trench: falling icicles almost always hit the diver when passing under them",
+      "root_cause": "Icicles triggered at a fixed 170-320px ahead; shake+fall (~0.8s) at 200-400px/s forward speed landed them right on the diver, and a falling icicle sweeps the full trench height so steering can't dodge",
+      "fix": "Trigger is time-based (reach time < shake + fall time + per-icicle lead 0.25-0.5s) so it lands before you arrive; landed icicles stick in the floor as a stub to swim over; spawn far enough ahead for top/turbo speed",
+      "tags": [
+        "deep-dive",
+        "frozen-trench",
+        "icicles",
+        "difficulty"
+      ]
+    },
+    {
+      "id": "deep-dive-icicles-never-hit",
+      "date": "2026-10-24",
+      "error_message": "Frozen Trench: icicles always land before the diver reaches them, so they never hit",
+      "root_cause": "The previous fix (deep-dive-icicles-unavoidable) timed every icicle to land 0.25-0.5s before you arrive, and the floor stub was half buried (15-26px tall), so there was nothing to dodge",
+      "fix": "45% of icicles are 'late': timed by your speed and width to still be falling as you pass and land 0.12-0.25s after you're clear, so swimming low slips under them and staying high gets hit. Stubs bury less (ICICLE_SINK 0.3)",
+      "tags": [
+        "deep-dive",
+        "frozen-trench",
+        "icicles",
+        "difficulty"
+      ],
+      "files": [
+        "deep-dive/src/scenes/GameScene.ts"
+      ]
+    },
+    {
+      "id": "deep-dive-invisible-powerups",
+      "date": "2026-10-24",
+      "error_message": "Power-ups (Turbo, shield, magnet) sometimes don't show up; the spawn log shows type undefined and the sprite uses Phaser's __DEFAULT (blank) texture",
+      "root_cause": "The power-up pick reused one random number for the lifeline roll and the pick among the rest: ((r - lc) / (1 - lc)) * rest.length goes negative when r < lc but the lifeline isn't allowed (you already hold one, or depth <= 120 m), so rest[-1] is undefined. About a quarter of power-ups vanished while holding a lifeline",
+      "fix": "Roll the lifeline only when it's allowed, otherwise cpick(rest) evenly",
+      "tags": [
+        "deep-dive",
+        "power-ups",
+        "turbo",
+        "spawning"
+      ],
+      "files": [
+        "deep-dive/src/scenes/GameScene.ts"
+      ]
+    },
+    {
+      "id": "deep-dive-empty-img-box",
+      "date": "2026-10-24",
+      "error_message": "A bordered box shows on the title screen before the diver loads",
+      "root_cause": "#showcaseImg (and shell/chest icons) are <img> tags with no src until BootScene draws the portraits; with a CSS width the browser draws its broken-image box",
+      "fix": "img:not([src]), img[src=''] { visibility: hidden } in style.css",
+      "tags": [
+        "deep-dive",
+        "title",
+        "css"
+      ],
+      "files": [
+        "deep-dive/src/style.css"
+      ]
+    },
+    {
+      "id": "deep-dive-cloud-best-lowered",
+      "date": "2026-10-24",
+      "error_message": "Best depth dropped (player saw 3620, then 3250); the leaderboard only had 3261, so 3620 never reached it",
+      "root_cause": "cloud.ts merge() is last-writer-wins for the whole save: on start it pulls the cloud save before pushing local changes, and apply() overwrites every key. A best set before the sync connected (offline, or right after opening) was replaced by an older cloud save with a lower best, and was never submitted to the board",
+      "fix": "apply() keeps the higher value for keys matching /^best/ and reports it; merge() then stamps the save as new and pushes it back up. Can't recover a best already overwritten on every device",
+      "tags": [
+        "deep-dive",
+        "cloud",
+        "sync",
+        "leaderboard"
+      ],
+      "files": [
+        "deep-dive/src/core/cloud.ts"
+      ]
+    },
+    {
+      "id": "deep-dive-board-reef-only",
+      "error_message": "Leaderboard best only counts the first cave (Reef Trench); deeper dives in other caves never posted",
+      "root_cause": "endDive posted scores only when def.id === 'reef'; cloud startup/rename and the board's own row read store 'best' (reef key) only",
+      "fix": "topBest() in cloud.ts takes the max of best and best:<cave>; endDive posts from every cave (not daily, not dev) when depth beats topBest; board, startup resubmit and rename use topBest",
+      "tags": [
+        "deep-dive",
+        "leaderboard",
+        "caves",
+        "cloud"
+      ],
+      "file": "deep-dive/src/core/cloud.ts"
     }
   ]
 }
