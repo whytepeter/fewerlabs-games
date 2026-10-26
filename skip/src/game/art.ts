@@ -366,6 +366,19 @@ export function paintAll(scene: Phaser.Scene) {
   single(scene, 'pad', 88, 34, padDraw(false));
   single(scene, 'padFlower', 88, 34, padDraw(true));
 
+  // ice floe: a flat, pale slab with a soft shine (Frozen Pond)
+  single(scene, 'ice', 120, 22, ctx => {
+    ctx.beginPath();
+    ctx.moveTo(8, 12); ctx.lineTo(18, 5); ctx.lineTo(52, 3); ctx.lineTo(88, 4); ctx.lineTo(110, 8); ctx.lineTo(114, 13);
+    ctx.lineTo(100, 17); ctx.lineTo(60, 18); ctx.lineTo(22, 17); ctx.closePath();
+    ink(ctx, 'rgba(240, 248, 255, .95)');
+    ctx.fillStyle = 'rgba(160, 185, 230, .45)';
+    ctx.fillRect(14, 13, 92, 3);
+    ctx.fillStyle = 'rgba(255, 255, 255, .9)';
+    ell(ctx, 40, 7, 14, 1.6); ctx.fill();
+    ell(ctx, 78, 7.5, 8, 1.2); ctx.fill();
+  });
+
   single(scene, 'glass', 22, 26, ctx => {
     ctx.translate(11, 13);
     ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(7.5, -2); ctx.lineTo(0, 10); ctx.lineTo(-7.5, -2); ctx.closePath();

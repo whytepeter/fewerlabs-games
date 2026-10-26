@@ -2,6 +2,8 @@
 // and call hydrateIcons() once on load; or icon('pause') to get the SVG string in code.
 
 const PATHS = {
+  prev: '<path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  next: '<path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>',
   play: '<path d="M8 4.8v14.4a1.3 1.3 0 0 0 2 1.1l11-7.2a1.3 1.3 0 0 0 0-2.2L10 3.7a1.3 1.3 0 0 0-2 1.1z"/>',
   pause: '<rect x="5.5" y="4" width="5" height="16" rx="1.8"/><rect x="13.5" y="4" width="5" height="16" rx="1.8"/>',
   home: '<path d="M12 3.2 2.6 11a1 1 0 0 0 .7 1.8H5V20a1 1 0 0 0 1 1h4v-5.5h4V21h4a1 1 0 0 0 1-1v-7.2h1.7a1 1 0 0 0 .7-1.8z"/>',

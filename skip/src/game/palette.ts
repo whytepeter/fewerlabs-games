@@ -29,10 +29,18 @@ function parse(c: string): [number, number] {
   return [0x888888, 1];
 }
 
+/** The current lake's colours on top of the theme's (see lakes.ts), for light and dark. */
+let lakeColors: { light: Partial<Record<PKey, string>>; dark: Partial<Record<PKey, string>> } = { light: {}, dark: {} };
+export function setLakeColors(light: Partial<Record<PKey, string>>, dark: Partial<Record<PKey, string>>) {
+  lakeColors = { light, dark };
+  readPalette();
+}
+
 export function readPalette() {
   const st = getComputedStyle(document.documentElement);
+  const over = isDark() ? { ...lakeColors.light, ...lakeColors.dark } : lakeColors.light;
   for (const k of KEYS) {
-    const v = st.getPropertyValue('--' + k).trim() || '#888888';
+    const v = over[k] ?? (st.getPropertyValue('--' + k).trim() || '#888888');
     P[k] = v;
     [N[k], A[k]] = parse(v);
   }

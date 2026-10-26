@@ -9,7 +9,8 @@ import { coins, missions, shop, soClose } from '../core/meta';
 import { SK_CX, SK_CY, SK_H, SK_W } from '../game/skipper';
 import { GAME_ID, MISSION_POOL, STONE_ITEMS, coinsForRun, type RunStats } from '../game/progress';
 import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE_N, type StripKey } from '../game/art';
-import { P, N, A, onTheme } from '../game/palette';
+import { P, N, A, onTheme, setLakeColors } from '../game/palette';
+import { LAKES, lakeBestKey, lakeById, type Lake } from '../game/lakes';
 import { audio } from '../game/audio';
 import { music } from '../core/music';
 import { SKIP_SONG, MUSIC } from '../game/song';
@@ -102,7 +103,9 @@ export class Game extends Phaser.Scene {
   private aim: { id: number; sx: number; sy: number; cx: number; cy: number } | null = null;
   private preview: { x: number; y: number }[] = [];
 
-  private best = store.get('best', 0);
+  /** The lake on show (browsing can preview a locked one; only an open one can be thrown on). */
+  private lake: Lake = lakeById(store.get('lake', 'sunset'));
+  private best = store.get(lakeBestKey(this.lake.id), 0);
   private bestStreak = store.get('bestStreak', 0);
   private thrownOnce = store.get('thrown', false);
   private timedOnce = store.get('timed', false);
@@ -163,7 +166,9 @@ export class Game extends Phaser.Scene {
       stone: id => this.pickStone(id),
       buy: id => this.buyStone(id),
       ability: () => this.useAbility(),
+      lake: dir => this.stepLake(dir),
     });
+    this.applyLake(this.lakeOpen(this.lake) ? this.lake : LAKES[0]);
     this.toTitle();
     music.play(SKIP_SONG, MUSIC.calm);
 
@@ -272,6 +277,12 @@ export class Game extends Phaser.Scene {
   }
 
   private refreshTitle() {
+    const l = this.lake, open = this.lakeOpen(l), from = l.unlock && lakeById(l.unlock.lake);
+    ui.renderLake({
+      name: l.name, twist: l.twist, open, best: this.best, index: LAKES.indexOf(l), count: LAKES.length,
+      unlock: from ? `Skip ${l.unlock!.m} m on ${from.name} to open` : '',
+      colors: [l.light['sky-top'] ?? P['sky-top'], l.light['sky-mid'] ?? P['sky-mid'], l.light['sky-bot'] ?? P['sky-bot'], l.light['water-top'] ?? P['water-top']],
+    });
     ui.setTitleMeta(this.quests.active, !this.thrownOnce);
     ui.renderPicker({ equipped: this.stones.equipped, selected: this.selectedStone, owned: id => this.stones.owns(id), balance: coins.balance });
     ui.setBest(this.best);
@@ -323,6 +334,7 @@ export class Game extends Phaser.Scene {
   }
 
   private toReady() {
+    if (!this.lakeOpen(this.lake)) { ui.shakeLake(); audio.early(); return; } // a locked lake is only a preview
     this.mode = 'ready';
     this.aim = null;
     ui.screen(null);
@@ -346,14 +358,40 @@ export class Game extends Phaser.Scene {
     this.toReady();
   }
 
-  /** Back to Sunset Bay: zone tints fade out, milestones and Fever reset. */
+  /** A fresh throw: the lake's own tint (Sunset Lake's zones start over), milestones and Fever reset. */
   private resetRun() {
     this.zone = 0;
     this.nextMilestone = 100;
     this.setFever(false);
     this.timeScale = 1;
     ui.hideBanner();
-    this.tweenTint(0, 0, 700);
+    this.tweenTint(this.lake.mist, this.lake.night, 700);
+  }
+
+  // ---------------------------------------------------------------- lakes
+
+  private lakeOpen(l: Lake) { return !l.unlock || store.get(lakeBestKey(l.unlock.lake), 0) >= l.unlock.m; }
+
+  /** Show a lake: its colours, rules and best. Only an open lake is remembered for next time. */
+  private applyLake(l: Lake) {
+    this.lake = l;
+    this.sim.rules = l.rules;
+    setLakeColors(l.light, l.dark);
+    this.recolor();
+    this.best = store.get(lakeBestKey(l.id), 0);
+    if (this.lakeOpen(l)) store.set('lake', l.id);
+  }
+
+  /** The home screen's lake arrows: step through every lake, open or not (a locked one is a preview). */
+  private stepLake(dir: number) {
+    const i = LAKES.indexOf(this.lake);
+    this.applyLake(LAKES[(i + dir + LAKES.length) % LAKES.length]);
+    this.sim.reset(this.seed());
+    this.handle(this.sim.drain());
+    this.resetRun();
+    this.snapCamera();
+    this.setFlag();
+    this.refreshTitle();
   }
 
   private tweenTint(mist: number, night: number, duration: number) {
@@ -376,7 +414,7 @@ export class Game extends Phaser.Scene {
   /** Distance milestones and lake zones, checked every frame of a throw. */
   private checkProgress() {
     const m = this.sim.metres;
-    const nz = ZONES[this.zone + 1];
+    const nz = this.lake.id === 'sunset' ? ZONES[this.zone + 1] : undefined; // only Sunset Lake deepens as you go
     if (nz && m >= nz.m) {
       this.zone++;
       ui.banner(`${nz.m} m · new lake`, nz.name, 'zone');
@@ -426,7 +464,9 @@ export class Game extends Phaser.Scene {
     const m = sim.metres;
     const prevBest = this.best;
     const isBest = m > this.best;
-    if (isBest) { this.best = m; store.set('best', m); }
+    const locked = LAKES.filter(l => !this.lakeOpen(l));
+    if (isBest) { this.best = m; store.set(lakeBestKey(this.lake.id), m); }
+    const opened = locked.find(l => this.lakeOpen(l)) ?? null;
     embed.score(m, this.best);
     if (sim.bestStreak > this.bestStreak) { this.bestStreak = sim.bestStreak; store.set('bestStreak', this.bestStreak); }
 
@@ -448,7 +488,7 @@ export class Game extends Phaser.Scene {
     ui.hint(null);
     ui.showOver({
       metres: m, skips: sim.skips, bestStreak: sim.bestStreak, glass: sim.glass, hoops: sim.hoops, best, isBest: record, plunked: sim.plunked,
-      close: soClose(m, prevBest, ' m'), missions: results,
+      close: soClose(m, prevBest, ' m'), missions: results, opened: opened?.name ?? null, lake: this.lake.name,
       earned: [{ label: 'Throw', n: pay.total }, { label: 'Missions', n: missionCoins }],
     });
   }
@@ -535,6 +575,15 @@ export class Game extends Phaser.Scene {
             this.tweens.killTweensOf(v.img);
             this.tweens.add({ targets: v.img, scaleY: { from: v.base * 0.5, to: v.base }, scaleX: { from: v.base * 1.15, to: v.base }, duration: 450, ease: 'Back.Out' });
           }
+          break;
+        }
+        case 'ice': {
+          this.popup(e.x, this.topY + 26, 'SLIDE!', '#ffffff', 18, true);
+          audio.glass();
+          buzz(8);
+          this.fx.sparkle.explode(10, e.x, wy - 2);
+          this.addRipple(e.x, 0.6);
+          this.squish(1.3, 0.75);
           break;
         }
         case 'log':
@@ -686,6 +735,9 @@ export class Game extends Phaser.Scene {
     } else if (o.type === 'pad') {
       const s = (o.w / PAD_W) * TEX_SCALE;
       v = { img: this.add.image(o.x, 0, o.flower ? 'padFlower' : 'pad').setScale(s).setDepth(D.objs), base: s };
+    } else if (o.type === 'ice') {
+      const s = (o.w / 110) * TEX_SCALE;
+      v = { img: this.add.image(o.x, 0, 'ice').setScale(s, TEX_SCALE).setDepth(D.objs), base: s };
     } else if (o.type === 'duck') {
       v = { img: this.add.sprite(o.x, 0, 'duck', 0).setOrigin(DUCK.ax / DUCK.w, DUCK.ay / DUCK.h).setScale(TEX_SCALE).setDepth(D.objs), base: TEX_SCALE };
     } else if (o.type === 'hoop') {
@@ -877,7 +929,7 @@ export class Game extends Phaser.Scene {
         v.img.setY(waterY - o.h + Math.sin(t * 1.8 + o.ph) * 2);
         if (!o.got) v.img.setRotation(Math.sin(t * 1.2 + o.ph) * 0.06);
       }
-      else if (o.type === 'pad') v.img.setY(waterY);
+      else if (o.type === 'pad' || o.type === 'ice') v.img.setY(waterY);
       else if (o.type === 'duck') {
         const s = v.img as Phaser.GameObjects.Sprite;
         s.setPosition(o.x, waterY - 6 + Math.sin(t * 2 + o.ph) * 1.5 + o.yOff);

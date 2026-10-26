@@ -1,6 +1,6 @@
 # Skip
 
-Pull back to throw a stone across an endless lake, then tap exactly as it touches the water to keep it skipping. Perfect taps build a streak; hoops, ducks, logs and lily pads change your line. Five stones with different feel, missions and coins.
+Pull back to throw a stone across an endless lake, then tap exactly as it touches the water to keep it skipping. Perfect taps build a streak and fill your stone's move; hoops, ducks, logs and lily pads change your line. Five stones (Pip, Zip, Bruno, Boing and Clover), each with its own move, four lakes that open as you go further (Sunset Lake, Misty Marsh, Frozen Pond, Firefly Lagoon), missions and coins, all in Skip's own Golden Hour look.
 
 A standalone Phaser 3 + TypeScript + Vite project, shipped as an installable PWA that plays offline after the first visit and prompts players when an update is ready.
 
