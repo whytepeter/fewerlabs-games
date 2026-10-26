@@ -1,36 +1,33 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Skip, Golden Hour: Pip skipping across a sunset lake. Full-bleed; Pip sits in the middle 80% for the maskable crop. -->
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#f3b48e"/>
-      <stop offset="1" stop-color="#fde3c8"/>
+      <stop offset="0" stop-color="#7d6bb8"/><stop offset=".55" stop-color="#e98aa0"/><stop offset="1" stop-color="#ffbe88"/>
     </linearGradient>
     <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8fc3cc"/>
-      <stop offset="1" stop-color="#3b7792"/>
+      <stop offset="0" stop-color="#d98fa8"/><stop offset="1" stop-color="#5b4f97"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#ffe8ba" stop-opacity=".85"/>
-      <stop offset="1" stop-color="#ffe8ba" stop-opacity="0"/>
-    </radialGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#fff3d6"/><stop offset=".5" stop-color="#ffd59a" stop-opacity=".85"/><stop offset="1" stop-color="#ffbe88" stop-opacity="0"/></radialGradient>
   </defs>
   <rect width="512" height="512" fill="url(#sky)"/>
-  <circle cx="356" cy="214" r="120" fill="url(#glow)"/>
-  <circle cx="356" cy="214" r="54" fill="#fff4d4"/>
-  <path d="M0 300Q70 236 150 262T300 250T420 268T512 246V312H0Z" fill="#d6aaa8"/>
-  <path d="M0 312Q90 278 180 292T360 286T512 296V312H0Z" fill="#ad8ca2"/>
-  <rect y="306" width="512" height="206" fill="url(#lake)"/>
-  <g stroke="#fff4d4" stroke-linecap="round" stroke-width="7" opacity=".7">
-    <path d="M318 330H394"/><path d="M330 352H384"/><path d="M340 374H372"/>
-  </g>
-  <g fill="none" stroke="#ffffff" stroke-opacity=".9" stroke-width="7">
-    <ellipse cx="96" cy="392" rx="54" ry="13"/>
-    <ellipse cx="96" cy="392" rx="26" ry="6" stroke-opacity=".6"/>
-    <ellipse cx="220" cy="372" rx="38" ry="9" stroke-opacity=".7"/>
-  </g>
-  <path d="M96 380Q150 250 220 362Q262 290 300 300" fill="none" stroke="#24213a" stroke-opacity=".35" stroke-width="7" stroke-dasharray="2 18" stroke-linecap="round"/>
-  <g transform="translate(318 300) rotate(-14)">
-    <ellipse cx="0" cy="6" rx="52" ry="22" fill="#000" fill-opacity=".15"/>
-    <ellipse cx="0" cy="0" rx="54" ry="26" fill="#6c625d"/>
-    <ellipse cx="-8" cy="-9" rx="24" ry="8" fill="#b8aca2"/>
+  <circle cx="340" cy="250" r="150" fill="url(#glow)"/>
+  <circle cx="340" cy="250" r="46" fill="#fff1d2"/>
+  <path d="M0 268 Q90 200 190 250 T380 238 T512 245 V320 H0Z" fill="#a37cc0" opacity=".8"/>
+  <path d="M0 300 Q110 255 230 290 T470 285 T512 290 V320 H0Z" fill="#7d5da8"/>
+  <rect y="318" width="512" height="194" fill="url(#lake)"/>
+  <g fill="#fff1d2"><rect x="290" y="332" width="100" height="6" rx="3" opacity=".55"/><rect x="270" y="356" width="140" height="6" rx="3" opacity=".35"/><rect x="305" y="380" width="70" height="6" rx="3" opacity=".25"/></g>
+  <path d="M70 318 Q130 220 190 318" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="2 18" stroke-linecap="round" opacity=".75"/>
+  <ellipse cx="190" cy="322" rx="34" ry="6" fill="none" stroke="#fff" stroke-width="4" opacity=".7"/>
+  <!-- Pip -->
+  <g transform="translate(262 268) rotate(-8)">
+    <ellipse rx="92" ry="66" fill="#e9e3ef"/>
+    <ellipse cx="-14" cy="30" rx="78" ry="34" fill="#c9bcd9"/>
+    <ellipse cx="-18" cy="-36" rx="34" ry="10" fill="#fff" opacity=".45"/>
+    <circle cx="28" cy="-6" r="10" fill="#3d2e5c"/><circle cx="62" cy="-6" r="10" fill="#3d2e5c"/>
+    <ellipse cx="14" cy="14" rx="9" ry="5" fill="#ff7896" opacity=".4"/><ellipse cx="76" cy="14" rx="9" ry="5" fill="#ff7896" opacity=".4"/>
+    <path d="M36 18 Q45 28 54 18" fill="none" stroke="#3d2e5c" stroke-width="6" stroke-linecap="round"/>
+    <path d="M-62 -44 Q-56 -112 -6 -112 Q46 -112 54 -46Z" fill="#46b6a6"/>
+    <path d="M-66 -54 H58 V-36 H-66Z" fill="#379a8c"/>
+    <circle cx="-6" cy="-120" r="17" fill="#ffd27a"/>
   </g>
 </svg>

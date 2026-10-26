@@ -1,6 +1,6 @@
-import '@fontsource/fredoka/500.css';
-import '@fontsource/fredoka/600.css';
-import '@fontsource/fredoka/700.css';
+import '@fontsource/quicksand/500.css';
+import '@fontsource/quicksand/600.css';
+import '@fontsource/quicksand/700.css';
 import './core/kit.css';
 import './style.css';
 import Phaser from 'phaser';
@@ -23,7 +23,7 @@ async function start() {
   // Canvas text needs the web font ready before the first popup is drawn.
   try {
     await Promise.race([
-      Promise.all(['500 20px Fredoka', '600 20px Fredoka', '700 20px Fredoka'].map(f => document.fonts.load(f))),
+      Promise.all(['500 20px Quicksand', '600 20px Quicksand', '700 20px Quicksand'].map(f => document.fonts.load(f))),
       new Promise(r => setTimeout(r, 1500)),
     ]);
   } catch { /* fall back to system font */ }

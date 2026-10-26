@@ -2,7 +2,7 @@
 // This reads them into numbers for Phaser and strings for canvas drawing, and re-reads on theme change.
 
 export const KEYS = [
-  'sky-top', 'sky-bot', 'sun', 'sun-glow', 'cloud', 'hill-far', 'hill-mid', 'trees', 'water-top', 'water-deep', 'shimmer', 'ripple',
+  'sky-top', 'sky-mid', 'sky-bot', 'sun', 'sun-glow', 'cloud', 'hill-far', 'hill-mid', 'trees', 'water-top', 'water-deep', 'shimmer', 'ripple',
   'stone', 'stone-hi', 'log', 'log-hi', 'pad', 'pad-hi', 'flower', 'duck', 'duck-head', 'beak', 'glass', 'glass-hi',
   'pier', 'pier-dark', 'ink', 'accent', 'perfect', 'good', 'bad', 'flame',
 ] as const;

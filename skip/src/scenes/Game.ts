@@ -8,7 +8,7 @@ import { ABILITIES, Sim, STONES, aimVelocity, previewThrow, RING_T, REST_Y, FEVE
 import { coins, missions, shop, soClose } from '../core/meta';
 import { SK_CX, SK_CY, SK_H, SK_W } from '../game/skipper';
 import { GAME_ID, MISSION_POOL, STONE_ITEMS, coinsForRun, type RunStats } from '../game/progress';
-import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE, OUTLINE_N, type StripKey } from '../game/art';
+import { paintAll, STRIPS, STRIP_RES, LOG_WIDTHS, LOG_M, PAD_W, DUCK, PIER, STONE_FRAMES, OUTLINE_N, type StripKey } from '../game/art';
 import { P, N, A, onTheme } from '../game/palette';
 import { audio } from '../game/audio';
 import { music } from '../core/music';
@@ -23,7 +23,9 @@ interface Ripple { x: number; age: number; life: number; speed: number; k: numbe
 
 const PARALLAX: Record<StripKey, number> = { clouds: 0.03, hillFar: 0.06, hillMid: 0.15, trees: 0.32 };
 const STRIP_DEPTH: Record<StripKey, number> = { clouds: 3, hillFar: 4, hillMid: 5, trees: 6 };
-const FONT = 'Fredoka, ui-rounded, system-ui, sans-serif';
+const FONT = 'Quicksand, ui-rounded, system-ui, sans-serif';
+/** Golden Hour text: white with a soft plum glow, never an outline. */
+const GLOW = { offsetX: 0, offsetY: 2, color: 'rgba(61,46,92,.55)', blur: 10, stroke: false, fill: true };
 const TAU = Math.PI * 2;
 /** The stone is drawn a little larger than its physics size so its face reads on a phone. */
 const STONE_DRAW = TEX_SCALE * 1.2;
@@ -130,7 +132,7 @@ export class Game extends Phaser.Scene {
     this.stone = this.add.sprite(0, 0, 'stone-pebble', 0).setOrigin(SK_CX / SK_W, SK_CY / SK_H).setScale(TEX_SCALE).setDepth(D.stone);
     this.flag = this.add.image(0, 0, 'flag').setOrigin(8 / 40, 70 / 74).setScale(TEX_SCALE).setDepth(D.objs).setVisible(false);
     this.flagLabel = this.add.text(0, 0, '', {
-      fontFamily: FONT, fontStyle: '700', fontSize: '13px', color: '#ffffff', stroke: OUTLINE, strokeThickness: 4,
+      fontFamily: FONT, fontStyle: '700', fontSize: '13px', color: '#ffffff', shadow: GLOW,
     }).setOrigin(0, 1).setDepth(D.objs).setResolution(3).setVisible(false);
 
     const base = { emitting: false, alpha: { start: 1, end: 0 } };
@@ -709,8 +711,7 @@ export class Game extends Phaser.Scene {
     let t = this.texts.find(q => !q.active);
     if (!t) {
       t = this.add.text(0, 0, '', {
-        fontFamily: FONT, fontStyle: '700', stroke: OUTLINE, strokeThickness: 5, align: 'center',
-        shadow: { offsetX: 0, offsetY: 3, color: OUTLINE, blur: 0, stroke: true, fill: true },
+        fontFamily: FONT, fontStyle: '700', align: 'center', shadow: GLOW,
       }).setOrigin(0.5).setPadding(4, 4, 4, 8).setDepth(D.text).setScrollFactor(0);
       this.texts.push(t);
     }

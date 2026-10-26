@@ -22,7 +22,7 @@ $('overStars').innerHTML = STAR_SVG.repeat(3);
 export function stoneSvg(id: string, face: 'eyes' | 'squint' = 'eyes') {
   return `<img class="sk-portrait" src="${portrait(id, face === 'squint')}" alt="">`;
 }
-const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="#16233b" stroke-width="2"><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
+const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
 
 mountCoins();
 
@@ -141,8 +141,8 @@ export const ui = {
   },
   /** HUD pills show the equipped stone. */
   /**
-   * The ability button: hidden (null) outside a throw; otherwise the meter fills round the
-   * character's face, and it glows and says its move's name once it's ready.
+   * The ability capsule: hidden (null) outside a throw; otherwise it fills with sunset light as
+   * Perfects land, and glows once the move is ready.
    */
   setAbility(a: { id: string; name: string; charge: number; ready: boolean } | null) {
     el.abilityBtn.hidden = !a;
@@ -153,7 +153,7 @@ export const ui = {
       el.abilityName.textContent = a.name;
       el.abilityBtn.setAttribute('aria-label', `${a.name} (E)`);
     }
-    el.abilityFill.style.strokeDashoffset = String(176 * (1 - a.charge));
+    el.abilityFill.style.transform = `scaleX(${a.charge})`;
     if (el.abilityBtn.classList.contains('ready') !== a.ready) el.abilityBtn.classList.toggle('ready', a.ready);
   },
   /** The meter just filled: a little pop. */
