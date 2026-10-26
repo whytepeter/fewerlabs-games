@@ -1,6 +1,7 @@
 import { settings } from './settings';
 import { sfx } from './sfx';
 import { track } from './analytics';
+import { consent } from './consent';
 
 /**
  * Rewarded ads only (Google H5 Games Ads, part of AdSense): the player chooses to watch one for a
@@ -17,11 +18,17 @@ const READY_WAIT = 1500;
 /** Plays the ad; true once it was watched to the end (the reward is earned), false if skipped or it failed. */
 export type ShowAd = () => Promise<boolean>;
 
-declare global { interface Window { adsbygoogle?: object[] } }
+declare global { interface Window { adsbygoogle?: object[] & { requestNonPersonalizedAds?: number } } }
 /** Google's adBreak() and adConfig() are both a push onto the adsbygoogle queue. */
 const push = (o: object) => { (window.adsbygoogle ??= []).push(o); };
 
 let mode: 'off' | 'google' | 'fake' = 'off';
+let child = false;
+
+/** Personalised ads only with the player's consent, and never for under-13s. */
+function personalise() {
+  (window.adsbygoogle ??= []).requestNonPersonalizedAds = consent.now.ads && !child ? 0 : 1;
+}
 let showing = false;
 
 /** Music and sound go quiet while an ad plays. */
@@ -38,6 +45,7 @@ export const ads = {
    */
   init(age: number) {
     if (mode !== 'off') return;
+    child = age < 13;
     if (!CLIENT) { if (env.DEV) mode = 'fake'; return; }
     const s = document.createElement('script');
     s.async = true;
@@ -47,7 +55,9 @@ export const ads = {
     if (age < 13) s.dataset.tagForChildDirectedTreatment = '1';
     if (age < 16) s.dataset.tagForUnderAgeOfConsent = '1';
     if (TEST) s.dataset.adbreakTest = 'on';
+    personalise(); // before the script loads, so the very first request already follows the choice
     document.head.append(s);
+    consent.onChange(personalise);
     push({ preloadAdBreaks: 'on', sound: settings.sound ? 'on' : 'off' }); // adConfig
     mode = 'google';
   },

@@ -28,7 +28,7 @@ const useEmulators = env.VITE_FIREBASE_EMULATORS === 'true';
 
 const SAVED_AT = 'cloud:savedAt';
 /** Keys that stay on this device: settings and the sync's own bookkeeping. */
-const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', 'tuning', 'analyticsQueue', SAVED_AT]);
+const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', 'tuning', 'analyticsQueue', 'consent', SAVED_AT]);
 const PUSH_DELAY = 2000;
 const NAME_MAX = 16;
 

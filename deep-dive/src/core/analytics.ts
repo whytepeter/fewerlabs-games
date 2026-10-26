@@ -1,4 +1,5 @@
 import { cloud } from './cloud';
+import { consent } from './consent';
 import { dev } from './dev';
 import { store } from './settings';
 
@@ -8,6 +9,8 @@ import { store } from './settings';
  * player's anonymous id and the day, never a name, email or age. Events queue on the device and go
  * to Firestore (analytics/{game}/events) in batches, every half minute and when the tab is hidden.
  * Nothing is sent from the dev server or in dev mode, and nothing at all without the cloud.
+ * Consent: events are only kept once the player has said yes to analytics in the cookie banner
+ * (or before they've answered, held back until they do); saying no drops anything queued.
  * Read them with scripts/analytics-report.mjs.
  */
 export type EventName = 'app_open' | 'dive_end' | 'save_me' | 'ad' | 'spend' | 'treasure';
@@ -22,6 +25,7 @@ let sending = false;
 
 /** Record an event (at most 12 small fields; strings are cut to 40 characters). */
 export function track(name: EventName, data: Event['data'] = {}) {
+  if (consent.asked && !consent.now.analytics) return;
   if (off()) { if (import.meta.env.DEV) console.debug('[analytics]', name, data); return; }
   const clean: Event['data'] = {};
   Object.entries(data).slice(0, 12).forEach(([k, v]) => { clean[k] = typeof v === 'string' ? v.slice(0, 40) : v; });
@@ -31,7 +35,7 @@ export function track(name: EventName, data: Event['data'] = {}) {
 }
 
 async function flush() {
-  if (sending || off()) return;
+  if (sending || off() || !consent.now.analytics) return;
   const q = store.get<Event[]>(QUEUE, []);
   if (!q.length) return;
   sending = true;
@@ -43,6 +47,7 @@ async function flush() {
 /** Start sending queued events (call once). */
 export function initAnalytics() {
   if (!cloud.enabled) return;
+  consent.onChange(c => { if (c.analytics) void flush(); else store.set(QUEUE, []); });
   window.setInterval(() => void flush(), EVERY);
   document.addEventListener('visibilitychange', () => { if (document.hidden) void flush(); });
   void cloud.start().then(flush);

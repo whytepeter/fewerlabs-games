@@ -21,6 +21,7 @@ import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from 
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
+import { consent } from './core/consent';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 import { liveDiver } from './liveDiver';
@@ -329,7 +330,10 @@ export const ui = {
       shopTab = b.dataset.tab as typeof shopTab;
       this.renderShop();
     }));
-    this.askAge(() => this.askName(() => this.offerStreak(() => this.rotateHint())));
+    this.askAge(() => this.askName(() => this.askConsent(() => this.offerStreak(() => this.rotateHint()))));
+    const prefs = () => consent.set({ analytics: ($('prefAnalytics') as HTMLInputElement).checked, ads: ($('prefAds') as HTMLInputElement).checked });
+    $('prefAnalytics').addEventListener('change', () => { buzz(8); prefs(); });
+    $('prefAds').addEventListener('change', () => { buzz(8); prefs(); });
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
@@ -588,8 +592,26 @@ export const ui = {
     el.hidden = false;
   },
 
+  /**
+   * After the age and name, once per device: the cookie banner. Essential only and Accept all sit
+   * side by side, equally easy; either answer can be changed in Settings. Then `next`.
+   */
+  askConsent(next: () => void) {
+    if (consent.asked) { next(); return; }
+    const el = $('cookieBar');
+    const answer = (all: boolean) => {
+      buzz(6);
+      consent.set({ analytics: all, ads: all });
+      el.hidden = true;
+      next();
+    };
+    $('cookieAll').onclick = () => answer(true);
+    $('cookieEssential').onclick = () => answer(false);
+    el.hidden = false;
+  },
+
   /** A first-open popover is up (the game's keys stay quiet). */
-  askingAge() { return !$('ageGate').hidden || !$('namePop').hidden || !$('streakPop').hidden; },
+  askingAge() { return ['ageGate', 'namePop', 'cookieBar', 'streakPop'].some(id => !$(id).hidden); },
 
   /** Once a day, on opening the game: the login streak's gift for today, then `next`. */
   offerStreak(next: () => void) {
@@ -1241,6 +1263,9 @@ async function openBoard(today = false) {
 
 function renderAccount(message = '') {
   // Dev mode: only for the dev server and the developer's account (see core/dev.ts).
+  ($('prefAnalytics') as HTMLInputElement).checked = consent.now.analytics;
+  ($('prefAds') as HTMLInputElement).checked = consent.now.ads;
+  $('prefAdsRow').hidden = store.get<number>('age', 99) < 13; // under 13: never personalised, so no switch
   $('devToggle').hidden = !dev.allowed;
   ($('devMode') as HTMLInputElement).checked = dev.on;
   document.body.classList.toggle('dev-mode', dev.on);
