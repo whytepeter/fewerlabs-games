@@ -272,6 +272,15 @@ body.playing .topbar, body.playing .footer, body.playing main { display: none; }
 .stage { position: relative; min-width: 0; min-height: 0; border-radius: 14px; overflow: hidden; background: var(--game-bg, #0b2a50); box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0, 0, 0, .5); }
 .stage:fullscreen { border-radius: 0; box-shadow: none; }
 
+/* Installed on an iPhone (iOS 26, WebKit bug 301108) the viewport comes out shorter than the
+   screen by the status bar height, leaving a strip of page colour at the bottom. Stretch the
+   full-screen layers to the real screen height; anywhere else this is just the viewport. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  :root { --app-h: min(100lvh, 100dvh + env(safe-area-inset-top, 0px)); }
+  html, body { min-height: var(--app-h); }
+  .player { bottom: auto; height: var(--app-h); }
+}
+
 .player-float-back {
   position: fixed; z-index: 60; left: calc(var(--safe-l) + 12px); top: calc(var(--safe-t) + 12px);
   width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; border: 0;
