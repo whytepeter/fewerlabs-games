@@ -25,6 +25,7 @@ import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud, topBest } from '../core/cloud';
+import { lagos } from '../core/lagos';
 import { ads } from '../core/ads';
 import { track } from '../core/analytics';
 import { tuning, type Tuning } from '../game/tuning';
@@ -314,6 +315,9 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('view-resize', this.onResize, this);
     });
 
+    // Inside Lagos Life their page can pause the dive (a call, switching apps); the player picks it
+    // back up from the pause menu, so their resume needs nothing here.
+    lagos.init({ pause: () => this.pause(), resume: () => {} });
     ui.init({
       play: () => this.startRun(),
       daily: () => this.startRun(true),
@@ -2373,6 +2377,7 @@ export class GameScene extends Phaser.Scene {
       if (isBest) { this.best = depth; store.set(key, depth); }
       opened = locked.find(isUnlocked) ?? null;
     }
+    if (!dev.on) lagos.score(depth); // inside Lagos Life: their leaderboard (it keeps each player's best)
     // The leaderboard takes your deepest dive in any cave.
     if (!dev.on && !this.daily) {
       void this.postScore(depth, depth > boardBest);

@@ -1353,3 +1353,6 @@ body.dev-mode::after {
   .treasure-list { grid-template-columns: 1fr 1fr; align-content: start; }
 }
 @media (prefers-reduced-motion: reduce) { .treasure.legendary.found .treasure-art { animation: none; } }
+
+/* ---------- Inside Lagos Life (core/lagos.ts): their leaderboard only, no sign-in, privacy, install or name */
+.in-lagos #board .tabs, .in-lagos #nameForm, .in-lagos #privacy, .in-lagos #install, .in-lagos #account { display: none !important; }

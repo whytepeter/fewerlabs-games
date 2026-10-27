@@ -22,6 +22,7 @@ import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
 import { consent } from './core/consent';
+import { lagos } from './core/lagos';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 import { liveDiver } from './liveDiver';
@@ -331,9 +332,6 @@ export const ui = {
       this.renderShop();
     }));
     this.askAge(() => this.askName(() => this.askConsent(() => this.offerStreak(() => this.rotateHint()))));
-    const prefs = () => consent.set({ analytics: ($('prefAnalytics') as HTMLInputElement).checked, ads: ($('prefAds') as HTMLInputElement).checked });
-    $('prefAnalytics').addEventListener('change', () => { buzz(8); prefs(); });
-    $('prefAds').addEventListener('change', () => { buzz(8); prefs(); });
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
@@ -544,6 +542,7 @@ export const ui = {
    * Screen on iPhone). Asked at most three times, a few days apart; never once it's installed.
    */
   offerInstall() {
+    if (lagos.on) return;
     const mode = installMode(), asked = store.get('installAsked', { n: 0, at: 0 });
     if (!mode || store.get('divesDone', 0) < INSTALL_AFTER_DIVES || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
     if (!$('rotateHint').hidden || !this.isOpen('title')) return;
@@ -558,6 +557,7 @@ export const ui = {
    * so it's asked once). Accept stays off until the slider has been moved. Then `next`.
    */
   askAge(next: () => void) {
+    if (lagos.on) { next(); return; } // inside Lagos Life: no personal questions (their rules)
     const age = store.get<number | null>('age', null);
     if (age !== null) { ads.init(age); next(); return; }
     const el = $('ageGate'), range = $('ageRange') as HTMLInputElement, ok = $('ageOk') as HTMLButtonElement;
@@ -581,6 +581,7 @@ export const ui = {
    * name, so Let's dive keeps that; an empty box keeps it too. Then `next`.
    */
   askName(next: () => void) {
+    if (lagos.on) { next(); return; } // their board shows the player's Lagos Life name
     if (store.get('nameAsked', false)) { next(); return; }
     const el = $('namePop'), input = $('namePopInput') as HTMLInputElement;
     input.value = cloud.name;
@@ -597,20 +598,19 @@ export const ui = {
   },
 
   /**
-   * After the age and name, once per device: the cookie banner. Essential only and Accept all sit
-   * side by side, equally easy; either answer can be changed in Settings. Then `next`.
+   * After the age and name, once per device: the cookie notice, with one "Got it". Then `next`.
    */
   askConsent(next: () => void) {
+    if (lagos.on) { next(); return; } // nothing to consent to: no analytics or outside ads there
     if (consent.asked) { next(); return; }
     const el = $('cookieBar');
     const answer = (all: boolean) => {
       buzz(6);
-      consent.set({ analytics: all, ads: all });
+      consent.set({ analytics: all });
       el.hidden = true;
       next();
     };
     $('cookieAll').onclick = () => answer(true);
-    $('cookieEssential').onclick = () => answer(false);
     el.hidden = false;
   },
 
@@ -1238,6 +1238,7 @@ export const ui = {
 /** The leaderboard: all time (Reef Trench), or today's Daily Dive. */
 async function openBoard(today = false) {
   ui.screen('board');
+  if (lagos.on) { void openLagosBoard(); return; }
   document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.setAttribute('aria-selected', String((b.dataset.board === 'today') === today)));
   const list = $('boardList'), status = $('boardStatus');
   ($('nameInput') as HTMLInputElement).value = cloud.name;
@@ -1265,11 +1266,30 @@ async function openBoard(today = false) {
   }
 }
 
+/** Inside Lagos Life, "Top divers" is their leaderboard: Lagos Life players, by best depth. */
+async function openLagosBoard() {
+  const list = $('boardList'), status = $('boardStatus');
+  status.textContent = 'Loading…';
+  status.hidden = false;
+  list.replaceChildren();
+  const rows = await lagos.board();
+  if (!rows) { status.textContent = 'Can’t reach the leaderboard right now.'; return; }
+  status.hidden = rows.length > 0;
+  status.textContent = 'No dives yet. Be the first!';
+  rows.forEach((r, i) => {
+    if (i > 0 && r.me && typeof r.rank === 'string') { const gap = document.createElement('li'); gap.className = 'gap'; gap.textContent = '…'; list.append(gap); }
+    const li = document.createElement('li');
+    li.className = r.me ? 'me' : '';
+    const rank = document.createElement('span'); rank.className = 'board-rank'; rank.textContent = String(r.rank).replace(/^#/, '');
+    const who = document.createElement('span'); who.className = 'board-who'; who.textContent = r.me ? `${r.name} (you)` : r.name;
+    const d = document.createElement('b'); d.textContent = `${r.score.toLocaleString()} m`;
+    li.append(rank, who, d);
+    list.append(li);
+  });
+}
+
 function renderAccount(message = '') {
   // Dev mode: only for the dev server and the developer's account (see core/dev.ts).
-  ($('prefAnalytics') as HTMLInputElement).checked = consent.now.analytics;
-  ($('prefAds') as HTMLInputElement).checked = consent.now.ads;
-  $('prefAdsRow').hidden = store.get<number>('age', 99) < 13; // under 13: never personalised, so no switch
   $('devToggle').hidden = !dev.allowed;
   ($('devMode') as HTMLInputElement).checked = dev.on;
   document.body.classList.toggle('dev-mode', dev.on);
