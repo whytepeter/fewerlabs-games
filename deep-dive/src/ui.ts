@@ -172,7 +172,7 @@ function treasureLine(c: CaveDef) {
 const drawTreasures = () => { const el = document.getElementById('treasuresCount'); if (el) el.textContent = `${treasureLog.found()}/${TREASURES.length}`; };
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' = 'upgrades';
+let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' | 'coins' = 'upgrades';
 let shownSpecial = '';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
@@ -184,6 +184,43 @@ const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
 /** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
+/** One coin seen from the side, at (x, y): the face on top of a thick rim. */
+const sideCoin = (x: number, y: number) =>
+  `<path d="M${x - 13} ${y}v3a13 5 0 0 0 26 0v-3" fill="#f2a91e" stroke="#16233b" stroke-width="1.8"/>`
+  + `<ellipse cx="${x}" cy="${y}" rx="13" ry="5" fill="#ffd23f" stroke="#16233b" stroke-width="1.8"/>`
+  + `<ellipse cx="${x - 3}" cy="${y - 1}" rx="5" ry="1.5" fill="#fff1b0"/>`;
+/** A stack of `n` coins standing on y = 40. */
+const stack = (x: number, n: number) => Array.from({ length: n }, (_, i) => sideCoin(x, 38 - i * 5)).join('');
+/** Pictures for the Lagos Life coin items: the doubler, then piles that grow with the pack. */
+function coinArt(p: (typeof LAGOS_PRODUCTS)[number]) {
+  const svg = (inner: string) => `<svg class="shop-coin" viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`;
+  if (p.doubler) {
+    return svg(`<circle cx="21" cy="25" r="15" fill="#ffc43d" stroke="#16233b" stroke-width="2.6"/><circle cx="21" cy="25" r="10" fill="none" stroke="#d18a00" stroke-width="2"/>`
+      + `<rect x="25" y="4" width="21" height="15" rx="7.5" fill="#ff5a7a" stroke="#16233b" stroke-width="2.4"/>`
+      + `<text x="35.5" y="15.5" text-anchor="middle" font-size="11" font-weight="700" font-family="Fredoka, sans-serif" fill="#fff">×2</text>`);
+  }
+  const c = p.coins ?? 0;
+  if (c <= 5000) return svg(stack(24, 3));
+  if (c <= 20000) return svg(stack(24, 6));
+  return svg(stack(15, 5) + stack(32, 7) + `<path d="M40 6l1.6 3.4L45 11l-3.4 1.6L40 16l-1.6-3.4L35 11l3.4-1.6z" fill="#fff" stroke="#16233b" stroke-width="1.4"/>`);
+}
+
+/** Shop rows for Lagos Life products: Buy opens their pay sheet, which shows the price. */
+function lagosRows(list: typeof LAGOS_PRODUCTS) {
+  return list.map(p => `<li class="shop-item">${p.hearts ? `<img src="${portraits.shell ?? ''}" alt="">` : coinArt(p)}
+        <div class="shop-body"><b>${p.name}</b><span>${p.note}</span></div>
+        <button type="button" class="k-btn k-btn--green k-btn--sm" data-lagos="${p.id}">Buy</button></li>`).join('');
+}
+function bindLagosBuys(after: () => void) {
+  $('shopList').querySelectorAll<HTMLButtonElement>('[data-lagos]').forEach(b => b.addEventListener('click', async () => {
+    buzz(8);
+    b.disabled = true;
+    const ok = await lagos.buy(b.dataset.lagos!);
+    b.disabled = false;
+    if (ok) { cheer(true); after(); }
+  }));
+}
+
 /** Game over: once a rewarded ad is ready, offer to pay the dive's coins again for watching it. */
 function offerDoubleCoins(n: number) {
   const b = $('overAd') as HTMLButtonElement;
@@ -887,6 +924,7 @@ export const ui = {
     if (shopTab === 'gadgets') { this.renderGadgets(); return; }
     if (shopTab === 'boosters') { this.renderBoosters(); return; }
     if (shopTab === 'shells') { this.renderShells(); return; }
+    if (shopTab === 'coins') { this.renderCoins(); return; }
     const list = $('shopList');
     list.innerHTML = UPGRADES.map(u => {
       const l = upgrades.level(u.id), cost = upgrades.cost(u.id);
@@ -950,11 +988,8 @@ export const ui = {
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
     const prices = shellPrices();
-    // Inside Lagos Life: Sea Heart and coin packs and the Coin Doubler on their own pay sheet (the price
-    // shows there), above the weekly coin-priced Sea Hearts. The doubler goes once it's bought.
-    const packs = lagos.on ? LAGOS_PRODUCTS.filter(p => !(p.doubler && lagos.doubler)).map(p => `<li class="shop-item">${p.hearts ? `<img src="${portraits.shell ?? ''}" alt="">` : `<span class="shop-coin">${coinIcon()}</span>`}
-        <div class="shop-body"><b>${p.name}</b><span>${p.note} · pay with Lagos Life</span></div>
-        <button type="button" class="k-btn k-btn--green k-btn--sm" data-lagos="${p.id}">Buy</button></li>`).join('') : '';
+    // Inside Lagos Life: Sea Heart packs on their own pay sheet (the price shows there), above the weekly coin-priced ones.
+    const packs = lagos.on ? lagosRows(LAGOS_PRODUCTS.filter(p => p.hearts)) : '';
     $('shopList').innerHTML = packs + prices.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
@@ -966,13 +1001,15 @@ export const ui = {
       const b = e.currentTarget as HTMLButtonElement;
       if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
     });
-    $('shopList').querySelectorAll<HTMLButtonElement>('[data-lagos]').forEach(b => b.addEventListener('click', async () => {
-      buzz(8);
-      b.disabled = true;
-      const ok = await lagos.buy(b.dataset.lagos!);
-      b.disabled = false;
-      if (ok) { cheer(true); this.renderShells(); }
-    }));
+    bindLagosBuys(() => this.renderShells());
+  },
+
+  /** Inside Lagos Life only: coin packs and the Coin Doubler (gone once bought), on their pay sheet. */
+  renderCoins() {
+    $('gadgetInfo').innerHTML = `You have ${coinTag(coins.balance)} · spend them on divers, upgrades and gadgets.`;
+    $('gadgetInfo').classList.remove('warn');
+    $('shopList').innerHTML = lagosRows(LAGOS_PRODUCTS.filter(p => (p.coins || p.doubler) && !(p.doubler && lagos.doubler)));
+    bindLagosBuys(() => this.renderCoins());
   },
 
   /**

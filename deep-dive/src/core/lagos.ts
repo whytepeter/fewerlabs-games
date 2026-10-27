@@ -55,6 +55,8 @@ declare global { interface Window { Vatar?: VatarSDK } }
 /** Are we inside Lagos Life's game player? Decided once, at load. */
 const inLagos = (() => {
   try {
+    // The dev server also takes ?lagoslife=1 in a plain tab, to preview this mode (the SDK can't answer there).
+    if (import.meta.env.DEV && new URLSearchParams(location.search).has('lagoslife')) return true;
     if (window.parent === window) return false;
     if (new URLSearchParams(location.search).has('lagoslife')) return true;
     const a = location.ancestorOrigins;

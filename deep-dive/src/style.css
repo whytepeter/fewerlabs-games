@@ -218,6 +218,7 @@ body {
 .diver-perk { display: table; margin: 0 auto 12px; padding: 3px 10px; border-radius: 999px; background: #e6f4ff; font-size: 13px; font-weight: 700; }
 .diver-thumb small .shell-ico { width: 13px; height: 12px; vertical-align: -2px; margin-right: 1px; }
 .need-more .shell-ico, .gadget-info .shell-ico { width: 15px; height: 14px; vertical-align: -3px; }
+.gadget-info .k-coin { width: 15px; height: 15px; vertical-align: -3px; margin-right: 2px; }
 .diver-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
 .diver-thumb {
   appearance: none; cursor: pointer; position: relative; font: inherit;
@@ -1355,6 +1356,7 @@ body.dev-mode::after {
 @media (prefers-reduced-motion: reduce) { .treasure.legendary.found .treasure-art { animation: none; } }
 
 /* ---------- Inside Lagos Life (core/lagos.ts): their leaderboard only, no sign-in, privacy, install or name */
+.tab.lagos-only { display: none; }
+.in-lagos .tab.lagos-only { display: revert; }
 .in-lagos #board .tabs, .in-lagos #nameForm, .in-lagos #privacy, .in-lagos #install, .in-lagos #account { display: none !important; }
-.shop-coin { width: 44px; height: 44px; display: grid; place-items: center; }
-.shop-coin .k-coin { width: 36px; height: 36px; }
+.shop-coin { width: 44px; height: 44px; }
