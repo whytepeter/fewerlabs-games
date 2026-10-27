@@ -25,7 +25,7 @@ import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud, topBest } from '../core/cloud';
-import { lagos } from '../core/lagos';
+import { DOUBLER, lagos } from '../core/lagos';
 import { ads } from '../core/ads';
 import { track } from '../core/analytics';
 import { tuning, type Tuning } from '../game/tuning';
@@ -317,7 +317,17 @@ export class GameScene extends Phaser.Scene {
 
     // Inside Lagos Life their page can pause the dive (a call, switching apps); the player picks it
     // back up from the pause menu, so their resume needs nothing here.
-    lagos.init({ pause: () => this.pause(), resume: () => {} });
+    lagos.init({
+      pause: () => this.pause(),
+      resume: () => {},
+      give: p => {
+        if (p.hearts) shells.add(p.hearts);
+        if (p.coins) coins.add(p.coins);
+        if (p.doubler) store.set(DOUBLER, true);
+        ui.damage(`${p.name}: thank you!`, true);
+        sfx.tone(880, 0.15, { vol: 0.08 }); sfx.tone(1318, 0.3, { vol: 0.08, delay: 0.1 });
+      },
+    });
     ui.init({
       play: () => this.startRun(),
       daily: () => this.startRun(true),
@@ -2387,7 +2397,8 @@ export class GameScene extends Phaser.Scene {
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus * this.def.pay * (this.perk === 'coins' ? DIVER_PERK.coins : 1); // harder caves (and Royal) pay more
-    const twice = (this.doubler ? 2 : 1) * this.tune.coinRate; // the Coin Doubler booster, and the tuning's coin rate
+    // The Coin Doubler booster and the bought Coin Doubler (Lagos Life) each add ×1, so both make ×3; then the tuning's coin rate.
+    const twice = (1 + (this.doubler ? 1 : 0) + (lagos.doubler ? 1 : 0)) * this.tune.coinRate;
     const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus) * twice; // ~25–45 for a good dive at x1
     const closeCoins = Math.round(this.runBonus * bonus) * twice;
     coins.add(runCoins + closeCoins);

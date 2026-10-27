@@ -22,7 +22,7 @@ import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
 import { consent } from './core/consent';
-import { lagos } from './core/lagos';
+import { lagos, PRODUCTS as LAGOS_PRODUCTS } from './core/lagos';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 import { liveDiver } from './liveDiver';
@@ -443,7 +443,7 @@ export const ui = {
     drawShells();
     // First-timers see how to play above the Dive button.
     $('howto').hidden = store.get('learned', false);
-    $('boardBtn').hidden = !cloud.enabled;
+    $('boardBtn').hidden = !cloud.enabled && !lagos.on; // inside Lagos Life it's their leaderboard (the cloud is off there)
     this.refreshTitle();
     this.hud(false);
     this.screen('title');
@@ -950,7 +950,12 @@ export const ui = {
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
     const prices = shellPrices();
-    $('shopList').innerHTML = prices.map((price, i) => {
+    // Inside Lagos Life: Sea Heart and coin packs and the Coin Doubler on their own pay sheet (the price
+    // shows there), above the weekly coin-priced Sea Hearts. The doubler goes once it's bought.
+    const packs = lagos.on ? LAGOS_PRODUCTS.filter(p => !(p.doubler && lagos.doubler)).map(p => `<li class="shop-item">${p.hearts ? `<img src="${portraits.shell ?? ''}" alt="">` : `<span class="shop-coin">${coinIcon()}</span>`}
+        <div class="shop-body"><b>${p.name}</b><span>${p.note} · pay with Lagos Life</span></div>
+        <button type="button" class="k-btn k-btn--green k-btn--sm" data-lagos="${p.id}">Buy</button></li>`).join('') : '';
+    $('shopList').innerHTML = packs + prices.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
         : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Sea Heart for ${price} coins">${coinTag(price)}</button>`;
@@ -961,6 +966,13 @@ export const ui = {
       const b = e.currentTarget as HTMLButtonElement;
       if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
     });
+    $('shopList').querySelectorAll<HTMLButtonElement>('[data-lagos]').forEach(b => b.addEventListener('click', async () => {
+      buzz(8);
+      b.disabled = true;
+      const ok = await lagos.buy(b.dataset.lagos!);
+      b.disabled = false;
+      if (ok) { cheer(true); this.renderShells(); }
+    }));
   },
 
   /**

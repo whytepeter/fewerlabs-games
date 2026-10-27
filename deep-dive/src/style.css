@@ -1356,3 +1356,5 @@ body.dev-mode::after {
 
 /* ---------- Inside Lagos Life (core/lagos.ts): their leaderboard only, no sign-in, privacy, install or name */
 .in-lagos #board .tabs, .in-lagos #nameForm, .in-lagos #privacy, .in-lagos #install, .in-lagos #account { display: none !important; }
+.shop-coin { width: 44px; height: 44px; display: grid; place-items: center; }
+.shop-coin .k-coin { width: 36px; height: 36px; }
