@@ -56,6 +56,13 @@ FIREBASE_SERVICE_ACCOUNT="$(cat key.json)" npm run report -- 7
 
 This prints the last 7 days: players and next-day return, dives per cave (median and top-10% depth, time, coins, what ends them), Save me choices, ad fill and watch rates, spending, and treasure finds.
 
+## Lagos Life
+
+Deep Dive is listed on [Lagos Life](https://lagoslife.app/developers/docs) at `https://deepdive.fewerlabs.dev/?lagoslife=1`. Inside their player (`src/core/lagos.ts`) it loads their SDK, sends each dive to their leaderboard and shows it in Top divers, and asks nothing personal: no sign-in, age, name or cookie questions, no cloud saves, analytics or outside ads. On the dev server, `http://localhost:5181/?lagoslife=1` previews this mode in a plain tab (their SDK only answers inside Lagos Life).
+
+- **Purchases:** Sea Heart packs (`hearts5`, `hearts12`, `hearts30`), coin packs (`coins5k`, `coins20k`, `coins40k`) and the one-off `coin_doubler`, all made as products in their dashboard with exactly these ids. `api/lagos.ts` verifies the player's session and the purchase with Lagos Life, the game grants it once, then the server marks it delivered; paid purchases not yet delivered are picked up the next time the game starts.
+- **Vercel env var:** `VATAR_SECRET`, a Secret for Production (`vtr_test_…` in their sandbox, `vtr_live_…` once approved). After changing it, redeploy with a fresh build: a dashboard redeploy that runs the ignore step is skipped when `deep-dive/` hasn't changed.
+
 ## Structure
 
 ```
