@@ -411,10 +411,10 @@ export const ui = {
       $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
       $('howHoldText').textContent = keys ? (portrait() ? 'left / right, or the arrow keys' : 'top / bottom, or the arrow keys')
         : portrait() ? 'left / right to steer' : 'top / bottom to steer';
-      // First-dive guide: in portrait the "up" half is on the right (the world is turned 90°).
+      // First-dive guide: in portrait the "up" half is on the left (the world is turned 90°, heading up the screen).
       const tap = keys ? 'Click' : 'Tap';
-      $('guideUp').textContent = portrait() ? `${tap} here to steer right` : keys ? 'Click here or press ↑ to swim up' : 'Tap here to swim up';
-      $('guideDown').textContent = portrait() ? `${tap} here to steer left` : keys ? 'Click here or press ↓ to go down' : 'Tap here to go down';
+      $('guideUp').textContent = portrait() ? `${tap} here to steer left` : keys ? 'Click here or press ↑ to swim up' : 'Tap here to swim up';
+      $('guideDown').textContent = portrait() ? `${tap} here to steer right` : keys ? 'Click here or press ↓ to go down' : 'Tap here to go down';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);

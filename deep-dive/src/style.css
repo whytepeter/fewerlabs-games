@@ -28,13 +28,14 @@ body {
 
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; touch-action: none; }
-/* Portrait: turn the whole dive 90° so you sink down the screen. The UI stays upright. */
+/* Portrait: turn the whole dive 90° the other way so the diver heads up the screen (the world's
+   "up" is then the screen's left). The UI stays upright. */
 @media (orientation: portrait) {
   #game {
-    inset: auto; top: 0; left: 100vw;
+    inset: auto; left: 0; top: 100vh; top: 100dvh;
     width: 100vh; width: 100dvh; height: 100vw;
     transform-origin: 0 0;
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
   }
 }
 
@@ -49,7 +50,7 @@ body {
   html, body, #ui { bottom: auto; height: var(--app-h); }
   /* Landscape: full height. Portrait: #game is turned 90°, so its width runs down the screen. */
   #game { bottom: auto; height: var(--app-h); }
-  @media (orientation: portrait) { #game { width: var(--app-h); height: 100vw; } }
+  @media (orientation: portrait) { #game { top: var(--app-h); width: var(--app-h); height: 100vw; } }
 }
 
 /* ---------- HUD */
@@ -724,7 +725,7 @@ body.dev-mode::after {
   animation: guide-bob 1.6s ease-in-out infinite;
 }
 .guide-zone[data-dir="down"] .guide-tag { animation-direction: reverse; }
-/* A chevron pointing the way: up/down in landscape, right/left in portrait. */
+/* A chevron pointing the way: up/down in landscape, left/right in portrait. */
 .guide-arrow {
   width: 12px; height: 12px; margin: 4px 2px 0;
   border: solid #ffd23f; border-width: 4px 0 0 4px; transform: rotate(45deg);
@@ -738,10 +739,11 @@ body.dev-mode::after {
 
 @media (orientation: portrait) {
   .guide { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
-  .guide-zone[data-dir="up"] { order: 2; border-bottom: 0; border-left: 2px dashed rgba(255, 255, 255, .35); }
-  .guide-arrow { transform: rotate(135deg); margin: 0 4px 0 0; }
-  .guide-zone[data-dir="down"] .guide-arrow { transform: rotate(-45deg); margin: 0 0 0 4px; }
-  .guide-zone[data-dir="up"] .guide-tag { flex-direction: row-reverse; }
+  /* "up" (the world's) is the left half, "down" the right */
+  .guide-zone[data-dir="up"] { border-bottom: 0; border-right: 2px dashed rgba(255, 255, 255, .35); }
+  .guide-arrow { transform: rotate(-45deg); margin: 0 0 0 4px; }
+  .guide-zone[data-dir="down"] .guide-arrow { transform: rotate(135deg); margin: 0 4px 0 0; }
+  .guide-zone[data-dir="down"] .guide-tag { flex-direction: row-reverse; }
   .guide-tag { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; }
   @keyframes guide-bob { 50% { transform: translateX(4px); } }
 }

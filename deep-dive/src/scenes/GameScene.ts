@@ -594,16 +594,17 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Steering: +1 swims up, -1 down, 0 drifts. Touch the side of the screen you want to move toward:
-   * the top/bottom half in landscape, the right/left half in portrait (the world is turned 90° there,
-   * so screen right is the world's "up"). Keys: →, ↑, D, W, Space up; ←, ↓, A, S down.
+   * the top/bottom half in landscape, the left/right half in portrait (the world is turned 90° there,
+   * heading up the screen, so screen left is the world's "up"). Keys: ↑, W, Space up and ↓, S down;
+   * the side arrows (and A/D) follow the screen: → up in landscape, ← up in portrait.
    */
   private steering() {
-    const k = this.keys;
-    let dir = (k.right.isDown || k.d.isDown || k.up.isDown || k.w.isDown || k.space.isDown ? 1 : 0)
-      - (k.left.isDown || k.a.isDown || k.down.isDown || k.s.isDown ? 1 : 0);
-    const portrait = portraitView();
+    const k = this.keys, portrait = portraitView();
+    const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
+    let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
+      - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
     for (const t of this.touches.values()) {
-      dir += (portrait ? t.x > innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
+      dir += (portrait ? t.x < innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
     }
     return Math.sign(dir);
   }
