@@ -7,7 +7,7 @@ import type { Page } from './pages';
  * here and bump UPDATED.
  */
 export const CONTACT = 'fewerlabs@gmail.com';
-const UPDATED = '26 October 2026';
+const UPDATED = '27 October 2026';
 const mail = `<a href="mailto:${CONTACT}">${CONTACT}</a>`;
 
 const doc = (title: string, body: string): Page => ({
@@ -20,7 +20,7 @@ export const privacyPage = (): Page => doc('Privacy Policy', `
   <p class="legal-updated">Last updated ${UPDATED}</p>
 
   <p>Fewer Labs makes small, free games that play in your browser. This policy explains what our
-  games store, what we collect, and the choices you have. It covers <a href="https://fewerlabs.dev">fewerlabs.dev</a>,
+  games store, what we collect, and your rights. It covers <a href="https://fewerlabs.dev">fewerlabs.dev</a>,
   the games store at games.fewerlabs.dev, and the games we host on fewerlabs.dev subdomains (Deep Dive,
   Ripple and Skip). Draw Am runs on its own site under its own policy.</p>
 
@@ -37,8 +37,8 @@ export const privacyPage = (): Page => doc('Privacy Policy', `
   <ul>
     <li><b>Anonymous account.</b> Deep Dive signs you in anonymously through Google Firebase, so your
     progress can be backed up. This gives your device a random ID; it doesn't identify you.</li>
-    <li><b>Cloud save.</b> Your game progress (coins, divers, missions, best depths and the age you
-    entered) is backed up to Firebase under that ID.</li>
+    <li><b>Cloud save.</b> Your game progress and settings, including the age you entered, are backed
+    up to Firebase under that ID.</li>
     <li><b>Optional sign-in.</b> If you choose to save your progress with Google or an email and
     password, Firebase keeps that email so you can sign in on other devices.</li>
     <li><b>Leaderboard.</b> The name you choose and your best depth are shown publicly on the
@@ -49,22 +49,19 @@ export const privacyPage = (): Page => doc('Privacy Policy', `
   <p>Deep Dive asks your age the first time you play. We use it only to keep the game suitable: players
   under 13 are never shown personalised ads, and ad requests for them are marked as child-directed.</p>
 
-  <h2>Play analytics (only with your consent)</h2>
-  <p>If you choose <b>Accept all</b> in the cookie banner, or turn on <b>Play analytics</b> in Settings,
-  Deep Dive records anonymous events such as how deep a dive went and what ended it, whether you used
-  "Save me", whether you watched an ad, what you spent in-game coins on, and treasure you found. Each
-  event carries only the random ID and the date, never your name, email or age. We use them to balance
-  the game, and keep them for up to two years. Choose <b>Essential only</b>, or turn the switch off,
-  and nothing is recorded.</p>
+  <h2>Play analytics</h2>
+  <p>Deep Dive records anonymous play events, such as how your dives go, to improve and balance the
+  game. Each event carries only the random ID and the date, never your name, email or age. We keep
+  them for up to two years.</p>
 
   <h2>Ads</h2>
   <p>Deep Dive may show optional ads from Google (AdSense) that you choose to watch for a reward,
-  such as continuing a dive. Google and its partners may use cookies or similar technology to show
-  and measure ads. Ads are personalised only if you allow it, and never for players under 13.
-  Without your consent you may still see ads, but they aren't based on your interests. You can learn
-  how Google uses data at <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google uses information from sites that use its services</a>,
-  and manage ad personalisation at <a href="https://adssettings.google.com" target="_blank" rel="noopener">Google Ad Settings</a>.
-  In Europe and the UK, Google's own consent message may also ask for your choice.</p>
+  such as continuing a dive. Google and its partners use cookies or similar technology to show and
+  measure ads, and may personalise them, except for players under 13, who only see ads that aren't
+  based on their interests. In Europe and the UK, Google's own consent message may ask for your choice.
+  You can learn how Google uses data at
+  <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">How Google uses information from sites that use its services</a>,
+  and manage ad personalisation at <a href="https://adssettings.google.com" target="_blank" rel="noopener">Google Ad Settings</a>.</p>
 
   <h2>Services we use</h2>
   <ul>
@@ -82,7 +79,6 @@ export const privacyPage = (): Page => doc('Privacy Policy', `
 
   <h2>Your choices and rights</h2>
   <ul>
-    <li>Change your consent any time in Deep Dive under <b>Settings → Privacy</b>.</li>
     <li>Sign out, or clear your browser's site data, to remove what's stored on your device.</li>
     <li>Email ${mail} to ask for a copy of your data, or to have your account, cloud save or
     leaderboard entry deleted. Tell us your leaderboard name to help us find it.</li>
