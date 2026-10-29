@@ -116,7 +116,7 @@ export const CAVES: CaveDef[] = [
     id: 'kelp',
     name: 'Kelp Forest',
     blurb: 'A wide, wavy forest. Kelp slows you down: steer around it. Coins ×1.25.',
-    unlock: { cave: 'reef', depth: 1000 },
+    unlock: { cave: 'reef', depth: 1200 },
     biomes: [
       { at: 0,   name: 'Kelp Shallows',  top: 0x47d9b0, bot: 0x137a66, rock: 0x2f7a52, dark: 0,    vent: 0 },
       { at: 180, name: 'Swaying Canopy', top: 0x23a184, bot: 0x0d5a4e, rock: 0x2a6646, dark: 0.3,  vent: 0 },
@@ -142,7 +142,7 @@ export const CAVES: CaveDef[] = [
     id: 'frost',
     name: 'Frozen Trench',
     blurb: 'Slippery ice, falling icicles and cold air that runs out faster. Coins ×1.5.',
-    unlock: { cave: 'kelp', depth: 1200 },
+    unlock: { cave: 'kelp', depth: 1450 },
     biomes: [
       { at: 0,   name: 'Frost Shelf',      top: 0xbfefff, bot: 0x5fb3db, rock: 0x2a5d8c, dark: 0,    vent: 0 },
       { at: 160, name: 'Glacier Hollow',   top: 0x6cc4ec, bot: 0x2a6fa8, rock: 0x224d7c, dark: 0.3,  vent: 0 },
@@ -172,7 +172,7 @@ export const CAVES: CaveDef[] = [
     id: 'pirate',
     name: 'Pirate Shipwreck',
     blurb: 'A graveyard of pirate ships. Dodge cannon fire and swinging anchors. Coins ×1.75.',
-    unlock: { cave: 'frost', depth: 1200 },
+    unlock: { cave: 'frost', depth: 1450 },
     biomes: [
       { at: 0,   name: "Smugglers' Cove",    top: 0x3fc6d8, bot: 0x16839a, rock: 0x8a6440, dark: 0,    vent: 0 },
       { at: 170, name: 'Ship Graveyard',     top: 0x228aa8, bot: 0x0f4f72, rock: 0x6e4b30, dark: 0.32, vent: 0 },
@@ -203,7 +203,7 @@ export const CAVES: CaveDef[] = [
     id: 'titanic',
     name: 'Titanic Wreck',
     blurb: 'A great liner lost in the cold and dark. Mind the steam and falling decks. Coins ×2.',
-    unlock: { cave: 'pirate', depth: 1300 },
+    unlock: { cave: 'pirate', depth: 1550 },
     biomes: [
       { at: 0,   name: 'Promenade Deck',  top: 0x2b5f8a, bot: 0x143a5e, rock: 0x45566a, dark: 0.3,  vent: 0 },
       { at: 160, name: 'Grand Staircase', top: 0x1d4468, bot: 0x0e2742, rock: 0x3e4c60, dark: 0.5,  vent: 0 },
@@ -233,7 +233,7 @@ export const CAVES: CaveDef[] = [
     id: 'riptide',
     name: 'Riptide Canyon',
     blurb: 'A sunny sandstone canyon full of fast currents. Ride them, or fight them. Coins ×1.5.',
-    unlock: { cave: 'reef', depth: 1500 },
+    unlock: { cave: 'reef', depth: 1800 },
     biomes: [
       { at: 0,   name: 'Sandbar Shallows', top: 0x5fd8e6, bot: 0x1b9cb8, rock: 0xd08a52, dark: 0,    vent: 0 },
       { at: 170, name: 'Red Rock Narrows', top: 0x2fa6c9, bot: 0x12648f, rock: 0xb4643c, dark: 0.28, vent: 0 },
@@ -262,7 +262,7 @@ export const CAVES: CaveDef[] = [
     id: 'sunken',
     name: 'Sunken City',
     blurb: 'A drowned temple city. Its gates and spears move on the beat of the music. Coins ×2.25.',
-    unlock: { cave: 'titanic', depth: 1400 },
+    unlock: { cave: 'titanic', depth: 1700 },
     biomes: [
       { at: 0,   name: 'Marble Terraces',  top: 0x4fd6c8, bot: 0x1a8f99, rock: 0xbfae8c, dark: 0.05, vent: 0 },
       { at: 170, name: 'Temple Gates',     top: 0x2a9db0, bot: 0x105a78, rock: 0xa89470, dark: 0.32, vent: 0 },
@@ -297,7 +297,8 @@ export const bestKey = (id: CaveId) => (id === 'reef' ? 'best' : `best:${id}`);
 export const caveBest = (id: CaveId) => store.get(bestKey(id), 0);
 
 export function isUnlocked(c: CaveDef) {
-  return !c.unlock || caveBest(c.unlock.cave) >= c.unlock.depth;
+  // A cave the player has already opened stays open, even if its unlock depth was raised since.
+  return !c.unlock || caveBest(c.unlock.cave) >= c.unlock.depth || store.get<string[]>('cavesSeen', []).includes(c.id);
 }
 
 /** The cave picked on the title screen (back to the Reef Trench if it isn't open). */
