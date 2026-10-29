@@ -94,10 +94,6 @@ function explain(e: unknown): string {
   return words[code] ?? 'Something went wrong. Please try again.';
 }
 
-const ADJ = ['Brave', 'Swift', 'Lucky', 'Sunny', 'Bubbly', 'Quiet', 'Bold', 'Sly', 'Jolly', 'Deep', 'Salty', 'Zippy'];
-const SEA = ['Otter', 'Squid', 'Puffer', 'Manta', 'Seal', 'Turtle', 'Urchin', 'Marlin', 'Krill', 'Narwhal', 'Shrimp', 'Clam'];
-const pick = (a: string[]) => a[(Math.random() * a.length) | 0];
-
 /** Trimmed, single-spaced, printable, at most NAME_MAX characters. */
 export function cleanName(raw: string) {
   return raw.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, NAME_MAX);
@@ -333,12 +329,10 @@ export const cloud = {
   /** Called after a newer cloud save replaced this device's progress. */
   onRestore(fn: () => void) { restoreListeners.push(fn); },
 
-  /** The name shown on the leaderboard (made up the first time, then saved and synced). */
-  get name() {
-    let n = store.get('playerName', '');
-    if (!n) { n = `${pick(ADJ)} ${pick(SEA)}`; store.set('playerName', n); }
-    return n;
-  },
+  /** The name the player chose for the leaderboard (saved and synced); empty until they choose one. */
+  get name() { return store.get('playerName', ''); },
+  /** What the board shows: their name, or "Diver" if they haven't chosen one. */
+  get boardName() { return this.name || 'Diver'; },
 
   /** Rename; returns the cleaned name, or null when it was empty. */
   async rename(raw: string) {
@@ -355,7 +349,7 @@ export const cloud = {
     const f = await starting;
     if (!f || best <= submitted) return false;
     try {
-      await f.fs.setDoc(f.fs.doc(scores(f), f.uid), { name: this.name, best: Math.floor(best), updatedAt: f.fs.serverTimestamp() });
+      await f.fs.setDoc(f.fs.doc(scores(f), f.uid), { name: this.boardName, best: Math.floor(best), updatedAt: f.fs.serverTimestamp() });
       submitted = best;
       return true;
     } catch (e) {
@@ -369,7 +363,7 @@ export const cloud = {
     const f = await starting;
     if (!f || best <= 0) return false;
     try {
-      await f.fs.setDoc(f.fs.doc(scores(f, day), f.uid), { name: this.name, best: Math.floor(best), updatedAt: f.fs.serverTimestamp() });
+      await f.fs.setDoc(f.fs.doc(scores(f, day), f.uid), { name: this.boardName, best: Math.floor(best), updatedAt: f.fs.serverTimestamp() });
       return true;
     } catch (e) {
       warn('daily score', e);

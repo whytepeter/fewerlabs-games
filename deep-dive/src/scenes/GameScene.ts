@@ -645,8 +645,8 @@ export class GameScene extends Phaser.Scene {
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
-    // First dive: the guide stays until both directions have been held (or a while has passed).
-    if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 25)) {
+    // First dive: the guide stays until both directions have been held, 10 seconds at most.
+    if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 10)) {
       this.learned = true;
       store.set('learned', true);
       ui.guideDone();

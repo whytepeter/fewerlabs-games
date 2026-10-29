@@ -618,20 +618,24 @@ export const ui = {
   },
 
   /**
-   * Right after the age: the name shown on the leaderboard, asked once. It starts on the made-up
-   * name, so Let's dive keeps that; an empty box keeps it too. Then `next`.
+   * Right after the age: the name shown on the leaderboard, asked once. The box starts empty and
+   * Let's dive waits until something is typed. Then `next`.
    */
   askName(next: () => void) {
     if (lagos.on) { next(); return; } // their board shows the player's Lagos Life name
     if (store.get('nameAsked', false)) { next(); return; }
-    const el = $('namePop'), input = $('namePopInput') as HTMLInputElement;
+    const el = $('namePop'), input = $('namePopInput') as HTMLInputElement, ok = $('namePopOk') as HTMLButtonElement;
     input.value = cloud.name;
+    const sync = () => { ok.disabled = !cleanName(input.value); };
+    input.addEventListener('input', sync);
+    sync();
     $('namePopForm').addEventListener('submit', e => {
       e.preventDefault();
+      if (!cleanName(input.value)) { input.focus(); return; }
       buzz(6);
       input.blur();
       store.set('nameAsked', true);
-      if (cleanName(input.value) && cleanName(input.value) !== cloud.name) void cloud.rename(input.value);
+      if (cleanName(input.value) !== cloud.name) void cloud.rename(input.value);
       el.hidden = true;
       next();
     });
@@ -1363,7 +1367,7 @@ async function openBoard(today = false) {
   top.forEach((s, i) => list.append(row(i + 1, s.name, s.best, s.me)));
   if (best > 0 && rank && !top.some(s => s.me)) {
     const gap = document.createElement('li'); gap.className = 'gap'; gap.textContent = '…';
-    list.append(gap, row(rank, cloud.name, best, true));
+    list.append(gap, row(rank, cloud.boardName, best, true));
   }
 }
 
@@ -1515,8 +1519,8 @@ function pumpCoach() {
   coachTimer = window.setTimeout(() => {
     box.hidden = true;
     target.classList.remove('coach-target');
-    coachTimer = window.setTimeout(pumpCoach, 400);
-  }, 4200);
+    coachTimer = window.setTimeout(pumpCoach, 300);
+  }, 2800);
 }
 
 function enterFullscreen() {
