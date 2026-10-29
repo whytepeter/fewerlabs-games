@@ -330,6 +330,11 @@ function huntHead() {
 
 export const ui = {
   init(h: Handlers) {
+    // Unlock the AudioContext on the very first user gesture anywhere on the page.
+    const unlockAudio = () => { sfx.unlock(); };
+    document.addEventListener('pointerdown', unlockAudio, { capture: true, passive: true });
+    document.addEventListener('keydown', unlockAudio, { capture: true, passive: true });
+
     shells.onChange(drawShells);
     hydrateIcons();
     wobbleLetters($('logo'));
@@ -450,8 +455,7 @@ export const ui = {
     const syncOrientation = () => {
       const keys = !isTouch();
       $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
-      $('howHoldText').textContent = keys ? (portrait() ? 'left / right, or the arrow keys' : 'top / bottom, or the arrow keys')
-        : portrait() ? 'left / right to steer' : 'top / bottom to steer';
+      $('howHoldText').textContent = keys ? 'top / bottom, or the arrow keys' : 'top / bottom to steer';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
@@ -474,6 +478,7 @@ export const ui = {
     $('specialBtn').hidden = !visible;
     if (!visible) $('boosterBar').hidden = true;
     if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); this.coach(null); }
+    $('ui').classList.toggle('diving', visible);
   },
 
   /** The title hub; the best shown is the selected cave's. */
@@ -485,6 +490,7 @@ export const ui = {
     $('boardBtn').hidden = !cloud.enabled && !lagos.on; // inside Lagos Life it's their leaderboard (the cloud is off there)
     this.refreshTitle();
     this.hud(false);
+    $('ui').classList.remove('diving');
     this.screen('title');
     unlockOrientation();
     if (diveEnded) { diveEnded = false; window.setTimeout(() => this.offerInstall(), 700); }
@@ -625,7 +631,7 @@ export const ui = {
     if (lagos.on) { next(); return; } // their board shows the player's Lagos Life name
     if (store.get('nameAsked', false)) { next(); return; }
     const el = $('namePop'), input = $('namePopInput') as HTMLInputElement, ok = $('namePopOk') as HTMLButtonElement;
-    input.value = cloud.name;
+    input.value = '';
     const sync = () => { ok.disabled = !cleanName(input.value); };
     input.addEventListener('input', sync);
     sync();
@@ -1277,17 +1283,16 @@ export const ui = {
     coachQueue = [];
     coachSeen = new Set();
     this.coach(null);
-    const keys = !isTouch(), p = portrait();
+    const keys = !isTouch();
     g.classList.toggle('touch', !keys);
     g.querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
       const up = z.dataset.dir === 'up';
       z.classList.remove('on', 'done', 'pressing');
       z.style.setProperty('--fill', '0');
-      // In portrait the world is turned 90°, heading up the screen: "up" is the left half and the ← key.
-      z.querySelector('.guide-key')!.textContent = p ? (up ? '←' : '→') : up ? '↑' : '↓';
+      z.querySelector('.guide-key')!.textContent = up ? '↑' : '↓';
       z.querySelector('.guide-say')!.textContent = keys
-        ? (p ? (up ? 'Hold to steer left' : 'Hold to steer right') : up ? 'Hold to swim up' : 'Hold to go down')
-        : p ? (up ? 'Hold here to steer left' : 'Hold here to steer right') : up ? 'Hold here to swim up' : 'Hold here to go down';
+        ? (up ? 'Hold to swim up' : 'Hold to go down')
+        : up ? 'Hold here to swim up' : 'Hold here to go down';
     });
     guideZone(1).classList.add('on');
   },
@@ -1529,7 +1534,11 @@ function enterFullscreen() {
 }
 
 function lockLandscape() {
-  try { (screen.orientation as any).lock?.('landscape')?.catch?.(() => {}); } catch { /* unsupported */ }
+  try {
+    const doLock = () => { (screen.orientation as any).lock?.('landscape')?.catch?.(() => {}); };
+    if (document.fullscreenElement) doLock();
+    else document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.then(doLock).catch(() => doLock());
+  } catch { /* unsupported */ }
 }
 function unlockOrientation() {
   try { (screen.orientation as any).unlock?.(); } catch { /* unsupported */ }
