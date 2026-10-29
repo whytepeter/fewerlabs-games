@@ -104,7 +104,7 @@ export function missions(game: string, pool: MissionDef[]) {
   const make = (def: MissionDef): Mission => {
     const tier = Math.min(def.targets.length - 1, tiers()[def.id] ?? 0);
     const target = def.targets[tier];
-    return { id: def.id, text: def.text.replace('{n}', target.toLocaleString()), stat: def.stat, kind: def.kind, target, reward: Math.round(def.reward * (1 + tier * 0.5)), progress: 0, tier };
+    return { id: def.id, text: def.text.replace('{n}', target.toLocaleString()).replace('{s}', target === 1 ? '' : 's'), stat: def.stat, kind: def.kind, target, reward: Math.round(def.reward * (1 + tier * 0.5)), progress: 0, tier };
   };
   const load = (): Mission[] => {
     let list = persist.get<Mission[]>(key, []).filter(m => pool.some(d => d.id === m.id));
