@@ -72,9 +72,10 @@
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
     <div id="guide" class="guide" hidden aria-live="polite">
-      <div class="guide-zone" data-dir="up"><span class="guide-tag"><i class="guide-arrow"></i><b id="guideUp">Tap here to swim up</b></span></div>
-      <div class="guide-zone" data-dir="down"><span class="guide-tag"><i class="guide-arrow"></i><b id="guideDown">Tap here to go down</b></span></div>
+      <div class="guide-zone" data-dir="up"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↑</b><b class="guide-say"></b></span></div>
+      <div class="guide-zone" data-dir="down"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↓</b><b class="guide-say"></b></span></div>
     </div>
+    <div id="coach" class="coach" hidden aria-live="polite"><b id="coachText"></b></div>
     <div id="lowO2" class="low-o2"></div>
 
     <section id="title" class="k-screen title-screen">
@@ -115,7 +116,7 @@
           <div class="howto" id="howto">
             <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Touch</b><span id="howHoldText">top / bottom to steer</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
-            <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b>3 lives</b><span>dodge critters</span></div>
+            <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b id="howLives">3 lives</b><span>dodge critters</span></div>
           </div>
           <button class="title-quests" id="titleQuests" type="button" aria-label="Missions">
             <span class="tq-head"><b>Next mission</b><small id="tqSet"></small></span>

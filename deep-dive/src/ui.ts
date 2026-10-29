@@ -65,8 +65,16 @@ let o2Low = false;
 let lowShown = false;
 let shownPerk: string | null = null;
 let toastTimer = 0;
-let hintTimer = 0, tipTimer = 0;
-let guidePressed = 0;
+let hintTimer = 0;
+let guideLeft = 0;      // first-dive guide: bit 1 = swim up still to learn, bit 2 = go down
+let guideHeld = 0;      // seconds the asked-for half has been held
+let guideTimer = 0;
+const GUIDE_HOLD = 0.5; // how long a half must be held to count as learned
+// Coach tips, shown one at a time once the steering guide is done.
+type CoachTip = { target: string; text: string };
+let coachQueue: CoachTip[] = [];
+let coachSeen = new Set<string>();
+let coachTimer = 0;
 const SAVE_ME_SECONDS = 5;
 let diveEnded = false; // the next title screen comes straight after a dive
 let showcase: ReturnType<typeof liveDiver> | undefined; // the title's big, live-drawn diver
@@ -292,9 +300,9 @@ export const ui = {
     onCave = h.cave;
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
-    on('playBtn', () => { enterFullscreen(); h.play(); });
+    on('playBtn', () => { enterFullscreen(); lockLandscape(); h.play(); });
     on('againBtn', h.again);
-    on('dailyBtn', () => { enterFullscreen(); h.daily(); });
+    on('dailyBtn', () => { enterFullscreen(); lockLandscape(); h.daily(); });
     document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.addEventListener('click', () => {
       buzz(6);
       void openBoard(b.dataset.board === 'today');
@@ -405,16 +413,10 @@ export const ui = {
     onInstallChange(() => { if (!installMode()) closeOffer(); });
 
     const syncOrientation = () => {
-      // Touch the side you want to move toward: left/right in portrait (the dive runs down the screen), top/bottom in landscape.
-      // On a computer, say so with the mouse and the arrow keys too (↑/↓ always steer, see GameScene.steering).
       const keys = !isTouch();
       $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
       $('howHoldText').textContent = keys ? (portrait() ? 'left / right, or the arrow keys' : 'top / bottom, or the arrow keys')
         : portrait() ? 'left / right to steer' : 'top / bottom to steer';
-      // First-dive guide: in portrait the "up" half is on the right (the world is turned 90°).
-      const tap = keys ? 'Click' : 'Tap';
-      $('guideUp').textContent = portrait() ? `${tap} here to steer right` : keys ? 'Click here or press ↑ to swim up' : 'Tap here to swim up';
-      $('guideDown').textContent = portrait() ? `${tap} here to steer left` : keys ? 'Click here or press ↓ to go down' : 'Tap here to go down';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
@@ -436,7 +438,7 @@ export const ui = {
     $('hud').hidden = !visible;
     $('specialBtn').hidden = !visible;
     if (!visible) $('boosterBar').hidden = true;
-    if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); clearTimeout(tipTimer); }
+    if (!visible) { this.lowO2(false); this.hint(null); this.guide(false); this.coach(null); }
   },
 
   /** The title hub; the best shown is the selected cave's. */
@@ -449,6 +451,7 @@ export const ui = {
     this.refreshTitle();
     this.hud(false);
     this.screen('title');
+    unlockOrientation();
     if (diveEnded) { diveEnded = false; window.setTimeout(() => this.offerInstall(), 700); }
   },
 
@@ -459,6 +462,7 @@ export const ui = {
 
   /** Title hub: rank, diver showcase, best depth and the badges on the menu tiles. */
   refreshTitle() {
+    $('howLives').textContent = store.get('learned', false) ? '3 lives' : '5 lives'; // a first dive has 2 extra
     const s = SKINS[skinIndex(wearing)];
     (showcase ??= liveDiver($('showcaseImg') as HTMLCanvasElement)).set(s);
     $('showcaseName').textContent = charOf(s).name;
@@ -1097,8 +1101,15 @@ export const ui = {
     if (n > 0) bump($('pearlPill'));
   },
 
-  setHearts(n: number) {
+  /** `max` (at the start of a dive) sets how many lives are drawn: a first dive has extra. */
+  setHearts(n: number, max?: number) {
     const hearts = $('hearts');
+    if (max) {
+      const all = hearts.querySelectorAll('svg');
+      for (let i = all.length; i < max; i++) hearts.append(all[0].cloneNode(true));
+      for (let i = all.length - 1; i >= max; i--) all[i].remove();
+      hearts.querySelectorAll('svg').forEach(el => el.classList.remove('lost', 'shake'));
+    }
     hearts.setAttribute('aria-label', `${n} li${n === 1 ? 'fe' : 'ves'} left`);
     hearts.querySelectorAll('svg').forEach((el, i) => {
       const was = !el.classList.contains('lost');
@@ -1202,35 +1213,76 @@ export const ui = {
     hintTimer = window.setTimeout(() => { $('hint').hidden = true; }, ms); // don't linger over play
   },
 
-  /** First-dive guide: the screen split into its two steering halves, labelled. */
+  /** First-dive guide: the half of the screen to hold (or the arrow key), one direction at a time. */
   guide(on: boolean) {
-    $('guide').hidden = !on;
-    guidePressed = 0;
-    if (on) $('guide').querySelectorAll('.guide-zone').forEach(z => z.classList.remove('used', 'active'));
-  },
-  /** The half being pressed lights up and gets a tick once used: +1 up, -1 down, 0 none. */
-  guidePress(dir: number) {
-    if (dir === guidePressed || $('guide').hidden) return;
-    guidePressed = dir;
-    $('guide').querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
-      const mine = (z.dataset.dir === 'up' ? 1 : -1) === dir;
-      z.classList.toggle('active', mine);
-      if (mine) z.classList.add('used');
+    const g = $('guide');
+    g.hidden = !on;
+    clearTimeout(guideTimer);
+    guideLeft = on ? 3 : 0;
+    guideHeld = 0;
+    if (!on) return;
+    coachQueue = [];
+    coachSeen = new Set();
+    this.coach(null);
+    const keys = !isTouch(), p = portrait();
+    g.classList.toggle('touch', !keys);
+    g.querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
+      const up = z.dataset.dir === 'up';
+      z.classList.remove('on', 'done', 'pressing');
+      z.style.setProperty('--fill', '0');
+      // In portrait the world is turned 90°: "up" is the right half and the → key.
+      z.querySelector('.guide-key')!.textContent = p ? (up ? '→' : '←') : up ? '↑' : '↓';
+      z.querySelector('.guide-say')!.textContent = keys
+        ? (p ? (up ? 'Hold to steer right' : 'Hold to steer left') : up ? 'Hold to swim up' : 'Hold to go down')
+        : p ? (up ? 'Hold here to steer right' : 'Hold here to steer left') : up ? 'Hold here to swim up' : 'Hold here to go down';
     });
+    guideZone(1).classList.add('on');
   },
-  /** Both halves used: let the ticks show for a moment, then hand over to the tips. */
+  /** Called every frame with the steering (+1 up, -1 down, 0 none). Returns true once both directions are learned. */
+  guidePress(dir: number, dt: number): boolean {
+    if (!guideLeft) return false;
+    const bit = dir > 0 ? 1 : dir < 0 ? 2 : 0;
+    $('guide').querySelectorAll('.guide-zone').forEach(z => z.classList.remove('pressing'));
+    // Holding either half counts, even the one not asked for yet.
+    if (!(bit & guideLeft)) { guideHeld = 0; showFill(); return false; }
+    const zone = guideZone(bit);
+    if (!zone.classList.contains('on')) {
+      $('guide').querySelectorAll('.guide-zone.on').forEach(z => { z.classList.remove('on'); (z as HTMLElement).style.setProperty('--fill', '0'); });
+      zone.classList.add('on');
+      guideHeld = 0;
+    }
+    zone.classList.add('pressing');
+    guideHeld += dt;
+    showFill();
+    if (guideHeld < GUIDE_HOLD) return false;
+    buzz(12);
+    sfx.unlock();
+    zone.classList.replace('on', 'done');
+    zone.classList.remove('pressing');
+    guideLeft &= ~bit;
+    guideHeld = 0;
+    if (guideLeft) { guideZone(guideLeft).classList.add('on'); return false; }
+    return true;
+  },
+  /** Steering learned (or time ran out): let the ticks show, then hand over to the coach tips. */
   guideDone() {
-    clearTimeout(tipTimer);
-    tipTimer = window.setTimeout(() => {
-      this.guide(false);
-      if (!$('hud').hidden) this.tips();
-    }, 700);
+    guideLeft = 0;
+    clearTimeout(guideTimer);
+    guideTimer = window.setTimeout(() => { $('guide').hidden = true; pumpCoach(); }, 900);
   },
-  /** After the guide: what else to know, one tip at a time. */
-  tips() {
-    this.hint('Grab bubbles to refill your air');
-    clearTimeout(tipTimer);
-    tipTimer = window.setTimeout(() => this.hint('Dodge critters: you have 3 lives'), 4300);
+  /** A coach tip pointing at a HUD element: queued, each shown once per dive. `null` clears them. */
+  coach(tip: { id: string; target: string; text: string } | null) {
+    if (!tip) {
+      clearTimeout(coachTimer);
+      coachQueue = [];
+      $('coach').hidden = true;
+      document.querySelectorAll('.coach-target').forEach(e => e.classList.remove('coach-target'));
+      return;
+    }
+    if (coachSeen.has(tip.id)) return;
+    coachSeen.add(tip.id);
+    coachQueue.push(tip);
+    pumpCoach();
   },
 };
 
@@ -1359,7 +1411,53 @@ function bump(el: HTMLElement) {
 }
 
 /** Full screen where the browser allows it (Android Chrome); silently ignored elsewhere. */
+function guideZone(bit: number) {
+  return $('guide').querySelector<HTMLElement>(`.guide-zone[data-dir="${bit & 1 ? 'up' : 'down'}"]`)!;
+}
+function showFill() {
+  const on = $('guide').querySelector<HTMLElement>('.guide-zone.on');
+  on?.style.setProperty('--fill', String(Math.min(1, guideHeld / GUIDE_HOLD)));
+}
+/** Show the next coach tip, if nothing else is on screen. */
+function pumpCoach() {
+  const box = $('coach');
+  if (!box.hidden || !$('guide').hidden || $('hud').hidden) return;
+  const tip = coachQueue.shift();
+  if (!tip) return;
+  const target = $(tip.target);
+  const r = target.getBoundingClientRect();
+  if (!r.width) { pumpCoach(); return; } // hidden target: skip it
+  // In the HUD's middle stack (air bar over lives), sit below the whole stack so neither is covered.
+  const stack = target.closest('.hud-mid')?.getBoundingClientRect();
+  $('coachText').textContent = tip.text;
+  box.hidden = false;
+  // Below the target, or above it when it's in the lower half; the arrow points at its centre.
+  const w = box.offsetWidth, h = box.offsetHeight, cx = r.left + r.width / 2;
+  const left = Math.max(16, Math.min(innerWidth - w - 16, cx - w / 2));
+  const above = r.top > innerHeight / 2;
+  box.classList.toggle('above', above);
+  box.style.left = `${left}px`;
+  box.style.top = `${above ? r.top - h - 16 : Math.max(r.bottom, stack?.bottom ?? 0) + 16}px`;
+  box.style.setProperty('--ax', `${cx - left}px`);
+  target.classList.remove('coach-target');
+  void target.offsetWidth;
+  target.classList.add('coach-target');
+  clearTimeout(coachTimer);
+  coachTimer = window.setTimeout(() => {
+    box.hidden = true;
+    target.classList.remove('coach-target');
+    coachTimer = window.setTimeout(pumpCoach, 400);
+  }, 4200);
+}
+
 function enterFullscreen() {
   if (!isTouch() || !document.fullscreenEnabled || document.fullscreenElement) return;
   document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+}
+
+function lockLandscape() {
+  try { (screen.orientation as any).lock?.('landscape')?.catch?.(() => {}); } catch { /* unsupported */ }
+}
+function unlockOrientation() {
+  try { (screen.orientation as any).unlock?.(); } catch { /* unsupported */ }
 }

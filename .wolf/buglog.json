@@ -107,6 +107,42 @@
         "cloud"
       ],
       "file": "deep-dive/src/core/cloud.ts"
+    },
+    {
+      "error_message": "Installed iPhone PWA shows a coloured band at the bottom under the game (all games)",
+      "root_cause": "iOS 26 standalone + viewport-fit=cover + black-translucent status bar: viewport is shorter than the screen by the status bar height (WebKit 301108), so position:fixed inset:0 layers stop short and body background shows",
+      "fix": "In @media (display-mode: standalone|fullscreen) size html/body/#game/#ui (and Ripple #safe, store .player) to min(100lvh, 100dvh + env(safe-area-inset-top)); Deep Dive portrait uses it as the rotated #game width",
+      "tags": [
+        "pwa",
+        "ios",
+        "safe-area",
+        "viewport",
+        "css"
+      ],
+      "date": "2026-10-26"
+    },
+    {
+      "id": "bug-009",
+      "error_message": "First-dive easing (5 lives, slower pace, gentler air) switched off seconds into the run",
+      "root_cause": "Easing keyed off `learned`, which flips true as soon as the steering guide completes",
+      "fix": "Added `rookie` flag set once at dive start; all easing reads it",
+      "tags": [
+        "deep-dive",
+        "tutorial",
+        "difficulty"
+      ],
+      "date": "2026-10-29"
+    },
+    {
+      "id": "bug-010",
+      "error_message": "HUD drew 3 life icons when a first dive had 5 lives",
+      "root_cause": "#hearts markup has 3 static SVGs; setHearts only toggled them",
+      "fix": "setHearts(n, max) clones/removes icons to match max at dive start and on Save Me",
+      "tags": [
+        "deep-dive",
+        "hud"
+      ],
+      "date": "2026-10-29"
     }
   ]
 }

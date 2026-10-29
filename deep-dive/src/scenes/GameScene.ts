@@ -154,6 +154,7 @@ export class GameScene extends Phaser.Scene {
   private charge = 0;
   private specialT = 0;
   private runSpecials = 0;
+  private runTreasures = 0;
   private lastTap = 0;
   /** Boosters: the chips are up for the first few seconds; each kind can be fired once a dive. */
   private boosterOpen = false;
@@ -205,8 +206,8 @@ export class GameScene extends Phaser.Scene {
   private biome = 0;
   private beepT = 0;
   private exhaustT = 0;
-  private guideUsed = 0;         // first-dive guide: bit 1 = swam up, bit 2 = swam down
   private learned = store.get('learned', false);
+  private rookie = false;       // this dive is the player's first: gentler pacing for the whole run
   /** The cave being dived (picked on the title screen). */
   private def: CaveDef = currentCave();
   private best = store.get(bestKey(this.def.id), 0);
@@ -432,7 +433,8 @@ export class GameScene extends Phaser.Scene {
     this.dist = 0;
     this.speed = 200;
     this.oxy = 100;
-    this.hearts = HEARTS;
+    this.rookie = !this.learned;
+    this.hearts = this.rookie ? HEARTS + 2 : HEARTS; // first-timers get 5 lives
     this.invuln = 0;
     this.shieldT = 0;
     this.magnetT = 0;
@@ -451,6 +453,7 @@ export class GameScene extends Phaser.Scene {
     this.charge = SPECIAL_START;
     this.specialT = 0;
     this.runSpecials = 0;
+    this.runTreasures = 0;
     this.lastTap = 0;
     this.usedBoosters.clear();
     this.doubler = false;
@@ -472,8 +475,8 @@ export class GameScene extends Phaser.Scene {
     this.vy = 0;
     this.runT = 0;
     this.biome = 0;
-    this.nextObs = 520;
-    this.nextAir = 320;
+    this.nextObs = this.rookie ? 700 : 520; // first-timers: later first obstacle, more breathing room
+    this.nextAir = this.rookie ? 240 : 320; // first-timers: air bubbles come sooner
     this.nextPearls = 700;
     const s = this.streams;
     this.nextPerk = this.withRng(s.perk, () => this.gap(PERK_FIRST, this.tune.perkGap));
@@ -498,7 +501,7 @@ export class GameScene extends Phaser.Scene {
     ui.hud(true);
     ui.setBest(this.best);
     ui.setDepth(0);
-    ui.setHearts(this.hearts);
+    ui.setHearts(this.hearts, this.hearts);
     ui.setPearls(0);
     ui.setPerk(null, 0);
     ui.setLifeline(false);
@@ -507,7 +510,7 @@ export class GameScene extends Phaser.Scene {
     ui.setBoosters(this.boosterOpen ? boosters.held() : null);
     ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
-    this.guideUsed = 0;
+    if (this.rookie && this.boosterOpen) ui.coach({ id: 'boosters', target: 'boosterBar', text: 'Tap a booster to power up your dive' });
     // Head Start: blast through the shallows in a Turbo, then a short shield to land safely.
     if (this.gear.has('headstart')) {
       this.kickoff = true;
@@ -627,11 +630,11 @@ export class GameScene extends Phaser.Scene {
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
-    // First dive: the guide stays until both halves have been used (or a while has passed).
-    if (!this.learned) {
-      ui.guidePress(steer);
-      if (steer) this.guideUsed |= steer > 0 ? 1 : 2;
-      if (this.guideUsed === 3 || this.runT > 20) { this.learned = true; store.set('learned', true); ui.guideDone(); }
+    // First dive: the guide stays until both directions have been held (or a while has passed).
+    if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 25)) {
+      this.learned = true;
+      store.set('learned', true);
+      ui.guideDone();
     }
     if (hold) {
       this.exhaustT -= dt;
@@ -643,7 +646,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const depth = this.dist / 10;
-    this.speed = 200 + Math.min(200, depth * 0.14);
+    this.speed = 200 + Math.min(200, depth * (this.rookie ? 0.09 : 0.14));
     this.moved = this.speed * (this.turboT > 0 ? TURBO_SPEED : this.tangle > 0 ? (this.perk === 'kelp' ? DIVER_PERK.kelpSlow : KELP_SLOW) : 1) * dt;
     this.dist += this.moved;
     ui.setDepth(Math.floor(depth));
@@ -673,7 +676,7 @@ export class GameScene extends Phaser.Scene {
       this.turboT ? this.turboT / this.turboMax : this.shieldT ? this.shieldT / this.shieldTime : this.magnetT / this.magnetTime);
 
     // Oxygen drains a little faster the deeper you are (and in colder caves); not during Turbo.
-    if (!this.turboT) this.oxy -= (6.5 + depth * 0.003) * (this.def.airDrain ?? 1) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * (this.perk === 'ice' ? DIVER_PERK.air : 1) * dt;
+    if (!this.turboT) this.oxy -= (6.5 + depth * 0.003) * (this.def.airDrain ?? 1) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * (this.perk === 'ice' ? DIVER_PERK.air : 1) * (this.rookie ? 0.7 : 1) * dt;
     const low = this.oxy < 25;
     ui.setOxygen(this.oxy / 100, low);
     ui.lowO2(low);
@@ -796,14 +799,17 @@ export class GameScene extends Phaser.Scene {
     const using = (k: Stream, timer: number, fn: () => void) => { this.lag = this.daily ? -timer : 0; this.withRng(this.streams[k], fn); };
     if ((this.nextObs -= step) <= 0) using('obs', this.nextObs, () => {
       this.spawnObstacle(depth);
+      if (this.rookie) ui.coach({ id: 'lives', target: 'hearts', text: 'Dodge critters: each bump costs a life' });
       // Sawtooth pacing: the cave closes in with depth, breathes in and out every ~450 m, and eases off after a new zone.
       const { gap, over } = this.def.pace;
       const wave = 1 + 0.2 * Math.sin((depth / 450) * TAU);
       const calm = depth < this.calmUntil ? 1.7 : 1;
-      this.nextObs = lerp(gap[0], gap[1], clamp(depth / over, 0, 1)) * wave * calm * this.cr(0.75, 1.25) - this.lag;
+      const rookie = this.rookie ? 1.6 : 1; // first game: obstacles are spaced 60% further apart
+      this.nextObs = lerp(gap[0], gap[1], clamp(depth / over, 0, 1)) * wave * calm * rookie * this.cr(0.75, 1.25) - this.lag;
     });
     if ((this.nextAir -= step) <= 0) using('air', this.nextAir, () => {
       this.spawnRow('air', 3, 34);
+      if (this.rookie) ui.coach({ id: 'air', target: 'o2bar', text: 'Swim through bubbles to refill your air' });
       this.nextAir = this.cr(420, 620) + depth * 0.08 - this.lag;
     });
     if ((this.nextPearls -= step) <= 0) using('pearl', this.nextPearls, () => {
@@ -1583,6 +1589,7 @@ export class GameScene extends Phaser.Scene {
   private findTreasure(it: TreasureItem) {
     const r = this.treasureDef!, first = treasureLog.add(r.id), n = first ? r.first : r.again, big = !!r.legendary;
     track('treasure', { id: r.id, first, depth: Math.floor(this.dist / 10) });
+    this.runTreasures++;
     shells.add(n);
     ui.banner(r.name, big && first ? 'Legendary find!' : first ? 'New treasure!' : 'Found it again!');
     ui.damage(`+${n} Sea Heart${n > 1 ? 's' : ''}! (${shells.count})`, true);
@@ -2320,8 +2327,8 @@ export class GameScene extends Phaser.Scene {
       else if (choice !== 'shell' || !shells.spend(cost)) { this.endDive(reason); return; }
       this.saves++;
       this.state = 'play';
-      this.hearts = HEARTS;
-      ui.setHearts(this.hearts);
+      this.hearts = this.rookie ? HEARTS + 2 : HEARTS;
+      ui.setHearts(this.hearts, this.hearts);
       this.oxy = Math.max(this.oxy, 60);
       this.invuln = 2.5;
       this.slowT = SLOWMO_TIME;
@@ -2389,7 +2396,7 @@ export class GameScene extends Phaser.Scene {
     const stats = {
       depth, pearls: this.runPearls, air: this.runAir, perks: this.runPerks, closeCalls: this.runClose,
       cleanDepth: this.cleanDepth < 0 ? depth : this.cleanDepth,
-      anglers: this.runAnglers, eels: this.runEels, specials: this.runSpecials,
+      anglers: this.runAnglers, eels: this.runEels, specials: this.runSpecials, treasures: this.runTreasures,
       dives: 1, daily: this.daily ? 1 : 0,
     };
     const { results, rankUp } = deepMissions.report(stats);
