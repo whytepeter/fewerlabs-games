@@ -28,14 +28,25 @@ body {
 
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; touch-action: none; }
-/* Portrait: turn the whole dive 90° the other way so the diver heads up the screen (the world's
-   "up" is then the screen's left). The UI stays upright. */
+/* Portrait: turn the whole dive 90° so the diver heads up the screen (the world's "up" is then
+   the screen's left). During gameplay (.diving) the UI overlay rotates to match, giving a
+   landscape layout even on a portrait phone — no orientation-lock API needed. */
 @media (orientation: portrait) {
   #game {
     inset: auto; left: 0; top: 100vh; top: 100dvh;
     width: 100vh; width: 100dvh; height: 100vw;
     transform-origin: 0 0;
     transform: rotate(-90deg);
+  }
+  #ui.diving {
+    inset: auto; left: 0; top: 100vh; top: 100dvh;
+    width: 100vh; width: 100dvh; height: 100vw;
+    transform-origin: 0 0;
+    transform: rotate(-90deg);
+    --safe-t: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-right, 0px);
+    --safe-l: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -50,7 +61,10 @@ body {
   html, body, #ui { bottom: auto; height: var(--app-h); }
   /* Landscape: full height. Portrait: #game is turned 90°, so its width runs down the screen. */
   #game { bottom: auto; height: var(--app-h); }
-  @media (orientation: portrait) { #game { top: var(--app-h); width: var(--app-h); height: 100vw; } }
+  @media (orientation: portrait) {
+    #game { top: var(--app-h); width: var(--app-h); height: 100vw; }
+    #ui.diving { top: var(--app-h); width: var(--app-h); height: 100vw; }
+  }
 }
 
 /* ---------- HUD */
@@ -773,6 +787,12 @@ body.dev-mode::after {
   .guide-zone[data-dir="up"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 100% 50%; }
   .guide-zone[data-dir="down"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 0 50%; }
   .guide-say { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; border-radius: 14px; }
+  /* Gameplay rotates #ui to landscape: revert the guide to top/bottom rows. */
+  .diving .guide { grid-template-rows: 1fr 1fr; grid-template-columns: none; }
+  .diving .guide-zone[data-dir="up"] { padding-top: calc(var(--safe-t) + 64px); border-right: 0; border-bottom: 2px dashed rgba(255, 255, 255, .25); }
+  .diving .guide-zone[data-dir="up"] .guide-fill { transform: scaleY(var(--fill)); transform-origin: 50% 100%; }
+  .diving .guide-zone[data-dir="down"] .guide-fill { transform: scaleY(var(--fill)); transform-origin: 50% 0; }
+  .diving .guide-say { white-space: nowrap; max-width: none; font-size: 16px; border-radius: 999px; }
 }
 
 /* ---------- Coach: one tip at a time, pointing at the part of the HUD it's about. */
