@@ -28,13 +28,14 @@ body {
 
 #game { position: fixed; inset: 0; }
 #game canvas { display: block; touch-action: none; }
-/* Portrait: turn the whole dive 90° so you sink down the screen. The UI stays upright. */
+/* Portrait: turn the whole dive 90° the other way so the diver heads up the screen (the world's
+   "up" is then the screen's left). The UI stays upright. */
 @media (orientation: portrait) {
   #game {
-    inset: auto; top: 0; left: 100vw;
+    inset: auto; left: 0; top: 100vh; top: 100dvh;
     width: 100vh; width: 100dvh; height: 100vw;
     transform-origin: 0 0;
-    transform: rotate(90deg);
+    transform: rotate(-90deg);
   }
 }
 
@@ -49,7 +50,7 @@ body {
   html, body, #ui { bottom: auto; height: var(--app-h); }
   /* Landscape: full height. Portrait: #game is turned 90°, so its width runs down the screen. */
   #game { bottom: auto; height: var(--app-h); }
-  @media (orientation: portrait) { #game { width: var(--app-h); height: 100vw; } }
+  @media (orientation: portrait) { #game { top: var(--app-h); width: var(--app-h); height: 100vw; } }
 }
 
 /* ---------- HUD */
@@ -217,6 +218,7 @@ body {
 .diver-perk { display: table; margin: 0 auto 12px; padding: 3px 10px; border-radius: 999px; background: #e6f4ff; font-size: 13px; font-weight: 700; }
 .diver-thumb small .shell-ico { width: 13px; height: 12px; vertical-align: -2px; margin-right: 1px; }
 .need-more .shell-ico, .gadget-info .shell-ico { width: 15px; height: 14px; vertical-align: -3px; }
+.gadget-info .k-coin { width: 15px; height: 15px; vertical-align: -3px; margin-right: 2px; }
 .diver-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; }
 .diver-thumb {
   appearance: none; cursor: pointer; position: relative; font: inherit;
@@ -766,9 +768,10 @@ body.dev-mode::after {
 
 @media (orientation: portrait) {
   .guide { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
-  .guide-zone[data-dir="up"] { order: 2; padding-top: 0; border-bottom: 0; border-left: 2px dashed rgba(255, 255, 255, .25); }
-  .guide-zone[data-dir="up"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 0 50%; }
-  .guide-zone[data-dir="down"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 100% 50%; }
+  /* "up" (the world's) is the left half, "down" the right; each fills out from the centre line */
+  .guide-zone[data-dir="up"] { padding-top: 0; border-bottom: 0; border-right: 2px dashed rgba(255, 255, 255, .25); }
+  .guide-zone[data-dir="up"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 100% 50%; }
+  .guide-zone[data-dir="down"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 0 50%; }
   .guide-say { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; border-radius: 14px; }
 }
 
@@ -1396,3 +1399,9 @@ body.dev-mode::after {
   .treasure-list { grid-template-columns: 1fr 1fr; align-content: start; }
 }
 @media (prefers-reduced-motion: reduce) { .treasure.legendary.found .treasure-art { animation: none; } }
+
+/* ---------- Inside Lagos Life (core/lagos.ts): their leaderboard only, no sign-in, privacy, install or name */
+.tab.lagos-only { display: none; }
+.in-lagos .tab.lagos-only { display: revert; }
+.in-lagos #board .tabs, .in-lagos #nameForm, .in-lagos #privacy, .in-lagos #install, .in-lagos #account { display: none !important; }
+.shop-coin { width: 44px; height: 44px; }

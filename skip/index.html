@@ -37,7 +37,7 @@
 
     <div id="fever" class="fever" aria-hidden="true"></div>
     <button class="ability-btn" id="abilityBtn" type="button" hidden>
-      <svg class="ab-ring" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="28" class="ab-track"/><circle cx="32" cy="32" r="28" class="ab-fill" id="abilityFill"/></svg>
+      <span class="ab-fill" id="abilityFill" aria-hidden="true"></span>
       <span class="ab-face" id="abilityFace"></span>
       <span class="ab-name" id="abilityName"></span>
     </button>
@@ -46,33 +46,54 @@
     <div id="hint" class="hint k-outline k-scale" hidden aria-live="polite"><span class="hint-hand" aria-hidden="true"></span><span id="hintText"></span></div>
 
     <section id="title" class="screen title-screen">
-      <div class="title-top k-scale">
-        <h1 class="k-logo" id="logo">Skip</h1>
-        <p class="title-tag k-outline">Skip a stone across the lake!</p>
-        <div class="title-meta">
-          <div class="k-coins" data-coins></div>
+      <header class="home-top k-scale">
+        <div class="home-brand">
+          <h1 class="k-logo" id="logo">skip</h1>
+          <p class="title-tag">Skip a stone across the lake</p>
         </div>
-      </div>
-
-      <div class="title-missions title-info k-scale" id="titleMissionsBox" hidden>
-        <div class="title-missions-head">Missions</div>
-        <ul class="k-missions" id="titleMissions"></ul>
-      </div>
-      <div class="title-bottom k-scale">
-        <ul class="howto" id="howto">
-        <li><span class="howto-n">1</span><span><b>Pull back</b> anywhere, let go</span></li>
-        <li><span class="howto-n">2</span><span><b>Tap</b> as the ring closes</span></li>
-        <li><span class="howto-n">3</span><span>Chain <b>Perfects</b>, fly through <b>hoops</b></span></li>
-      </ul>
-        <div class="stone-picker" id="stonePicker" role="radiogroup" aria-label="Stone"></div>
-        <div class="stone-caption" id="stoneCaption"></div>
-        <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>Throw</button>
-        <div class="title-row">
-          <div class="k-pill best-pill"><span class="k-pill-icon"><i data-icon="trophy"></i></span><b id="titleBest">0</b><small>m</small></div>
+        <div class="home-tools">
+          <div class="k-coins" data-coins></div>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="music" aria-label="Music"><i data-icon="music"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="sound" aria-label="Sound"><i data-icon="sound"></i></button>
           <button class="k-icon-btn k-icon-btn--sm" data-setting="haptics" aria-label="Vibration"><i data-icon="vibrate"></i></button>
         </div>
+      </header>
+
+      <div class="home-left k-scale">
+        <article class="char-card" id="charCard" aria-label="Your stone">
+          <button class="card-nav" id="charPrev" type="button" aria-label="Previous stone"><i data-icon="prev"></i></button>
+          <img class="char-img" id="charImg" alt="">
+          <button class="card-nav" id="charNext" type="button" aria-label="Next stone"><i data-icon="next"></i></button>
+          <div class="char-text">
+            <b id="charName">Pip</b>
+            <span class="char-bio" id="charBio"></span>
+            <span class="char-ability" id="charAbility"></span>
+          </div>
+          <div class="char-action" id="charAction"></div>
+        </article>
+      </div>
+
+      <div class="home-right k-scale">
+        <article class="lake-card" id="lakeCard" aria-label="Lake">
+          <button class="card-nav" id="lakePrev" type="button" aria-label="Previous lake"><i data-icon="prev"></i></button>
+          <div class="lake-text">
+            <b id="lakeName">Sunset Lake</b>
+            <span class="lake-twist" id="lakeTwist"></span>
+            <span class="lake-best" id="lakeBest"><i data-icon="trophy"></i>Best <b id="titleBest">0</b> m</span>
+            <span class="lake-dots" id="lakeDots" aria-hidden="true"></span>
+          </div>
+          <button class="card-nav" id="lakeNext" type="button" aria-label="Next lake"><i data-icon="next"></i></button>
+        </article>
+        <ul class="howto" id="howto">
+          <li><span class="howto-n">1</span><span><b>Pull back</b> anywhere, let go</span></li>
+          <li><span class="howto-n">2</span><span><b>Tap</b> as the ring closes</span></li>
+          <li><span class="howto-n">3</span><span>Chain <b>Perfects</b> to fill your move</span></li>
+        </ul>
+        <div class="title-missions" id="titleMissionsBox" hidden>
+          <div class="title-missions-head">Missions</div>
+          <ul class="k-missions" id="titleMissions"></ul>
+        </div>
+        <button class="k-btn k-btn--lg play-btn" id="playBtn"><i data-icon="play"></i>Throw</button>
       </div>
     </section>
 

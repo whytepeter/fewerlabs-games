@@ -22,6 +22,7 @@ import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
 import { ads, type ShowAd } from './core/ads';
 import { consent } from './core/consent';
+import { lagos, PRODUCTS as LAGOS_PRODUCTS } from './core/lagos';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
 import { caveTreasures, TREASURES, treasureLog } from './game/treasures';
 import { liveDiver } from './liveDiver';
@@ -179,7 +180,7 @@ function treasureLine(c: CaveDef) {
 const drawTreasures = () => { const el = document.getElementById('treasuresCount'); if (el) el.textContent = `${treasureLog.found()}/${TREASURES.length}`; };
 let viewed = 0;      // index of the diver shown on the Divers screen
 let wearing = 'classic';
-let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' = 'upgrades';
+let shopTab: 'upgrades' | 'gadgets' | 'boosters' | 'shells' | 'coins' = 'upgrades';
 let shownSpecial = '';
 /** Divers and upgrades the player had already seen as affordable/unlocked (for the "New" dots). */
 const seen = new Set<string>(store.get<string[]>('seen', []));
@@ -191,6 +192,43 @@ const coinTag = (n: number) => `${coinIcon()}${n.toLocaleString()}`;
 const shellTag = (n: number) => `<img class="shell-ico" src="${portraits.shell ?? ''}" alt="">${n.toLocaleString()}`;
 /** A diver's price, in coins or Sea Hearts. */
 const priceTag = (s: Skin) => (s.shells ? shellTag(s.price) : coinTag(s.price));
+/** One coin seen from the side, at (x, y): the face on top of a thick rim. */
+const sideCoin = (x: number, y: number) =>
+  `<path d="M${x - 13} ${y}v3a13 5 0 0 0 26 0v-3" fill="#f2a91e" stroke="#16233b" stroke-width="1.8"/>`
+  + `<ellipse cx="${x}" cy="${y}" rx="13" ry="5" fill="#ffd23f" stroke="#16233b" stroke-width="1.8"/>`
+  + `<ellipse cx="${x - 3}" cy="${y - 1}" rx="5" ry="1.5" fill="#fff1b0"/>`;
+/** A stack of `n` coins standing on y = 40. */
+const stack = (x: number, n: number) => Array.from({ length: n }, (_, i) => sideCoin(x, 38 - i * 5)).join('');
+/** Pictures for the Lagos Life coin items: the doubler, then piles that grow with the pack. */
+function coinArt(p: (typeof LAGOS_PRODUCTS)[number]) {
+  const svg = (inner: string) => `<svg class="shop-coin" viewBox="0 0 48 48" aria-hidden="true">${inner}</svg>`;
+  if (p.doubler) {
+    return svg(`<circle cx="21" cy="25" r="15" fill="#ffc43d" stroke="#16233b" stroke-width="2.6"/><circle cx="21" cy="25" r="10" fill="none" stroke="#d18a00" stroke-width="2"/>`
+      + `<rect x="25" y="4" width="21" height="15" rx="7.5" fill="#ff5a7a" stroke="#16233b" stroke-width="2.4"/>`
+      + `<text x="35.5" y="15.5" text-anchor="middle" font-size="11" font-weight="700" font-family="Fredoka, sans-serif" fill="#fff">×2</text>`);
+  }
+  const c = p.coins ?? 0;
+  if (c <= 5000) return svg(stack(24, 3));
+  if (c <= 20000) return svg(stack(24, 6));
+  return svg(stack(15, 5) + stack(32, 7) + `<path d="M40 6l1.6 3.4L45 11l-3.4 1.6L40 16l-1.6-3.4L35 11l3.4-1.6z" fill="#fff" stroke="#16233b" stroke-width="1.4"/>`);
+}
+
+/** Shop rows for Lagos Life products: Buy opens their pay sheet, which shows the price. */
+function lagosRows(list: typeof LAGOS_PRODUCTS) {
+  return list.map(p => `<li class="shop-item">${p.hearts ? `<img src="${portraits.shell ?? ''}" alt="">` : coinArt(p)}
+        <div class="shop-body"><b>${p.name}</b><span>${p.note}</span></div>
+        <button type="button" class="k-btn k-btn--green k-btn--sm" data-lagos="${p.id}">Buy</button></li>`).join('');
+}
+function bindLagosBuys(after: () => void) {
+  $('shopList').querySelectorAll<HTMLButtonElement>('[data-lagos]').forEach(b => b.addEventListener('click', async () => {
+    buzz(8);
+    b.disabled = true;
+    const ok = await lagos.buy(b.dataset.lagos!);
+    b.disabled = false;
+    if (ok) { cheer(true); after(); }
+  }));
+}
+
 /** Game over: once a rewarded ad is ready, offer to pay the dive's coins again for watching it. */
 function offerDoubleCoins(n: number) {
   const b = $('overAd') as HTMLButtonElement;
@@ -339,9 +377,6 @@ export const ui = {
       this.renderShop();
     }));
     this.askAge(() => this.askName(() => this.askConsent(() => this.offerStreak(() => this.rotateHint()))));
-    const prefs = () => consent.set({ analytics: ($('prefAnalytics') as HTMLInputElement).checked, ads: ($('prefAds') as HTMLInputElement).checked });
-    $('prefAnalytics').addEventListener('change', () => { buzz(8); prefs(); });
-    $('prefAds').addEventListener('change', () => { buzz(8); prefs(); });
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
@@ -447,7 +482,7 @@ export const ui = {
     drawShells();
     // First-timers see how to play above the Dive button.
     $('howto').hidden = store.get('learned', false);
-    $('boardBtn').hidden = !cloud.enabled;
+    $('boardBtn').hidden = !cloud.enabled && !lagos.on; // inside Lagos Life it's their leaderboard (the cloud is off there)
     this.refreshTitle();
     this.hud(false);
     this.screen('title');
@@ -548,6 +583,7 @@ export const ui = {
    * Screen on iPhone). Asked at most three times, a few days apart; never once it's installed.
    */
   offerInstall() {
+    if (lagos.on) return;
     const mode = installMode(), asked = store.get('installAsked', { n: 0, at: 0 });
     if (!mode || store.get('divesDone', 0) < INSTALL_AFTER_DIVES || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
     if (!$('rotateHint').hidden || !this.isOpen('title')) return;
@@ -562,6 +598,7 @@ export const ui = {
    * so it's asked once). Accept stays off until the slider has been moved. Then `next`.
    */
   askAge(next: () => void) {
+    if (lagos.on) { next(); return; } // inside Lagos Life: no personal questions (their rules)
     const age = store.get<number | null>('age', null);
     if (age !== null) { ads.init(age); next(); return; }
     const el = $('ageGate'), range = $('ageRange') as HTMLInputElement, ok = $('ageOk') as HTMLButtonElement;
@@ -585,6 +622,7 @@ export const ui = {
    * name, so Let's dive keeps that; an empty box keeps it too. Then `next`.
    */
   askName(next: () => void) {
+    if (lagos.on) { next(); return; } // their board shows the player's Lagos Life name
     if (store.get('nameAsked', false)) { next(); return; }
     const el = $('namePop'), input = $('namePopInput') as HTMLInputElement;
     input.value = cloud.name;
@@ -601,20 +639,19 @@ export const ui = {
   },
 
   /**
-   * After the age and name, once per device: the cookie banner. Essential only and Accept all sit
-   * side by side, equally easy; either answer can be changed in Settings. Then `next`.
+   * After the age and name, once per device: the cookie notice, with one "Got it". Then `next`.
    */
   askConsent(next: () => void) {
+    if (lagos.on) { next(); return; } // nothing to consent to: no analytics or outside ads there
     if (consent.asked) { next(); return; }
     const el = $('cookieBar');
     const answer = (all: boolean) => {
       buzz(6);
-      consent.set({ analytics: all, ads: all });
+      consent.set({ analytics: all });
       el.hidden = true;
       next();
     };
     $('cookieAll').onclick = () => answer(true);
-    $('cookieEssential').onclick = () => answer(false);
     el.hidden = false;
   },
 
@@ -891,6 +928,7 @@ export const ui = {
     if (shopTab === 'gadgets') { this.renderGadgets(); return; }
     if (shopTab === 'boosters') { this.renderBoosters(); return; }
     if (shopTab === 'shells') { this.renderShells(); return; }
+    if (shopTab === 'coins') { this.renderCoins(); return; }
     const list = $('shopList');
     list.innerHTML = UPGRADES.map(u => {
       const l = upgrades.level(u.id), cost = upgrades.cost(u.id);
@@ -954,7 +992,9 @@ export const ui = {
     $('gadgetInfo').innerHTML = `You have ${shellTag(shells.count)} · spend them on <b>Save me</b> or on divers. New stock every Monday.`;
     $('gadgetInfo').classList.remove('warn');
     const prices = shellPrices();
-    $('shopList').innerHTML = prices.map((price, i) => {
+    // Inside Lagos Life: Sea Heart packs on their own pay sheet (the price shows there), above the weekly coin-priced ones.
+    const packs = lagos.on ? lagosRows(LAGOS_PRODUCTS.filter(p => p.hearts)) : '';
+    $('shopList').innerHTML = packs + prices.map((price, i) => {
       const btn = i < bought ? '<span class="shop-max">Sold</span>'
         : i > bought ? `<span class="shop-max">${icon('lock')}</span>`
         : `<button type="button" class="k-btn k-btn--yellow k-btn--sm${coins.balance < price ? ' short' : ''}" data-shell aria-label="Buy a Sea Heart for ${price} coins">${coinTag(price)}</button>`;
@@ -965,6 +1005,15 @@ export const ui = {
       const b = e.currentTarget as HTMLButtonElement;
       if (shellShop.buy() === 'bought') { cheer(true); this.renderShells(); } else nope(b);
     });
+    bindLagosBuys(() => this.renderShells());
+  },
+
+  /** Inside Lagos Life only: coin packs and the Coin Doubler (gone once bought), on their pay sheet. */
+  renderCoins() {
+    $('gadgetInfo').innerHTML = `You have ${coinTag(coins.balance)} · spend them on divers, upgrades and gadgets.`;
+    $('gadgetInfo').classList.remove('warn');
+    $('shopList').innerHTML = lagosRows(LAGOS_PRODUCTS.filter(p => (p.coins || p.doubler) && !(p.doubler && lagos.doubler)));
+    bindLagosBuys(() => this.renderCoins());
   },
 
   /**
@@ -1230,11 +1279,11 @@ export const ui = {
       const up = z.dataset.dir === 'up';
       z.classList.remove('on', 'done', 'pressing');
       z.style.setProperty('--fill', '0');
-      // In portrait the world is turned 90°: "up" is the right half and the → key.
-      z.querySelector('.guide-key')!.textContent = p ? (up ? '→' : '←') : up ? '↑' : '↓';
+      // In portrait the world is turned 90°, heading up the screen: "up" is the left half and the ← key.
+      z.querySelector('.guide-key')!.textContent = p ? (up ? '←' : '→') : up ? '↑' : '↓';
       z.querySelector('.guide-say')!.textContent = keys
-        ? (p ? (up ? 'Hold to steer right' : 'Hold to steer left') : up ? 'Hold to swim up' : 'Hold to go down')
-        : p ? (up ? 'Hold here to steer right' : 'Hold here to steer left') : up ? 'Hold here to swim up' : 'Hold here to go down';
+        ? (p ? (up ? 'Hold to steer left' : 'Hold to steer right') : up ? 'Hold to swim up' : 'Hold to go down')
+        : p ? (up ? 'Hold here to steer left' : 'Hold here to steer right') : up ? 'Hold here to swim up' : 'Hold here to go down';
     });
     guideZone(1).classList.add('on');
   },
@@ -1290,6 +1339,7 @@ export const ui = {
 /** The leaderboard: all time (Reef Trench), or today's Daily Dive. */
 async function openBoard(today = false) {
   ui.screen('board');
+  if (lagos.on) { void openLagosBoard(); return; }
   document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.setAttribute('aria-selected', String((b.dataset.board === 'today') === today)));
   const list = $('boardList'), status = $('boardStatus');
   ($('nameInput') as HTMLInputElement).value = cloud.name;
@@ -1317,11 +1367,30 @@ async function openBoard(today = false) {
   }
 }
 
+/** Inside Lagos Life, "Top divers" is their leaderboard: Lagos Life players, by best depth. */
+async function openLagosBoard() {
+  const list = $('boardList'), status = $('boardStatus');
+  status.textContent = 'Loading…';
+  status.hidden = false;
+  list.replaceChildren();
+  const rows = await lagos.board();
+  if (!rows) { status.textContent = 'Can’t reach the leaderboard right now.'; return; }
+  status.hidden = rows.length > 0;
+  status.textContent = 'No dives yet. Be the first!';
+  rows.forEach((r, i) => {
+    if (i > 0 && r.me && typeof r.rank === 'string') { const gap = document.createElement('li'); gap.className = 'gap'; gap.textContent = '…'; list.append(gap); }
+    const li = document.createElement('li');
+    li.className = r.me ? 'me' : '';
+    const rank = document.createElement('span'); rank.className = 'board-rank'; rank.textContent = String(r.rank).replace(/^#/, '');
+    const who = document.createElement('span'); who.className = 'board-who'; who.textContent = r.me ? `${r.name} (you)` : r.name;
+    const d = document.createElement('b'); d.textContent = `${r.score.toLocaleString()} m`;
+    li.append(rank, who, d);
+    list.append(li);
+  });
+}
+
 function renderAccount(message = '') {
   // Dev mode: only for the dev server and the developer's account (see core/dev.ts).
-  ($('prefAnalytics') as HTMLInputElement).checked = consent.now.analytics;
-  ($('prefAds') as HTMLInputElement).checked = consent.now.ads;
-  $('prefAdsRow').hidden = store.get<number>('age', 99) < 13; // under 13: never personalised, so no switch
   $('devToggle').hidden = !dev.allowed;
   ($('devMode') as HTMLInputElement).checked = dev.on;
   document.body.classList.toggle('dev-mode', dev.on);

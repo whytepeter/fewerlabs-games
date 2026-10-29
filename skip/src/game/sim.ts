@@ -78,11 +78,20 @@ export const ABILITIES: Record<AbilityId, { name: string; text: string }> = {
 export const CHARGE_PERFECTS = 6, CHARGE_START = 0.5;
 const ZOOM_V = 420, ZOOM_T = 1.2, MAGNET_T = 4, MAGNET_REACH = 4, FLOP_CLEAR = 650;
 
+/**
+ * How a lake plays (see lakes.ts): the share of each kind of obstacle (the rest is lake glass), how
+ * often hoops hang between them, a drag multiplier, and whether the glass drifts as fireflies.
+ */
+export interface LakeRules { log: number; duck: number; pad: number; ice: number; hoop: number; drag: number; fireflies: boolean }
+export const SUNSET_RULES: LakeRules = { log: 0.22, duck: 0.23, pad: 0.21, ice: 0, hoop: 0.14, drag: 1, fireflies: false };
+/** On an ice floe the stone slides on instead of bouncing: a small hop, and it keeps its speed (no timing needed). */
+const ICE_KEEP = 1, ICE_HOP = 0.5;
+
 export type SimState = 'ready' | 'flying' | 'sinking' | 'over';
 
 export interface Obj {
   id: number;
-  type: 'log' | 'pad' | 'duck' | 'glass' | 'hoop';
+  type: 'log' | 'pad' | 'duck' | 'glass' | 'hoop' | 'ice';
   x: number;
   w: number;
   h: number; // glass: height above the water
@@ -94,6 +103,7 @@ export interface Obj {
   vy: number;
   yOff: number;
   sq: number; // pad squash 0..1
+  bh: number; // firefly: the height it bobs around
 }
 
 export type SimEvent =
@@ -101,6 +111,7 @@ export type SimEvent =
   | { type: 'skip'; grade: Grade; x: number; skips: number; streak: number; fumbled: boolean }
   | { type: 'upgrade'; grade: Grade; x: number; skips: number; streak: number }
   | { type: 'pad'; obj: Obj; x: number; skips: number }
+  | { type: 'ice'; obj: Obj; x: number; skips: number }
   | { type: 'log'; obj: Obj; x: number; y: number }
   | { type: 'duck'; obj: Obj }
   | { type: 'glass'; obj: Obj }
@@ -176,6 +187,8 @@ export class Sim {
   fumbled = false;
   late: LateWindow | null = null;
   stone: StoneDef = STONES.pebble;
+  /** The lake being skipped (set before reset). */
+  rules: LakeRules = SUNSET_RULES;
   luckyLeft = 0;
   luckySaves = 0;
   pads = 0;
@@ -315,7 +328,7 @@ export class Sim {
         this.vy += GRAV * h;
         this.x += this.vx * h;
         this.y += this.vy * h;
-        this.vx *= 1 - this.stone.drag * h;
+        this.vx *= 1 - this.stone.drag * this.rules.drag * h;
         if (this.vx > this.stone.maxVx && this.zoomT <= 0) this.vx = Math.max(this.stone.maxVx, this.vx - 600 * h); // Zoom wears off
         this.rot += this.vx * h * 0.06;
         if (this.late && this.t - this.late.t > this.stone.good) {
@@ -355,13 +368,13 @@ export class Sim {
     const n = 3 + Math.floor(this.rand() * 3);
     for (let i = 0; i < n; i++) {
       const h = high ? 100 + Math.sin((i / Math.max(1, n - 1)) * Math.PI) * 36 : 36;
-      this.add({ type: 'glass', x: x + i * 34, h, ph: this.rand() * 6 });
+      this.add({ type: 'glass', x: x + i * 34, h, bh: h, ph: this.rand() * 6 });
     }
   }
 
   private add(p: Partial<Obj> & { type: Obj['type']; x: number }) {
     const o: Obj = {
-      id: this.nextId++, w: 30, h: 0, ph: 0, flower: false, got: false, gt: 0, fly: false, vy: 0, yOff: 0, sq: 0,
+      id: this.nextId++, w: 30, h: 0, ph: 0, flower: false, got: false, gt: 0, fly: false, vy: 0, yOff: 0, sq: 0, bh: 0,
       ...p,
     };
     this.objs.push(o);
@@ -375,15 +388,19 @@ export class Sim {
       const nx = this.nextX;
       const ease = Math.min(1, nx / PX_PER_M / 500);
       const gap = Math.max(220, this.r(340, 680) - ease * 150);
-      const r = this.rand();
+      const r = this.rand(), L = this.rules;
+      // cumulative shares: logs and ducks grow a little with distance (Sunset Lake's original mix)
+      const tLog = L.log + ease * 0.08 * Math.sign(L.log), tDuck = tLog + L.duck + ease * 0.02 * Math.sign(L.duck);
+      const tPad = Math.max(tDuck, L.log + L.duck + L.pad), tIce = tPad + L.ice;
       if (nx < 900) this.spawnGlass(nx, false);
-      else if (r < 0.22 + ease * 0.08) this.add({ type: 'log', x: nx, w: this.r(80, 140), ph: this.rand() * 6 });
-      else if (r < 0.45 + ease * 0.1) this.add({ type: 'duck', x: nx, ph: this.rand() * 6 });
-      else if (r < 0.66) this.add({ type: 'pad', x: nx, w: this.r(62, 78), flower: this.rand() < 0.45 });
+      else if (r < tLog) this.add({ type: 'log', x: nx, w: this.r(80, 140), ph: this.rand() * 6 });
+      else if (r < tDuck) this.add({ type: 'duck', x: nx, ph: this.rand() * 6 });
+      else if (r < tPad) this.add({ type: 'pad', x: nx, w: this.r(62, 78), flower: this.rand() < 0.45 });
+      else if (r < tIce) this.add({ type: 'ice', x: nx, w: this.r(90, 130), ph: this.rand() * 6 });
       else this.spawnGlass(nx, this.rand() < 0.55);
       if (nx > 900 && this.rand() < 0.3) this.spawnGlass(nx + gap * 0.5, this.rand() < 0.5);
       // glass hoops hang at Perfect-hop height: only a well-timed stone flies through
-      else if (nx > 1600 && this.rand() < 0.14) this.add({ type: 'hoop', x: nx + gap * 0.5, h: HOOP_H, ph: this.rand() * 6 });
+      else if (nx > 1600 && this.rand() < L.hoop) this.add({ type: 'hoop', x: nx + gap * 0.5, h: HOOP_H, ph: this.rand() * 6 });
       this.nextX += gap;
     }
   }
@@ -395,6 +412,7 @@ export class Sim {
       if (o.fly) { o.vy -= 320 * dt; o.yOff += o.vy * dt; o.x += 130 * dt; }
       if (o.got) o.gt += dt;
       if (o.sq > 0) o.sq = Math.max(0, o.sq - dt * 3);
+      if (this.rules.fireflies && o.type === 'glass' && !o.got) o.h = o.bh + Math.sin(this.t * 2.2 + o.ph) * 16; // fireflies bob
       const gone = o.x + o.w < left || (o.type === 'glass' && o.gt > 0.5) || o.yOff < -600;
       if (gone) this.emit({ type: 'despawn', obj: o });
       else this.objs[j++] = o;
@@ -405,7 +423,7 @@ export class Sim {
   surfaceAt(x: number) {
     for (const o of this.objs) {
       if (o.type === 'log' && x >= o.x && x <= o.x + o.w) return o;
-      if (o.type === 'pad' && Math.abs(x - o.x) < o.w / 2) return o;
+      if ((o.type === 'pad' || o.type === 'ice') && Math.abs(x - o.x) < o.w / 2) return o;
     }
     return null;
   }
@@ -427,7 +445,7 @@ export class Sim {
         if (!o.got && Math.abs(dx) < 22 * reach && Math.abs(this.y + o.h) < 24 * reach) {
           o.got = true;
           this.vx = Math.min(this.stone.maxVx, this.vx + 8);
-          this.glass++;
+          this.glass += this.rules.fireflies ? 2 : 1; // fireflies count double
           this.emit({ type: 'glass', obj: o });
         }
       } else if (o.type === 'duck' && !o.fly && Math.abs(dx) < 18 && this.y > -30) {
@@ -463,6 +481,14 @@ export class Sim {
       this.clearTiming();
       this.emit({ type: 'log', obj: s, x: this.x, y: this.y });
       if (this.vx < SINK_V) this.startSink(false);
+      return;
+    }
+    if (s && s.type === 'ice') {
+      // slide across the floe: no timing, a little hop, and it keeps its speed
+      this.vx = Math.min(this.stone.maxVx, this.vx * ICE_KEEP); this.vy = -this.stone.hop * ICE_HOP; this.y = -4; s.sq = 1;
+      this.clearTiming();
+      this.skips++;
+      this.emit({ type: 'ice', obj: s, x: this.x, skips: this.skips });
       return;
     }
     if (s && s.type === 'pad') {

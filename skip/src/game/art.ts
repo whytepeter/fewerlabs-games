@@ -4,14 +4,15 @@ import { P, N, isDark } from './palette';
 import { STONE_LOOKS } from './progress';
 import { drawSkipper, SK_FRAMES, SK_H, SK_W } from './skipper';
 
-// Cartoon art: chunky shapes, saturated palette colours and bold navy outlines.
+// Golden Hour art: flat shapes with no outlines, layered silhouettes and soft sunset light.
 // Every texture is painted from the current palette. Painting again (after a theme change)
 // redraws into the same canvas, so sprites that use it update without being touched.
 
 type Draw = (ctx: CanvasRenderingContext2D) => void;
 
-export const OUTLINE = '#16233b';
-export const OUTLINE_N = 0x16233b;
+/** The deep plum used for small details (eyes, the timing ring's edge); never as an outline round shapes. */
+export const OUTLINE = '#3d2e5c';
+export const OUTLINE_N = 0x3d2e5c;
 const LW = 2.6; // outline width in logical px
 
 /** Parallax strips are wide, so they use a lower resolution to stay under 4096 px. */
@@ -90,15 +91,10 @@ function rrect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h
   if (ctx.roundRect) ctx.roundRect(x, y, w, h, r);
   else ctx.rect(x, y, w, h);
 }
-/** Fill the current path, then outline it in navy. */
-function ink(ctx: CanvasRenderingContext2D, fill: string, lw = LW) {
+/** Fill the current path. Golden Hour shapes are flat, with no outline (the width is kept for callers). */
+function ink(ctx: CanvasRenderingContext2D, fill: string, _lw = LW) {
   ctx.fillStyle = fill;
   ctx.fill();
-  ctx.lineWidth = lw;
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = OUTLINE;
-  ctx.stroke();
 }
 function hash(n: number) { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -128,7 +124,7 @@ function hills(ctx: CanvasRenderingContext2D, key: 'hillFar' | 'hillMid', base: 
   // soft light band under the ridge, then the ridge outline
   const ridge = (dy: number) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y + dy) : ctx.moveTo(x, y + dy))); };
   ridge(5);
-  ctx.strokeStyle = 'rgba(255,255,255,.22)';
+  ctx.strokeStyle = 'rgba(255,255,255,.12)';
   ctx.lineWidth = 5;
   ctx.lineJoin = 'round';
   ctx.stroke();
@@ -149,7 +145,7 @@ function trees(ctx: CanvasRenderingContext2D) {
     const sx = i * sp + hash(k) * 10;
     const hh = (22 + hash(k + 5) * 34) * (0.6 + pnoise((k / count) * 5, 5, 3) * 0.9);
     const hw = hh * 0.34;
-    ctx.fillStyle = P['pier-dark'];
+    ctx.fillStyle = P.trees;
     ctx.fillRect(sx - 2.5, ground - 6, 5, 8);
     // two rounded tiers
     const tier = (top: number, bot: number, half: number) => {
@@ -163,18 +159,9 @@ function trees(ctx: CanvasRenderingContext2D) {
     };
     tier(ground - hh * 0.62, ground - 3, hw);
     tier(ground - hh, ground - hh * 0.36, hw * 0.74);
-    ctx.fillStyle = 'rgba(255,255,255,.18)';
-    ctx.beginPath();
-    ctx.moveTo(sx - 1, ground - hh + 5);
-    ctx.lineTo(sx - hw * 0.45, ground - hh * 0.42);
-    ctx.lineTo(sx - 2, ground - hh * 0.46);
-    ctx.fill();
   }
   ctx.fillStyle = P.trees;
   ctx.fillRect(0, ground, w, h - ground);
-  ctx.strokeStyle = OUTLINE;
-  ctx.lineWidth = LW;
-  ctx.beginPath(); ctx.moveTo(0, ground); ctx.lineTo(w, ground); ctx.stroke();
 }
 
 function clouds(ctx: CanvasRenderingContext2D) {
@@ -196,16 +183,9 @@ function clouds(ctx: CanvasRenderingContext2D) {
         if (ctx.roundRect) ctx.roundRect(x - 50 * s, y - 2 * s, 92 * s, 22 * s, 11 * s);
         else ctx.rect(x - 50 * s, y - 2 * s, 92 * s, 22 * s);
       };
-      // outline the union: thick stroke first, fill on top
-      shape();
-      ctx.strokeStyle = OUTLINE;
-      ctx.lineWidth = LW * 2;
-      ctx.stroke();
+      // a soft, see-through cloud: one flat fill, no outline
       shape();
       ctx.fillStyle = P.cloud;
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.45)';
-      ell(ctx, x - 10 * s, y - 26 * s, 10 * s, 5 * s);
       ctx.fill();
     }
   }
@@ -217,6 +197,7 @@ export function paintAll(scene: Phaser.Scene) {
   single(scene, 'sky', 2, 128, ctx => {
     const g = ctx.createLinearGradient(0, 0, 0, 128);
     g.addColorStop(0, P['sky-top']);
+    g.addColorStop(0.55, P['sky-mid']);
     g.addColorStop(1, P['sky-bot']);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 2, 128);
@@ -250,8 +231,8 @@ export function paintAll(scene: Phaser.Scene) {
   });
 
   strip(scene, 'clouds', clouds);
-  strip(scene, 'hillFar', ctx => hills(ctx, 'hillFar', 60, 90, 6, 10, P['hill-far'], 0.45));
-  strip(scene, 'hillMid', ctx => hills(ctx, 'hillMid', 25, 55, 10, 40, P['hill-mid'], 0.8));
+  strip(scene, 'hillFar', ctx => hills(ctx, 'hillFar', 60, 90, 6, 10, P['hill-far'], 0));
+  strip(scene, 'hillMid', ctx => hills(ctx, 'hillMid', 25, 55, 10, 40, P['hill-mid'], 0));
   strip(scene, 'trees', trees);
 
   // characters (painted river stones, see skipper.ts): 8 spin frames, then the same 8 squinting happily
@@ -384,6 +365,19 @@ export function paintAll(scene: Phaser.Scene) {
   };
   single(scene, 'pad', 88, 34, padDraw(false));
   single(scene, 'padFlower', 88, 34, padDraw(true));
+
+  // ice floe: a flat, pale slab with a soft shine (Frozen Pond)
+  single(scene, 'ice', 120, 22, ctx => {
+    ctx.beginPath();
+    ctx.moveTo(8, 12); ctx.lineTo(18, 5); ctx.lineTo(52, 3); ctx.lineTo(88, 4); ctx.lineTo(110, 8); ctx.lineTo(114, 13);
+    ctx.lineTo(100, 17); ctx.lineTo(60, 18); ctx.lineTo(22, 17); ctx.closePath();
+    ink(ctx, 'rgba(240, 248, 255, .95)');
+    ctx.fillStyle = 'rgba(160, 185, 230, .45)';
+    ctx.fillRect(14, 13, 92, 3);
+    ctx.fillStyle = 'rgba(255, 255, 255, .9)';
+    ell(ctx, 40, 7, 14, 1.6); ctx.fill();
+    ell(ctx, 78, 7.5, 8, 1.2); ctx.fill();
+  });
 
   single(scene, 'glass', 22, 26, ctx => {
     ctx.translate(11, 13);

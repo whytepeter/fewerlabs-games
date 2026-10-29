@@ -42,24 +42,21 @@ export const STONE_ITEMS: (ShopItem & { blurb: string; bio: string })[] = [
 ];
 
 /**
- * How each character looks: a painted river stone. Smooth and speckled, with a simple face painted
- * on (ink-dot eyes, rosy cheeks), a painted pattern, and one lakeside accessory each. rx/ry: stone
- * size. `null` colours use the theme's stone colour.
+ * How each character looks, in the Golden Hour style: a smooth flat stone with no outline, a soft
+ * shade underneath, a tiny dot face and one lakeside accessory. rx/ry: stone size. `null` colours
+ * use the theme's stone colour.
  */
 export interface StoneLook {
-  body: string | null; hi: string | null; rx: number; ry: number;
-  eyes: 'dot' | 'sleepy' | 'wide';
+  body: string | null; shade: string | null; rx: number; ry: number;
+  eyes: 'dot' | 'sleepy';
   mouth: 'smile' | 'o' | 'grin' | 'flat';
-  /** The painted design on its side, in `paint`. */
-  pattern: 'none' | 'waves' | 'dots' | 'zigzag' | 'clover';
-  paint: string;
   /** Its one accessory. */
   extra: 'hat' | 'goggles' | 'moss' | 'lilypad' | 'ladybug';
 }
 export const STONE_LOOKS: Record<string, StoneLook> = {
-  pebble: { body: null, hi: null, rx: 14.5, ry: 11, eyes: 'dot', mouth: 'smile', pattern: 'none', paint: '#ff6b6b', extra: 'hat' },
-  flat: { body: '#7fb3d9', hi: '#e2f2fc', rx: 17, ry: 8.5, eyes: 'wide', mouth: 'grin', pattern: 'waves', paint: '#ffffff', extra: 'goggles' },
-  heavy: { body: '#8f86a8', hi: '#d3cde6', rx: 16.5, ry: 13.5, eyes: 'sleepy', mouth: 'flat', pattern: 'dots', paint: '#ffd23f', extra: 'moss' },
-  bouncy: { body: '#f7a8c4', hi: '#ffe0ec', rx: 14, ry: 12.5, eyes: 'wide', mouth: 'o', pattern: 'zigzag', paint: '#ffffff', extra: 'lilypad' },
-  lucky: { body: '#8fd6a2', hi: '#dcf7e3', rx: 14.5, ry: 11, eyes: 'dot', mouth: 'grin', pattern: 'clover', paint: '#2f8f4e', extra: 'ladybug' },
+  pebble: { body: null, shade: null, rx: 15, ry: 11, eyes: 'dot', mouth: 'smile', extra: 'hat' },
+  flat: { body: '#9cc6ea', shade: '#79a6d1', rx: 17.5, ry: 8, eyes: 'dot', mouth: 'grin', extra: 'goggles' },
+  heavy: { body: '#a99cc6', shade: '#8677ab', rx: 17, ry: 13.5, eyes: 'sleepy', mouth: 'flat', extra: 'moss' },
+  bouncy: { body: '#f7b6cc', shade: '#e692b0', rx: 14, ry: 13, eyes: 'dot', mouth: 'o', extra: 'lilypad' },
+  lucky: { body: '#a8e0b6', shade: '#82c896', rx: 15, ry: 11, eyes: 'dot', mouth: 'grin', extra: 'ladybug' },
 };

@@ -25,6 +25,7 @@ import { mulberry32 } from '../core/rng';
 import { dev } from '../core/dev';
 import { coins, metaChanged, soClose } from '../core/meta';
 import { cloud, topBest } from '../core/cloud';
+import { DOUBLER, lagos } from '../core/lagos';
 import { ads } from '../core/ads';
 import { track } from '../core/analytics';
 import { tuning, type Tuning } from '../game/tuning';
@@ -315,6 +316,19 @@ export class GameScene extends Phaser.Scene {
       this.game.events.off('view-resize', this.onResize, this);
     });
 
+    // Inside Lagos Life their page can pause the dive (a call, switching apps); the player picks it
+    // back up from the pause menu, so their resume needs nothing here.
+    lagos.init({
+      pause: () => this.pause(),
+      resume: () => {},
+      give: p => {
+        if (p.hearts) shells.add(p.hearts);
+        if (p.coins) coins.add(p.coins);
+        if (p.doubler) store.set(DOUBLER, true);
+        ui.damage(`${p.name}: thank you!`, true);
+        sfx.tone(880, 0.15, { vol: 0.08 }); sfx.tone(1318, 0.3, { vol: 0.08, delay: 0.1 });
+      },
+    });
     ui.init({
       play: () => this.startRun(),
       daily: () => this.startRun(true),
@@ -597,16 +611,17 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Steering: +1 swims up, -1 down, 0 drifts. Touch the side of the screen you want to move toward:
-   * the top/bottom half in landscape, the right/left half in portrait (the world is turned 90° there,
-   * so screen right is the world's "up"). Keys: →, ↑, D, W, Space up; ←, ↓, A, S down.
+   * the top/bottom half in landscape, the left/right half in portrait (the world is turned 90° there,
+   * heading up the screen, so screen left is the world's "up"). Keys: ↑, W, Space up and ↓, S down;
+   * the side arrows (and A/D) follow the screen: → up in landscape, ← up in portrait.
    */
   private steering() {
-    const k = this.keys;
-    let dir = (k.right.isDown || k.d.isDown || k.up.isDown || k.w.isDown || k.space.isDown ? 1 : 0)
-      - (k.left.isDown || k.a.isDown || k.down.isDown || k.s.isDown ? 1 : 0);
-    const portrait = portraitView();
+    const k = this.keys, portrait = portraitView();
+    const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
+    let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
+      - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
     for (const t of this.touches.values()) {
-      dir += (portrait ? t.x > innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
+      dir += (portrait ? t.x < innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
     }
     return Math.sign(dir);
   }
@@ -2379,6 +2394,7 @@ export class GameScene extends Phaser.Scene {
       if (isBest) { this.best = depth; store.set(key, depth); }
       opened = locked.find(isUnlocked) ?? null;
     }
+    if (!dev.on) lagos.score(depth); // inside Lagos Life: their leaderboard (it keeps each player's best)
     // The leaderboard takes your deepest dive in any cave.
     if (!dev.on && !this.daily) {
       void this.postScore(depth, depth > boardBest);
@@ -2388,7 +2404,8 @@ export class GameScene extends Phaser.Scene {
 
     // Rewards: coins for the dive (raised by the mission-rank bonus) plus any missions completed.
     const bonus = deepMissions.bonus * this.def.pay * (this.perk === 'coins' ? DIVER_PERK.coins : 1); // harder caves (and Royal) pay more
-    const twice = (this.doubler ? 2 : 1) * this.tune.coinRate; // the Coin Doubler booster, and the tuning's coin rate
+    // The Coin Doubler booster and the bought Coin Doubler (Lagos Life) each add ×1, so both make ×3; then the tuning's coin rate.
+    const twice = (1 + (this.doubler ? 1 : 0) + (lagos.doubler ? 1 : 0)) * this.tune.coinRate;
     const runCoins = Math.round((this.runPearls + Math.floor(depth / 40)) * bonus) * twice; // ~25–45 for a good dive at x1
     const closeCoins = Math.round(this.runBonus * bonus) * twice;
     coins.add(runCoins + closeCoins);

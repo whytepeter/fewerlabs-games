@@ -1,7 +1,7 @@
 import { settings } from './settings';
 import { sfx } from './sfx';
 import { track } from './analytics';
-import { consent } from './consent';
+import { lagos } from './lagos';
 
 /**
  * Rewarded ads only (Google H5 Games Ads, part of AdSense): the player chooses to watch one for a
@@ -25,9 +25,9 @@ const push = (o: object) => { (window.adsbygoogle ??= []).push(o); };
 let mode: 'off' | 'google' | 'fake' = 'off';
 let child = false;
 
-/** Personalised ads only with the player's consent, and never for under-13s. */
+/** Personalised ads, except for under-13s (never, by law and Google's policy). In Europe and the UK, Google's own consent message has the final say. */
 function personalise() {
-  (window.adsbygoogle ??= []).requestNonPersonalizedAds = consent.now.ads && !child ? 0 : 1;
+  (window.adsbygoogle ??= []).requestNonPersonalizedAds = child ? 1 : 0;
 }
 let showing = false;
 
@@ -39,12 +39,11 @@ export const ads = {
   get enabled() { return mode !== 'off'; },
 
   /**
-   * Load the ad script, once the player's age is known: under 13 every request is tagged
-   * child-directed, under 16 as under the age of consent (EEA/UK), so those players only get
-   * non-personalised ads.
+   * Load the ad script, once the player's age is known: under 13 every request is non-personalised and
+   * tagged child-directed, under 16 tagged as under the age of consent (EEA/UK).
    */
   init(age: number) {
-    if (mode !== 'off') return;
+    if (mode !== 'off' || lagos.on) return; // no outside ads inside Lagos Life (their content rules)
     child = age < 13;
     if (!CLIENT) { if (env.DEV) mode = 'fake'; return; }
     const s = document.createElement('script');
@@ -55,9 +54,8 @@ export const ads = {
     if (age < 13) s.dataset.tagForChildDirectedTreatment = '1';
     if (age < 16) s.dataset.tagForUnderAgeOfConsent = '1';
     if (TEST) s.dataset.adbreakTest = 'on';
-    personalise(); // before the script loads, so the very first request already follows the choice
+    personalise(); // before the script loads, so the very first request already follows it
     document.head.append(s);
-    consent.onChange(personalise);
     push({ preloadAdBreaks: 'on', sound: settings.sound ? 'on' : 'off' }); // adConfig
     mode = 'google';
   },

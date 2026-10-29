@@ -4,6 +4,7 @@ import { mountCoins, renderMissions, renderEarned, coinIcon } from './core/metau
 import type { Mission, MissionResult } from './core/meta';
 import { STONE_ITEMS } from './game/progress';
 import { portrait } from './game/skipper';
+import { ABILITIES, type AbilityId } from './game/sim';
 
 // The DOM layer: HUD, hint, title / pause / game-over screens, built from the shared cartoon kit.
 // The Game scene drives it.
@@ -22,14 +23,14 @@ $('overStars').innerHTML = STAR_SVG.repeat(3);
 export function stoneSvg(id: string, face: 'eyes' | 'squint' = 'eyes') {
   return `<img class="sk-portrait" src="${portrait(id, face === 'squint')}" alt="">`;
 }
-const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g stroke="#16233b" stroke-width="2"><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
+const CLOVER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><g><circle cx="12" cy="7" r="4.4" fill="#5ccf7d"/><circle cx="17" cy="12" r="4.4" fill="#5ccf7d"/><circle cx="12" cy="17" r="4.4" fill="#5ccf7d"/><circle cx="7" cy="12" r="4.4" fill="#5ccf7d"/></g><circle cx="12" cy="12" r="2.4" fill="#c4f5d1"/></svg>';
 
 mountCoins();
 
 const el = {
   hud: $('hud'), dist: $('dist'), streak: $('streak'), streakPill: $('streakPill'), hudBest: $('hudBest'), pauseBtn: $('pauseBtn'),
   hint: $('hint'), hintText: $('hintText'),
-  title: $('title'), titleBest: $('titleBest'), playBtn: $('playBtn'),
+  title: $('title'), playBtn: $('playBtn'),
   pause: $('pause'), resumeBtn: $('resumeBtn'), restartBtn: $('restartBtn'), menuBtn: $('menuBtn'),
   over: $('over'), overPanel: document.querySelector<HTMLElement>('.panel-over')!, overRibbon: $('overRibbon'),
   overStars: $('overStars'), overDist: $('overDist'), overTag: $('overTag'), overSkips: $('overSkips'),
@@ -37,7 +38,8 @@ const el = {
   banner: $('banner'), bannerSmall: $('bannerSmall'), bannerBig: $('bannerBig'), fever: $('fever'),
   luckyPip: $('luckyPip'), abilityBtn: $('abilityBtn'), abilityFill: $('abilityFill'), abilityFace: $('abilityFace'), abilityName: $('abilityName'),
   howto: $('howto'), titleMissionsBox: $('titleMissionsBox'), titleMissions: $('titleMissions'),
-  picker: $('stonePicker'), caption: $('stoneCaption'),
+  charCard: $('charCard'), charImg: $<HTMLImageElement>('charImg'), charName: $('charName'), charBio: $('charBio'), charAbility: $('charAbility'), charAction: $('charAction'),
+  lakeCard: $('lakeCard'), lakeName: $('lakeName'), lakeTwist: $('lakeTwist'), lakeBest: $('lakeBest'), lakeDots: $('lakeDots'),
   overClose: $('overClose'), overEarned: $('overEarned'), overMissions: $('overMissions'),
 };
 el.luckyPip.innerHTML = CLOVER_SVG;
@@ -45,8 +47,10 @@ let bannerTimer = 0;
 
 export interface UiHandlers {
   play(): void; pause(): void; resume(): void; restart(): void; menu(): void; again(): void;
-  /** Tap on a stone in the picker: equips an owned stone, otherwise previews it for buying. */
+  /** Show another stone on the home screen's card: equips an owned one, otherwise previews it for buying. */
   stone(id: string): void;
+  /** The lake card's arrows: show the previous (-1) or next (1) lake. */
+  lake(dir: number): void;
   buy(id: string): void;
   /** The ability button (or E / Shift): fire the character's ability. */
   ability(): void;
@@ -57,10 +61,12 @@ export interface UiHandlers {
 export interface OverStats {
   metres: number; skips: number; bestStreak: number; glass: number; hoops: number; best: number; isBest: boolean; plunked: boolean;
   close: string; earned: { label: string; n: number }[]; missions: MissionResult[];
+  /** The lake thrown on, and a lake this throw opened (if any). */
+  lake: string; opened: string | null;
 }
 export interface PickerState { equipped: string; selected: string; owned: (id: string) => boolean; balance: number }
 
-let shownDist = -1, shownStreak = -1, abilityShown = '';
+let shownDist = -1, shownStreak = -1, abilityShown = '', shownStone = 'pebble';
 
 const bump = (e: HTMLElement) => { e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); };
 
@@ -76,14 +82,18 @@ export const ui = {
     on(el.overMenuBtn, h.menu);
     // the ability fires on press, not click, so it never misses a fast throw
     el.abilityBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); h.ability(); });
-    el.picker.addEventListener('click', e => {
-      const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-stone]');
-      if (b) { e.preventDefault(); h.press(); h.stone(b.dataset.stone!); }
-    });
-    el.caption.addEventListener('click', e => {
+    const step = (dir: number) => {
+      const i = STONE_ITEMS.findIndex(it => it.id === shownStone);
+      h.stone(STONE_ITEMS[(i + dir + STONE_ITEMS.length) % STONE_ITEMS.length].id);
+    };
+    on($('charPrev'), () => step(-1));
+    on($('charNext'), () => step(1));
+    el.charAction.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-buy]');
       if (b) { e.preventDefault(); h.press(); h.buy(b.dataset.buy!); }
     });
+    on($('lakePrev'), () => h.lake(-1));
+    on($('lakeNext'), () => h.lake(1));
     document.querySelectorAll<HTMLButtonElement>('[data-setting]').forEach(b => {
       const key = b.dataset.setting as keyof Settings;
       b.addEventListener('click', e => { e.preventDefault(); setSetting(key, !settings[key]); h.press(); });
@@ -112,7 +122,8 @@ export const ui = {
   hud(show: boolean) { el.hud.hidden = !show; },
   setBest(m: number) {
     el.hudBest.textContent = String(m);
-    el.titleBest.textContent = String(m);
+    const tb = document.getElementById('titleBest'); // the lake card redraws it
+    if (tb) tb.textContent = String(m);
   },
   /** Title extras: missions (or the how-to before the first throw). */
   setTitleMeta(list: Mission[], firstRun: boolean) {
@@ -121,28 +132,42 @@ export const ui = {
     if (!firstRun) renderMissions(el.titleMissions, list);
   },
   /** Stone row on the title, each drawn with its face; locked ones show a price. */
+  /** The home screen's stone card: the one on show, its ability, and Equipped or its price. */
   renderPicker(p: PickerState) {
-    el.picker.innerHTML = STONE_ITEMS.map(it => {
-      const own = p.owned(it.id);
-      return `<button class="stone-pick${it.id === p.equipped ? ' equipped' : ''}${it.id === p.selected ? ' selected' : ''}${own ? '' : ' locked'}"
-        data-stone="${it.id}" role="radio" aria-checked="${it.id === p.equipped}" aria-label="${it.name}${own ? '' : `, ${it.price} coins`}">
-        ${stoneSvg(it.id, it.id === p.equipped ? 'squint' : 'eyes')}<span>${own ? it.name : `${coinIcon()}${it.price}`}</span></button>`;
-    }).join('');
     const sel = STONE_ITEMS.find(i => i.id === p.selected)!;
-    const own = p.owned(sel.id);
-    el.caption.innerHTML = own
-      ? `<b>${sel.name}</b> · ${sel.blurb}`
-      : `<b>${sel.name}</b> · ${sel.blurb} <button class="k-btn k-btn--sm k-btn--yellow buy-btn" data-buy="${sel.id}"${p.balance < sel.price ? ' disabled' : ''}>${coinIcon()}${sel.price}</button>`;
+    const own = p.owned(sel.id), on = sel.id === p.equipped;
+    shownStone = sel.id;
+    el.charImg.src = portrait(sel.id, on, 4);
+    el.charName.textContent = sel.name;
+    el.charBio.textContent = `${sel.blurb}. ${sel.bio}`;
+    const ab = ABILITIES[sel.id as AbilityId];
+    el.charAbility.innerHTML = `<b>${ab.name}</b> · ${ab.text}`;
+    el.charCard.classList.toggle('locked', !own);
+    el.charAction.innerHTML = own
+      ? `<span class="char-on">${on ? 'Your stone' : 'Equipped'}</span>`
+      : `<button class="k-btn k-btn--sm k-btn--yellow buy-btn" data-buy="${sel.id}"${p.balance < sel.price ? ' disabled' : ''}>${coinIcon()}${sel.price}</button>`;
   },
-  shakePicker(id: string) {
-    const b = el.picker.querySelector<HTMLElement>(`[data-stone="${id}"]`);
-    if (!b) return;
-    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+  shakePicker(_id: string) {
+    el.charCard.classList.remove('shake'); void el.charCard.offsetWidth; el.charCard.classList.add('shake');
   },
+  /**
+   * The home screen's lake card: tinted with the lake's own sunset, its twist, and its best, or what
+   * opens it while it's locked (Throw is then off).
+   */
+  renderLake(l: { name: string; twist: string; open: boolean; best: number; unlock: string; index: number; count: number; colors: string[] }) {
+    el.lakeName.textContent = l.name;
+    el.lakeTwist.textContent = l.twist;
+    el.lakeCard.classList.toggle('locked', !l.open);
+    el.lakeCard.style.setProperty('--lake-sky', `linear-gradient(160deg, ${l.colors.join(', ')})`);
+    el.lakeBest.innerHTML = l.open ? `${icon('trophy')}Best <b id="titleBest">${l.best}</b> m` : `${icon('lock')}${l.unlock}`;
+    el.lakeDots.innerHTML = Array.from({ length: l.count }, (_, i) => `<i${i === l.index ? ' class="on"' : ''}></i>`).join('');
+    el.playBtn.toggleAttribute('disabled', !l.open);
+  },
+  shakeLake() { el.lakeCard.classList.remove('shake'); void el.lakeCard.offsetWidth; el.lakeCard.classList.add('shake'); },
   /** HUD pills show the equipped stone. */
   /**
-   * The ability button: hidden (null) outside a throw; otherwise the meter fills round the
-   * character's face, and it glows and says its move's name once it's ready.
+   * The ability capsule: hidden (null) outside a throw; otherwise it fills with sunset light as
+   * Perfects land, and glows once the move is ready.
    */
   setAbility(a: { id: string; name: string; charge: number; ready: boolean } | null) {
     el.abilityBtn.hidden = !a;
@@ -153,7 +178,7 @@ export const ui = {
       el.abilityName.textContent = a.name;
       el.abilityBtn.setAttribute('aria-label', `${a.name} (E)`);
     }
-    el.abilityFill.style.strokeDashoffset = String(176 * (1 - a.charge));
+    el.abilityFill.style.transform = `scaleX(${a.charge})`;
     if (el.abilityBtn.classList.contains('ready') !== a.ready) el.abilityBtn.classList.toggle('ready', a.ready);
   },
   /** The meter just filled: a little pop. */
@@ -209,8 +234,9 @@ export const ui = {
     el.overStreak.textContent = s.bestStreak > 0 ? `×${s.bestStreak}` : '–';
     el.overGlass.textContent = String(s.glass);
     el.overHoops.textContent = String(s.hoops);
-    el.overClose.textContent = s.close;
-    el.overClose.hidden = !s.close;
+    el.overClose.textContent = s.opened ? `New lake open: ${s.opened}!` : s.close;
+    el.overClose.hidden = !s.opened && !s.close;
+    el.overClose.classList.toggle('opened', !!s.opened);
     renderEarned(el.overEarned, s.earned);
     renderMissions(el.overMissions, s.missions.map(r => r.mission), s.missions);
     // restart the star pop-in every time
