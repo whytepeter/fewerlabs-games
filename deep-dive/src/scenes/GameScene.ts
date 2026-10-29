@@ -610,20 +610,37 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Steering: +1 swims up, -1 down, 0 drifts. Touch the side of the screen you want to move toward:
-   * the top/bottom half in landscape, the left/right half in portrait (the world is turned 90° there,
-   * heading up the screen, so screen left is the world's "up"). Keys: ↑, W, Space up and ↓, S down;
-   * the side arrows (and A/D) follow the screen: → up in landscape, ← up in portrait.
+   * Steering: positive swims up, negative down, 0 drifts. Returns a value in [-1, 1].
+   *
+   * Touch: the diver seeks toward the finger's vertical position on screen — dragging gives
+   * fluid, proportional control instead of the old binary top-half / bottom-half tap. A dead
+   * zone around the diver prevents jitter when the finger is close.
+   *
+   * Keys: ↑/W/Space up, ↓/S down (binary ±1). Side arrows follow the screen orientation.
    */
   private steering() {
     const k = this.keys, portrait = portraitView();
     const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
     let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
-    for (const t of this.touches.values()) {
-      dir += (portrait ? t.x < innerWidth / 2 : t.y < innerHeight / 2) ? 1 : -1;
+    if (this.touches.size) {
+      // Average all active touch positions to one target.
+      let sum = 0, n = 0;
+      for (const t of this.touches.values()) {
+        // In portrait the canvas is rotated -90deg: screen X maps to game Y.
+        sum += portrait ? t.x / innerWidth : t.y / innerHeight;
+        n++;
+      }
+      const frac = sum / n; // 0 = game top, 1 = game bottom
+      const targetY = frac * view.h / this.k;
+      const err = this.diverY - targetY; // positive when diver is below target → swim up
+      const deadZone = 15; // world-space pixels: ignore tiny offsets
+      if (Math.abs(err) > deadZone) {
+        const visH = view.h / this.k * 0.5; // normalise by half the visible height
+        dir += clamp(err / visH, -1, 1);
+      }
     }
-    return Math.sign(dir);
+    return clamp(dir, -1, 1);
   }
 
   private step(dt: number) {
