@@ -1525,7 +1525,11 @@ function enterFullscreen() {
 }
 
 function lockLandscape() {
-  try { (screen.orientation as any).lock?.('landscape')?.catch?.(() => {}); } catch { /* unsupported */ }
+  try {
+    const doLock = () => { (screen.orientation as any).lock?.('landscape')?.catch?.(() => {}); };
+    if (document.fullscreenElement) doLock();
+    else document.documentElement.requestFullscreen?.({ navigationUI: 'hide' })?.then(doLock).catch(() => doLock());
+  } catch { /* unsupported */ }
 }
 function unlockOrientation() {
   try { (screen.orientation as any).unlock?.(); } catch { /* unsupported */ }
