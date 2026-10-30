@@ -652,8 +652,8 @@ export class GameScene extends Phaser.Scene {
     if (target !== null) {
       const err = target - this.diverY;
       // Seek speed scales with distance: fast when far, gentle when close, zero at target.
-      const seekRate = 10 * push;
-      this.vy = clamp(err * seekRate, -500, 500);
+      const seekRate = 6 * push;
+      this.vy = clamp(err * seekRate, -380, 380);
     } else {
       this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * push * dt, -340, 340);
     }
