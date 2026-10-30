@@ -53,6 +53,7 @@
           <div class="lifeline" id="lifeline" hidden>Lifeline · next hit free</div>
           <div class="perk" id="perk" hidden><span id="perkIcon"></span><div class="perk-bar"><div id="perkFill"></div></div></div>
         </div>
+        <div class="combo" id="combo" hidden aria-live="polite"><b class="combo-x" id="comboX"></b><span class="combo-pot" id="comboPot"></span><i class="combo-bar"><b id="comboBar"></b></i></div>
       </div>
       <div class="hud-right">
         <div class="hud-best" id="hudBestPill" title="Your best in this cave"><i data-icon="trophy"></i><span class="hud-best-text"><small>Best</small><span><b id="hudBest">0</b> m</span></span></div>
@@ -71,9 +72,15 @@
     <div id="banner" class="banner" aria-live="polite"><small id="bannerLabel">Entering</small><span id="bannerText"></span></div>
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
-    <div id="guide" class="guide" hidden aria-live="polite">
-      <div class="guide-zone" data-dir="up"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↑</b><b class="guide-say"></b></span></div>
-      <div class="guide-zone" data-dir="down"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↓</b><b class="guide-say"></b></span></div>
+    <div id="guide" class="guide" hidden aria-hidden="true">
+      <span class="guide-halo"></span>
+      <span class="guide-tether"></span>
+      <span class="guide-rail"></span>
+      <span class="guide-trail" style="--lag: var(--t3); opacity: .12"></span>
+      <span class="guide-trail" style="--lag: var(--t2); opacity: .22"></span>
+      <span class="guide-trail" style="--lag: var(--t1); opacity: .35"></span>
+      <span class="guide-ring"></span>
+      <span class="guide-keys"><b>↑</b><b>↓</b></span>
     </div>
     <div id="coach" class="coach" hidden aria-live="polite"><b id="coachText"></b></div>
     <div id="lowO2" class="low-o2"></div>
@@ -114,7 +121,7 @@
         <!-- Today's goal, then where to dive, then Dive: the thumb's corner. -->
         <div class="title-dock">
           <div class="howto" id="howto">
-            <div class="howto-card"><span class="howto-ico"><i data-icon="depth"></i></span><b id="howHold">Touch</b><span id="howHoldText">top / bottom to steer</span></div>
+            <div class="howto-card"><span class="howto-ico howto-ico--swipe" id="howIco"><svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><path class="swipe-trail" d="M14 4v20" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3" opacity=".6"/><path class="swipe-head" d="M9 8l5-5 5 5" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><path class="swipe-head" d="M9 20l5 5 5 5" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="14" cy="14" r="3.5" fill="#fff"/></svg></span><b id="howHold">Drag</b><span id="howHoldText">up or down to steer</span></div>
             <div class="howto-card"><span class="howto-ico"><i data-icon="bubble"></i></span><b>Bubbles</b><span>refill air</span></div>
             <div class="howto-card"><span class="howto-ico howto-ico--pink"><i data-icon="heart"></i></span><b id="howLives">3 lives</b><span>dodge critters</span></div>
           </div>
@@ -270,7 +277,7 @@
       <div class="k-panel install-panel">
         <img class="install-icon" src="/pwa-192x192.png" alt="">
         <h2>Install Deep Dive</h2>
-        <p>Play full screen, even offline, straight from your home screen.</p>
+        <p id="installOfferText">Play full screen, even offline, straight from your home screen.</p>
         <div id="installOfferPrompt">
           <button class="k-btn k-btn--block" id="installOfferBtn" type="button"><i data-icon="depth"></i>Install</button>
         </div>
@@ -291,7 +298,7 @@
           <span id="savemeCount">5</span>
         </div>
         <button class="k-btn k-btn--block" id="savemeYes" type="button">Keep diving <span class="price-chip shell-chip" id="savemeCost"></span></button>
-        <button class="k-btn k-btn--blue k-btn--block" id="savemeAd" type="button" aria-label="Watch an ad to keep diving" hidden><i data-icon="tv"></i>Watch to keep diving</button>
+        <button class="k-btn k-btn--blue k-btn--block" id="savemeAd" type="button" aria-label="Watch an ad to keep diving" hidden><i data-icon="tv"></i>Watch to keep diving<small class="saveme-left" id="savemeAdLeft"></small></button>
         <p class="saveme-have" id="savemeHave"></p>
         <button class="k-btn k-btn--white k-btn--sm k-btn--block" id="savemeNo" type="button">No thanks</button>
       </div>
@@ -404,11 +411,11 @@
             <ul class="k-missions" id="overMissions"></ul>
             <div class="hunt over-hunt" id="overHunt" hidden></div>
             <div class="over-today" id="overToday" hidden></div>
-            <div class="k-row over-buttons">
-              <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
-              <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>
-            </div>
           </div>
+        </div>
+        <div class="k-row over-buttons">
+          <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
+          <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>
         </div>
       </div>
     </section>

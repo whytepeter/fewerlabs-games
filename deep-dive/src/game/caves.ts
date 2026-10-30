@@ -11,7 +11,9 @@ import { FROST_AMBIENCE, KELP_AMBIENCE, LINER_AMBIENCE, PIRATE_AMBIENCE, REEF_AM
  */
 
 export type CaveId = 'reef' | 'kelp' | 'frost' | 'pirate' | 'titanic' | 'riptide' | 'sunken';
-export type Kind = 'jelly' | 'mine' | 'angler' | 'eel';
+export type Kind = 'jelly' | 'mine' | 'angler' | 'eel'
+  // Each cave's own creature (its `star`):
+  | 'puffer' | 'crab' | 'squid' | 'octopus' | 'shark' | 'swordfish' | 'snake';
 
 /** How a cave's sharp walls look, glow in the dark, and what the message says when they get you. */
 export interface SpikeLook { fill: number; shine: number; glow: number; hit: string }
@@ -29,6 +31,8 @@ export interface CaveDef {
   shape: CaveShape;
   /** Each creature joins the mix from this depth (m); below `crowdFrom` every kind is doubled up. */
   creatures: Partial<Record<Kind, number>>;
+  /** This cave's own creature: found only here, and twice as common as the others once it's in. */
+  star: Kind;
   crowdFrom: number;
   /**
    * Room between creatures (world px): `gap[0]` at the surface, closing to `gap[1]` by `over` m. On top of
@@ -99,7 +103,8 @@ export const CAVES: CaveDef[] = [
       { at: 1200, name: 'Hydrothermal Vents', top: 0x441a1a, bot: 0x16080c, rock: 0x5a2416, dark: 0.7,  vent: 1 },
     ],
     shape: { start: 0.84, end: 0.5, over: 1500, wave: 0.15, wave2: 0.06 },
-    creatures: { jelly: 0, mine: 50, angler: 200, eel: 320 },
+    creatures: { puffer: 60, jelly: 0, mine: 50, angler: 200, eel: 320 },
+    star: 'puffer',
     crowdFrom: 450,
     pace: { gap: [440, 220], over: 1300 },
     pay: 1,
@@ -124,7 +129,8 @@ export const CAVES: CaveDef[] = [
       { at: 780, name: 'The Tangle',     top: 0x0c3d36, bot: 0x041d1a, rock: 0x1e3f30, dark: 0.72, vent: 0 },
     ],
     shape: { start: 0.88, end: 0.58, over: 1800, wave: 0.19, wave2: 0.08 },
-    creatures: { jelly: 0, angler: 150, mine: 260, eel: 420 },
+    creatures: { crab: 60, jelly: 0, angler: 150, mine: 260, eel: 420 },
+    star: 'crab',
     crowdFrom: 550,
     pace: { gap: [420, 210], over: 1200 },
     pay: 1.25,
@@ -150,7 +156,8 @@ export const CAVES: CaveDef[] = [
       { at: 750, name: 'The Frozen Heart', top: 0x18306a, bot: 0x0a1638, rock: 0x1d3462, dark: 0.74, vent: 0 },
     ],
     shape: { start: 0.82, end: 0.52, over: 1500, wave: 0.13, wave2: 0.05 },
-    creatures: { jelly: 0, mine: 80, eel: 220, angler: 380 },
+    creatures: { squid: 70, jelly: 0, mine: 80, eel: 220, angler: 380 },
+    star: 'squid',
     crowdFrom: 500,
     pace: { gap: [400, 205], over: 1100 },
     pay: 1.5,
@@ -180,7 +187,8 @@ export const CAVES: CaveDef[] = [
       { at: 780, name: "Davy Jones' Locker", top: 0x14284a, bot: 0x08122a, rock: 0x45302a, dark: 0.72, vent: 0 },
     ],
     shape: { start: 0.85, end: 0.55, over: 1500, wave: 0.16, wave2: 0.07 },
-    creatures: { jelly: 0, eel: 160, angler: 300, mine: 480 },
+    creatures: { shark: 90, jelly: 0, eel: 160, angler: 300, mine: 480 },
+    star: 'shark',
     crowdFrom: 620,
     pace: { gap: [440, 225], over: 1200 },
     pay: 1.75,
@@ -211,7 +219,8 @@ export const CAVES: CaveDef[] = [
       { at: 780, name: 'The Lost Hold',   top: 0x10203a, bot: 0x060b16, rock: 0x2c374a, dark: 0.8,  vent: 0 },
     ],
     shape: { start: 0.82, end: 0.54, over: 1400, wave: 0.1, wave2: 0.04 },
-    creatures: { jelly: 0, angler: 120, eel: 280, mine: 450 },
+    creatures: { octopus: 80, jelly: 0, angler: 120, eel: 280, mine: 450 },
+    star: 'octopus',
     crowdFrom: 600,
     pace: { gap: [430, 215], over: 1100 },
     pay: 2,
@@ -241,7 +250,8 @@ export const CAVES: CaveDef[] = [
       { at: 780, name: 'The Undertow',     top: 0x163c66, bot: 0x081a36, rock: 0x6a3a32, dark: 0.7,  vent: 0 },
     ],
     shape: { start: 0.78, end: 0.54, over: 1500, wave: 0.1, wave2: 0.04 },
-    creatures: { jelly: 0, mine: 90, eel: 260, angler: 420 },
+    creatures: { swordfish: 100, jelly: 0, mine: 90, eel: 260, angler: 420 },
+    star: 'swordfish',
     crowdFrom: 600,
     pace: { gap: [450, 230], over: 1250 },
     pay: 1.5,
@@ -270,7 +280,8 @@ export const CAVES: CaveDef[] = [
       { at: 780, name: 'The Drowned Throne', top: 0x162f5a, bot: 0x07142e, rock: 0x5e5450, dark: 0.74, vent: 0 },
     ],
     shape: { start: 0.84, end: 0.56, over: 1500, wave: 0.08, wave2: 0.03 },
-    creatures: { jelly: 0, angler: 160, eel: 320, mine: 520 },
+    creatures: { snake: 80, jelly: 0, angler: 160, eel: 320, mine: 520 },
+    star: 'snake',
     crowdFrom: 650,
     pace: { gap: [470, 235], over: 1250 },
     pay: 2.25,

@@ -77,8 +77,9 @@ const SPIKE_SEG = 520, SPIKE_H = 19;
 const STEER = 1300;            // steering acceleration
 const MAGNET_RANGE = 170;
 const CLOSE_CALL = 22;         // clearance (px) that still counts as a close call
-const COMBO_WINDOW = 4;        // seconds to chain the next close call
-const COMBO_MAX = 5;           // a chained close call pays up to this many coins
+const COMBO_WINDOW = 4;        // seconds to chain the next close call before the combo banks
+const COMBO_MAX = 10;          // a chained close call pays up to this many coins (×10 chain = 55 in the pot)
+const COMBO_CHARGE = 0.06;     // special-move charge from each close call
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 40; // Turbo: a few seconds of untouchable top speed, in every cave
@@ -101,10 +102,23 @@ const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.3;  // seconds an ic
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
-const MOTES = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1) }));
+const MOTES = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1), glow: Math.random() < 0.3 }));
+/** A rare sight in the far background (no gameplay): a whale in lit water, a glowing school in the dark. */
+interface Sight { kind: 'whale' | 'school'; born: number; y: number; size: number }
+const SIGHT_GAP: [number, number] = [35, 75]; // seconds between sights
 /** Portrait turns the dive 90° (see style.css): you sink down the screen and steer left/right. */
 const portraitView = () => matchMedia('(orientation: portrait)').matches;
-const REASONS: Record<Kind, string> = { jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish', eel: 'Zapped by an electric eel' };
+const REASONS: Record<Kind, string> = {
+  jelly: 'Stung by a jellyfish', mine: 'Bumped a sea mine', angler: 'Swallowed by an anglerfish', eel: 'Zapped by an electric eel',
+  puffer: 'Pricked by a pufferfish', crab: 'Pinched by a crab', squid: 'Grabbed by an ice squid', octopus: 'Hugged by an octopus',
+  shark: 'Chomped by a shark', swordfish: 'Skewered by a swordfish', snake: 'Bitten by a sea snake',
+};
+/** Pufferfish: hit radius deflated and fully puffed, and how near (px ahead) it starts to puff. */
+const PUFF_R: [number, number] = [11, 21], PUFF_AT = 210;
+/** Squid and octopus swim in bursts: seconds per burst cycle, how long the jet lasts, and its speed. */
+const JET = { squid: { cycle: 1.5, on: 0.35, speed: 170 }, octopus: { cycle: 2.2, on: 0.5, speed: 110 } };
+/** Swordfish: hangs still until you're this near, glints for SWORD_WARN seconds, then darts. */
+const SWORD_AT = 360, SWORD_WARN = 0.5, SWORD_SPEED = 460;
 /** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
 const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
 const PICKUP_TEX: Record<Pickup['type'], string> = { air: 'air', pearl: 'pearl', chest: 'chest', shell: 'shell', shield: 'pk-shield', magnet: 'pk-magnet', lifeline: 'pk-life', turbo: 'pk-turbo' };
@@ -119,7 +133,7 @@ export class GameScene extends Phaser.Scene {
   private hearts = HEARTS;
   private invuln = 0;
   private wallT = 0;
-  private touches = new Map<number, { x: number; y: number }>(); // pointerId -> screen position, for steering
+  private touches = new Map<number, { x: number; y: number; sx: number; sy: number; anchor: number; dragging: boolean }>();
   private shieldT = 0;
   private magnetT = 0;
   /** Held until the next hit (or an empty tank), which it takes for you instead. */
@@ -163,6 +177,11 @@ export class GameScene extends Phaser.Scene {
   private doubler = false;
   private combo = 0;
   private comboT = 0;
+  private comboWin = COMBO_WINDOW;
+  /** Coins riding on the combo: banked when its window runs out, lost if a hit lands first. */
+  private comboPot = 0;
+  private sight: Sight | null = null;
+  private nextSight = 0;
   /** Best depth when this dive started: the marker you're chasing. */
   private runBest = 0;
   private bestWarned = false;
@@ -288,11 +307,27 @@ export class GameScene extends Phaser.Scene {
     const track = (e: PointerEvent) => {
       if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
       if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
-      // A quick double-tap anywhere fires the diver's special (steering taps are held, not tapped twice).
       if (e.type === 'pointerdown' && this.state === 'play') {
         if (e.timeStamp - this.lastTap < DOUBLE_TAP) { this.lastTap = 0; this.fireSpecial(); } else this.lastTap = e.timeStamp;
       }
-      if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.type === 'pointerdown') {
+        const portrait = portraitView();
+        const frac = portrait ? e.clientX / innerWidth : e.clientY / innerHeight;
+        const diverFrac = this.diverY * this.k / view.h;
+        this.touches.set(e.pointerId, {
+          x: e.clientX, y: e.clientY,
+          sx: e.clientX, sy: e.clientY,
+          anchor: diverFrac - frac,
+          dragging: false,
+        });
+      } else if (this.touches.has(e.pointerId)) {
+        const t = this.touches.get(e.pointerId)!;
+        t.x = e.clientX; t.y = e.clientY;
+        if (!t.dragging) {
+          const dx = t.x - t.sx, dy = t.y - t.sy;
+          if (dx * dx + dy * dy > 100) t.dragging = true; // 10px threshold
+        }
+      }
     };
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
     addEventListener('blur', () => this.touches.clear());
@@ -433,6 +468,7 @@ export class GameScene extends Phaser.Scene {
     this.clearWorld();
     this.daily = daily;
     this.tune = tuning.dive(daily);
+    ads.setDailyLimit(this.tune.adsPerDay);
     for (const k of STREAMS) this.streams[k] = daily ? mulberry32(dailyRun.seed(k)) : Math.random;
     this.place = daily ? mulberry32(dailyRun.seed('place')) : Math.random;
     this.rng = Math.random;
@@ -474,11 +510,15 @@ export class GameScene extends Phaser.Scene {
     this.boosterOpen = boosters.held().length > 0;
     this.combo = 0;
     this.comboT = 0;
+    this.comboPot = 0;
+    ui.combo(null);
     this.runBest = this.best;
     this.bestWarned = false;
     this.bestPassed = false;
     this.runPearls = 0;
     this.runClose = 0;
+    this.sight = null;
+    this.nextSight = rand(12, 30);
     this.runBonus = 0;
     this.runAir = 0;
     this.runPerks = 0;
@@ -524,7 +564,7 @@ export class GameScene extends Phaser.Scene {
     ui.setBoosters(this.boosterOpen ? boosters.held() : null);
     ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
-    if (this.rookie && this.boosterOpen) ui.coach({ id: 'boosters', target: 'boosterBar', text: 'Tap a booster to power up your dive' });
+    if (this.rookie && this.boosterOpen) ui.coach({ id: 'boosters', target: 'boosterBar', text: 'Tap a booster for a power-up' });
     // Head Start: blast through the shallows in a Turbo, then a short shield to land safely.
     if (this.gear.has('headstart')) {
       this.kickoff = true;
@@ -619,21 +659,25 @@ export class GameScene extends Phaser.Scene {
   private steering() {
     const k = this.keys, portrait = portraitView();
     const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
-    const dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
+    let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
+    // Tap/hold (not dragging): top half = up, bottom half = down.
+    for (const t of this.touches.values()) {
+      if (t.dragging) continue;
+      const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
+      dir += frac < 0.5 ? 1 : -1;
+    }
     return clamp(dir, -1, 1);
   }
 
-  /** The world-Y the finger is pointing at, or null when no touches are active. */
+  /** Anchor-based drag target, or null when the touch is a tap/hold (binary steering). */
   private touchTargetY(): number | null {
-    if (!this.touches.size) return null;
+    if (this.touches.size !== 1) return null;
+    const t = this.touches.values().next().value!;
+    if (!t.dragging) return null;
     const portrait = portraitView();
-    let sum = 0, n = 0;
-    for (const t of this.touches.values()) {
-      sum += portrait ? t.x / innerWidth : t.y / innerHeight;
-      n++;
-    }
-    return (sum / n) * view.h / this.k;
+    const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
+    return (frac + t.anchor) * view.h / this.k;
   }
 
   private step(dt: number) {
@@ -662,6 +706,7 @@ export class GameScene extends Phaser.Scene {
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
+    if (!this.learned) ui.guideAt(this.diverX() * this.k, this.diverY * this.k);
     if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 10)) {
       this.learned = true;
       store.set('learned', true);
@@ -700,7 +745,15 @@ export class GameScene extends Phaser.Scene {
         this.perkEnded();
       }
     }
-    if (this.comboT > 0) { this.comboT = Math.max(0, this.comboT - dt); if (!this.comboT) this.combo = 0; }
+    if (!this.sight && this.runT > this.nextSight) {
+      const dark = palette(this.def.biomes, this.dist / 10, this.pal).dark;
+      this.sight = { kind: dark > 0.3 ? 'school' : 'whale', born: this.dist, y: rand(0.22, 0.55), size: rand(0.8, 1.15) };
+      this.nextSight = this.runT + rand(...SIGHT_GAP);
+    }
+    if (this.comboT > 0) {
+      this.comboT = Math.max(0, this.comboT - dt);
+      if (this.comboT) ui.comboTime(this.comboT / this.comboWin); else this.bankCombo();
+    }
     if (this.specialT > 0) { this.specialT = Math.max(0, this.specialT - dt); if (!this.specialT) ui.setSpecial(this.skin, this.special, this.charge, false); }
     if (this.boosterOpen && (this.runT > BOOSTER_WINDOW || depth > BOOSTER_UNTIL)) { this.boosterOpen = false; ui.setBoosters(null); }
     ui.setPerk(this.turboT ? 'turbo' : this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null,
@@ -751,7 +804,7 @@ export class GameScene extends Phaser.Scene {
         }
         if (o.lunge !== undefined && o.lunge > 0) { o.lunge -= dt; if (o.lunge <= 0) { o.dash = 0.55; sfx.tone(200, 0.2, { type: 'square', vol: 0.04, slideTo: 120 }); } }
         if (o.dash && o.dash > 0) { o.dash -= dt; o.x -= 300 * dt; o.y += clamp(this.diverY - o.y, -1, 1) * 70 * dt; }
-      }
+      } else this.moveStar(o, ahead, dt);
       const gap = this.clearance(o);
       if (gap !== null) o.gap = Math.min(o.gap ?? Infinity, gap);
       if (gap !== null && gap < 0) {
@@ -808,18 +861,72 @@ export class GameScene extends Phaser.Scene {
     buzz([15, 30, 25]);
   }
 
-  /** Slipping past a creature with very little room: pays coins, more for each one chained. */
+  /**
+   * Slipping past a creature or wall with very little room. Each one chained inside the window adds
+   * more coins to the combo pot (and a little special charge); the pot banks when the window runs
+   * out, and a hit before then loses it.
+   */
   private closeCall() {
     const charm = this.gear.has('charm');
     this.combo = this.comboT > 0 ? Math.min(COMBO_MAX, this.combo + 1) : 1;
-    this.comboT = charm ? CHARM_WINDOW : COMBO_WINDOW;
+    this.comboWin = charm ? CHARM_WINDOW : COMBO_WINDOW;
+    this.comboT = this.comboWin;
     this.runClose++;
-    const pay = this.combo + (charm ? 1 : 0);
-    this.runBonus += pay;
-    ui.damage(this.combo > 1 ? `Close call ×${this.combo}! +${pay}` : `Close call! +${pay}`, true);
-    sfx.tone(660 + this.combo * 110, 0.1, { type: 'triangle', vol: 0.07, slideTo: 990 + this.combo * 110 });
-    buzz(10);
+    this.comboPot += this.combo + (charm ? 1 : 0);
+    this.addCharge(COMBO_CHARGE);
+    ui.combo(this.combo, this.comboPot);
+    sfx.tone(660 + this.combo * 80, 0.1, { type: 'triangle', vol: 0.07, slideTo: 990 + this.combo * 80 });
+    buzz(this.combo >= 5 ? 18 : 10);
     this.sparks.explode(3 + this.combo * 2, this.dist + 6, this.diverY);
+    if (this.combo === 5 || this.combo === COMBO_MAX) {
+      this.cameras.main.flash(140, 255, 220, 120);
+      sfx.tone(1046, 0.15, { type: 'triangle', vol: 0.07, delay: 0.08 });
+    }
+  }
+  /** Where a sight is on screen: it drifts in from the right on the far layer's slow parallax. */
+  private sightX(W: number) {
+    const sg = this.sight!;
+    const x = W + 260 - (this.dist - sg.born) * 0.32;
+    if (x < -320) this.sight = null;
+    return x;
+  }
+  /** A whale passing far off in lit water: a soft silhouette in the far rocks' colour, tail slowly beating. */
+  private drawSight(W: number, H: number, T: number, pal: Palette) {
+    if (this.sight?.kind !== 'whale') return;
+    const x = this.sightX(W), sg = this.sight;
+    if (!sg) return;
+    const y = sg.y * H, k = sg.size, g = this.far;
+    g.fillStyle(mixNum(pal.top, pal.rock, 0.8), 0.6);
+    g.fillEllipse(x, y, 230 * k, 64 * k);
+    g.fillEllipse(x - 70 * k, y - 6 * k, 90 * k, 52 * k); // head
+    const sway = Math.sin(T * 1.6) * 10 * k, tx = x + 112 * k;
+    g.fillTriangle(tx - 10 * k, y, tx + 46 * k, y - 26 * k + sway, tx + 40 * k, y + 22 * k + sway);
+    g.fillTriangle(x - 20 * k, y + 18 * k, x + 20 * k, y + 20 * k, x - 4 * k, y + 52 * k); // flipper
+  }
+  /** A school of glowing fish crossing far off in the dark, drawn above the darkness. */
+  private drawSchool(x0: number, W: number, H: number, T: number, dark: number) {
+    const x = this.sightX(W), sg = this.sight;
+    if (!sg) return;
+    for (let i = 0; i < 26; i++) {
+      const a = i * 2.39996, r = 10 + (i % 7) * 9;
+      const fx = x + Math.cos(a + T * 0.6) * r * 1.8, fy = sg.y * H + Math.sin(a + T * 0.6) * r * 0.7 + Math.sin(T * 2 + i) * 3;
+      this.edges.fillStyle(0x5cffd6, 0.6 * dark * (0.6 + 0.4 * Math.sin(T * 3 + i)));
+      this.edges.fillEllipse(x0 + fx, fy, 9, 4);
+    }
+  }
+  /** The combo's window ran out: its pot is safe. */
+  private bankCombo() {
+    if (this.comboPot) {
+      this.runBonus += this.comboPot;
+      ui.comboEnd('banked', this.comboPot);
+      sfx.tone(880, 0.08, { vol: 0.06 }); sfx.tone(1320, 0.14, { vol: 0.06, delay: 0.06 });
+    } else ui.combo(null);
+    this.combo = 0; this.comboPot = 0;
+  }
+  /** A hit (or the end of the dive) before the combo banked: its pot is gone. */
+  private dropCombo() {
+    if (this.comboPot) ui.comboEnd('lost', this.comboPot);
+    this.combo = 0; this.comboT = 0; this.comboPot = 0;
   }
 
   private spawning(depth: number, dt: number) {
@@ -830,7 +937,7 @@ export class GameScene extends Phaser.Scene {
     const using = (k: Stream, timer: number, fn: () => void) => { this.lag = this.daily ? -timer : 0; this.withRng(this.streams[k], fn); };
     if ((this.nextObs -= step) <= 0) using('obs', this.nextObs, () => {
       this.spawnObstacle(depth);
-      if (this.rookie) ui.coach({ id: 'lives', target: 'hearts', text: 'Dodge critters: each bump costs a life' });
+      if (this.rookie) ui.coach({ id: 'lives', target: 'hearts', text: 'Hitting a critter costs a life' });
       // Sawtooth pacing: the cave closes in with depth, breathes in and out every ~450 m, and eases off after a new zone.
       const { gap, over } = this.def.pace;
       const wave = 1 + 0.2 * Math.sin((depth / 450) * TAU);
@@ -840,7 +947,7 @@ export class GameScene extends Phaser.Scene {
     });
     if ((this.nextAir -= step) <= 0) using('air', this.nextAir, () => {
       this.spawnRow('air', 3, 34);
-      if (this.rookie) ui.coach({ id: 'air', target: 'o2bar', text: 'Swim through bubbles to refill your air' });
+      if (this.rookie) ui.coach({ id: 'air', target: 'o2bar', text: 'Grab bubbles to refill air' });
       this.nextAir = this.cr(420, 620) + depth * 0.08 - this.lag;
     });
     if ((this.nextPearls -= step) <= 0) using('pearl', this.nextPearls, () => {
@@ -924,6 +1031,12 @@ export class GameScene extends Phaser.Scene {
 
   /** Room between the diver and a creature's hit zone (negative = touching), or null while it's harmless. */
   private clearance(o: Obstacle) {
+    // Long bodies (a shark, a swordfish's bill) hurt along their length, not just round the middle.
+    const long = o.kind === 'shark' ? [-34, 34, 12] : o.kind === 'swordfish' ? [-60, 22, 8] : null;
+    if (long) {
+      const dx = clamp(this.dist, o.x + long[0], o.x + long[1]) - this.dist;
+      return Math.hypot(dx, o.y - this.diverY) - (long[2] + DIVER_R * 0.8);
+    }
     if (o.kind !== 'eel') return Math.hypot(o.x - this.dist, o.y + o.dy - this.diverY) - (o.r + DIVER_R * 0.8);
     // Eels are only dangerous while charged, along their whole body.
     if (!this.eelCharged(o)) return null;
@@ -968,7 +1081,7 @@ export class GameScene extends Phaser.Scene {
     if (this.shieldT > 0) { this.useShield(); this.invuln = 0.8; return; }
     if (this.lifeline) { this.rescue(); return; }
     if (this.cleanDepth < 0) this.cleanDepth = Math.floor(this.dist / 10);
-    this.combo = 0; this.comboT = 0;
+    this.dropCombo();
     this.hearts--;
     this.invuln = this.perk === 'blink' ? DIVER_PERK.blink : HIT_INVULN;
     ui.setHearts(this.hearts);
@@ -1023,7 +1136,7 @@ export class GameScene extends Phaser.Scene {
       sfx.tone(784, 0.12, { type: 'triangle', vol: 0.06 }); sfx.tone(1175, 0.2, { type: 'triangle', vol: 0.06, delay: 0.08 });
       buzz(12);
       // The first time ever, say how to use it.
-      if (!store.get('specialTip', false)) { store.set('specialTip', true); ui.hint(`${this.special.name} is ready: double-tap to use it`, 4500); }
+      if (!store.get('specialTip', false)) { store.set('specialTip', true); ui.coach({ id: 'special', target: 'specialBtn', text: 'Ready! Double-tap to use it' }); }
     }
   }
 
@@ -1168,10 +1281,50 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** How each cave's own creature moves (see caves.ts `star`). */
+  private moveStar(o: Obstacle, ahead: number, dt: number) {
+    if (o.kind === 'puffer') {
+      // Puffs up into a spiky ball as you come near, and stays puffed.
+      const want = ahead < PUFF_AT ? PUFF_R[1] : PUFF_R[0];
+      o.r += clamp(want - o.r, -40 * dt, 40 * dt);
+      o.sprite.setScale(TEX_SCALE * (o.r / 20));
+    } else if (o.kind === 'crab') {
+      o.x += o.vx * dt;
+      const [t, b] = cave(o.x, this.H, this.cv, this.def.shape);
+      o.y = o.y0 ? t + 12 : b - 12;
+      o.sprite.setRotation(Math.sin(o.ph * 14) * 0.08);
+    } else if (o.kind === 'squid' || o.kind === 'octopus') {
+      // Bursts towards your line, then drifts.
+      const j = JET[o.kind], p = o.ph % j.cycle, on = p < j.on && ahead > 0;
+      o.x += o.vx * dt - (on ? j.speed * 0.4 * dt : 0);
+      if (on) o.y += clamp(this.diverY - o.y, -1, 1) * j.speed * (1 - p / j.on) * dt;
+      const [t, b] = cave(o.x, this.H, this.cv, this.def.shape);
+      o.y = clamp(o.y, t + o.r + 4, b - o.r - 4);
+      o.sprite.setScale(TEX_SCALE * (on ? 1.12 : 1), TEX_SCALE * (on ? 0.9 : 1));
+    } else if (o.kind === 'shark') {
+      o.x += o.vx * dt;
+      if (ahead > 40) o.y += clamp(this.diverY - o.y, -1, 1) * 38 * dt;
+      o.sprite.setRotation(clamp((this.diverY - o.y) / 300, -0.15, 0.15));
+    } else if (o.kind === 'swordfish') {
+      // Hangs still, glints a warning, then darts straight across.
+      if (o.lunge === undefined && ahead > 0 && ahead < SWORD_AT) { o.lunge = SWORD_WARN; sfx.tone(1400, 0.08, { type: 'triangle', vol: 0.04 }); }
+      if (o.lunge !== undefined && o.lunge > 0) { o.lunge -= dt; if (o.lunge <= 0) { o.dash = 1; sfx.noise(0.15, 0.05, 2400); } }
+      if (o.dash) o.x -= SWORD_SPEED * dt;
+    } else if (o.kind === 'snake') {
+      o.x += o.vx * dt;
+    }
+  }
+
   private animate(o: Obstacle, dt: number) {
     o.ph += dt;
     if (o.kind === 'jelly') o.y = o.y0 + Math.sin(o.ph * 1.4) * o.amp;
     if (o.kind === 'mine') o.dy = Math.sin(o.ph * 2) * 5;
+    if (o.kind === 'puffer') o.dy = Math.sin(o.ph * 1.6) * o.amp;
+    if (o.kind === 'snake') {
+      const k = o.ph * 2.4;
+      o.y = o.y0 + Math.sin(k) * o.amp;
+      o.sprite.setRotation(-Math.atan2(Math.cos(k) * o.amp * 2.4, -o.vx) * 0.6);
+    }
   }
 
   private spawnObstacle(depth: number) {
@@ -1181,6 +1334,7 @@ export class GameScene extends Phaser.Scene {
     const kinds: Kind[] = [];
     for (const [k, from] of Object.entries(this.def.creatures) as [Kind, number][]) {
       if (depth >= from) kinds.push(k);
+      if (depth >= from && k === this.def.star) kinds.push(k); // the cave's own creature is the common one
       if (depth >= Math.max(from, this.def.crowdFrom)) kinds.push(k);
     }
     if (!kinds.length) kinds.push('jelly');
@@ -1195,6 +1349,21 @@ export class GameScene extends Phaser.Scene {
     } else if (kind === 'eel') {
       o = { ...base, x: wx + EEL_HALF, r: 10, ph: this.cr(0, EEL_CYCLE), sprite: this.add.sprite(wx + EEL_HALF, y, 'eel', 0), glow: this.glow(0x8ff6ff) };
       o.sprite.play({ key: 'eel', startFrame: (Math.random() * 4) | 0 });
+    } else if (kind === 'puffer') {
+      o = { ...base, x: wx, r: PUFF_R[0], amp: this.cr(10, 24), sprite: this.add.sprite(wx, y, 'puffer'), glow: this.glow(0xffd36b) };
+    } else if (kind === 'crab') {
+      // Walks along the floor, or upside down along the ceiling, towards you.
+      const top = this.rng() < 0.35;
+      o = { ...base, x: wx, r: 13, vx: -this.cr(45, 85), y: top ? t + 12 : b - 12, y0: top ? 1 : 0, sprite: this.add.sprite(wx, y, 'crab').setFlipY(top), glow: this.glow(0xff8a6b) };
+    } else if (kind === 'squid' || kind === 'octopus') {
+      const big = kind === 'octopus';
+      o = { ...base, x: wx, r: big ? 18 : 13, vx: -this.cr(10, 30), sprite: this.add.sprite(wx, y, kind).setFlipX(!big), glow: this.glow(big ? 0xff8fa0 : 0x9fe2ff) }; // squid jet fins-first
+    } else if (kind === 'shark') {
+      o = { ...base, x: wx + 160, r: 19, vx: -this.cr(150, 210), sprite: this.add.sprite(wx + 160, y, 'shark').setOrigin(58 / 120, 32 / 60), glow: this.glow(0xbfd8ee) };
+    } else if (kind === 'swordfish') {
+      o = { ...base, x: wx + 60, r: 13, sprite: this.add.sprite(wx + 60, y, 'swordfish').setOrigin(66 / 124, 0.5), glow: this.glow(0xe8f4ff) };
+    } else if (kind === 'snake') {
+      o = { ...base, x: wx + 60, r: 11, vx: -this.cr(55, 85), amp: this.cr(28, 52), sprite: this.add.sprite(wx + 60, y, 'snake'), glow: this.glow(0xffe36b) };
     } else {
       o = { ...base, x: wx + 140, r: 17, vx: -this.cr(70, 140), sprite: this.add.sprite(wx + 140, y, 'angler', 0).setOrigin(56 / 108, 38 / 72), glow: this.glow(0xbeff8c) };
       o.sprite.play('angler');
@@ -2340,9 +2509,13 @@ export class GameScene extends Phaser.Scene {
     return this.add.image(0, 0, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setAlpha(0);
   }
 
-  /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (once a dive), Subway Surfers style, before ending the dive. */
+  /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (tuning.adSaves a dive), Subway Surfers style, before ending the dive. */
   private die(reason: string) {
-    const cost = saveCost(this.saves), adOk = this.adSaves < this.tune.adSaves && ads.enabled;
+    this.dropCombo();
+    const cost = saveCost(this.saves);
+    // Ad revives: a few a dive, not on a dive that's barely started, and within the day's ad allowance.
+    const adsLeft = Math.min(this.tune.adSaves - this.adSaves, ads.leftToday());
+    const adOk = adsLeft > 0 && ads.enabled && this.dist / 10 >= this.tune.adMinDepth;
     if (shells.count < cost && !adOk) { this.endDive(reason); return; }
     this.state = 'saveme';
     this.sparks.explode(14, this.dist, this.diverY);
@@ -2350,7 +2523,7 @@ export class GameScene extends Phaser.Scene {
     buzz([30, 30, 50]);
     sfx.tone(240, 0.3, { type: 'sawtooth', vol: 0.07, slideTo: 120 });
     sfx.suspend();
-    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null).then(choice => {
+    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null, adsLeft).then(choice => {
       if (this.state !== 'saveme') return;
       sfx.resume();
       track('save_me', { choice: choice ?? 'none', cost, ad: adOk, cave: this.def.id });
@@ -2447,7 +2620,7 @@ export class GameScene extends Phaser.Scene {
     ui.lowO2(false);
     ui.hint(null);
     ui.guide(false);
-    this.time.delayedCall(800, () => {
+    this.time.delayedCall(450, () => {
       if (this.state !== 'over') return;
       ui.showOver({
         depth, reason, zone: this.def.biomes[this.biome].name, best: this.best, isBest, pearls: this.runPearls,
@@ -2509,12 +2682,14 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Marine snow drifting past at different depths.
+    // Marine snow drifting past at different depths: sparse in the sunlit shallows, thicker the deeper you go.
     this.snow.clear();
     const flake = this.def.glide ? 1.6 : 1; // icy caves get real snowflakes
-    for (const m of MOTES) {
+    const shown = Math.round(MOTES.length * (0.45 + 0.55 * pal.dark));
+    for (let i = 0; i < shown; i++) {
+      const m = MOTES[i];
       const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z * flake) % H, s = (1.6 * m.z + 0.6) * flake;
-      this.snow.fillStyle(0xdcf0ff, 0.28 * m.z * flake);
+      this.snow.fillStyle(0xdcf0ff, (0.24 + 0.14 * pal.dark) * m.z * flake);
       this.snow.fillRect(x, y, s, s);
     }
 
@@ -2531,6 +2706,7 @@ export class GameScene extends Phaser.Scene {
       pts.push({ x: W + 20, y: side ? H + 20 : -20 });
       this.far.fillPoints(pts, true);
     }
+    this.drawSight(W, H, T, pal);
 
     // Trench walls, in world coordinates: fill, bold outline, then a lighter rim just inside.
     const n = Math.ceil((W + 40) / 12) + 1;
@@ -2671,8 +2847,14 @@ export class GameScene extends Phaser.Scene {
         o.sprite.setTint(on ? 0xd9ffff : warn && Math.sin(T * 50) > 0 ? 0xbfefff : 0x9aa6b4);
         o.sprite.setPosition(o.x + (on ? (Math.random() - 0.5) * 2 : 0), o.y + (on ? (Math.random() - 0.5) * 2 : 0));
         o.glow.setPosition(o.x, o.y).setDisplaySize(EEL_HALF * 3, 46).setAlpha(on ? 0.75 + Math.random() * 0.25 : warn ? 0.25 : 0);
-      } else {
+      } else if (o.kind === 'angler') {
         o.glow.setPosition(o.x - o.r * 2.2, o.y - o.r * 1.5).setDisplaySize(56, 56).setAlpha(0.6 + Math.sin(T * 4 + o.ph) * 0.2);
+      } else if (o.kind === 'swordfish') {
+        // The bill glints before it darts.
+        const warn = o.lunge !== undefined && o.lunge > 0 && !o.dash;
+        o.glow.setPosition(o.x - 40, o.y).setDisplaySize(warn ? 70 : 40, warn ? 70 : 40).setAlpha(warn ? (Math.sin(T * 40) > 0 ? 0.95 : 0.4) : 0.1 + pal.dark * 0.2);
+      } else {
+        o.glow.setPosition(o.x, o.y + o.dy).setDisplaySize(o.r * 4, o.r * 4).setAlpha(0.08 + pal.dark * 0.22);
       }
     }
     for (const p of this.items) {
@@ -2708,6 +2890,19 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.edges.clear();
+    // In the dark, some of the snow glows (bioluminescent plankton), twinkling above the darkness.
+    if (dark > 0.3) {
+      const shown = Math.round(MOTES.length * (0.45 + 0.55 * dark));
+      for (let i = 0; i < shown; i++) {
+        const m = MOTES[i];
+        if (!m.glow) continue;
+        const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z) % H;
+        const tw = 0.5 + 0.5 * Math.sin(T * (1.5 + m.z * 2) + m.x * 40);
+        this.edges.fillStyle(0x7dffe0, (dark - 0.3) * 0.5 * tw * m.z);
+        this.edges.fillCircle(x0 + x, y, 1.2 + m.z * 1.3);
+      }
+    }
+    if (this.sight?.kind === 'school') this.drawSchool(x0, W, H, T, dark);
     if (dark > 0.01) {
       this.edges.lineStyle(2, 0x6ebeff, 0.16 * dark);
       this.edges.strokePoints(this.topEdge);

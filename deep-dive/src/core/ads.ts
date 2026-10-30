@@ -1,4 +1,4 @@
-import { settings } from './settings';
+import { settings, store } from './settings';
 import { sfx } from './sfx';
 import { track } from './analytics';
 import { lagos } from './lagos';
@@ -23,6 +23,13 @@ declare global { interface Window { adsbygoogle?: object[] & { requestNonPersona
 const push = (o: object) => { (window.adsbygoogle ??= []).push(o); };
 
 let mode: 'off' | 'google' | 'fake' = 'off';
+/** Today on this device's calendar, as YYYY-MM-DD. */
+export const localDay = () => new Date().toLocaleDateString('en-CA');
+/** Rewarded ads watched today, all placements together, and how many a day are allowed (set from tuning). */
+const DAY_KEY = 'adsToday';
+let perDay = 30;
+const watchedToday = () => { const d = store.get(DAY_KEY, { day: '', n: 0 }); return d.day === localDay() ? d.n : 0; };
+const countWatched = () => store.set(DAY_KEY, { day: localDay(), n: watchedToday() + 1 });
 let child = false;
 
 /** Personalised ads, except for under-13s (never, by law and Google's policy). In Europe and the UK, Google's own consent message has the final say. */
@@ -37,6 +44,9 @@ const loud = () => sfx.resume();
 
 export const ads = {
   get enabled() { return mode !== 'off'; },
+  /** Rewarded ads still allowed today. */
+  leftToday() { return Math.max(0, perDay - watchedToday()); },
+  setDailyLimit(n: number) { perDay = n; },
 
   /**
    * Load the ad script, once the player's age is known: under 13 every request is non-personalised and
@@ -65,11 +75,15 @@ export const ads = {
    * there's none to offer (no fill, blocked, offline, ads off). Offer the reward only on non-null.
    */
   rewarded(name: string): Promise<ShowAd | null> {
-    if (mode === 'off' || showing) return Promise.resolve(null);
+    if (mode === 'off' || showing || this.leftToday() <= 0) return Promise.resolve(null);
     // Analytics: whether an ad was there to offer, and whether the player watched it to the end.
     return this.request(name).then(show => {
       track('ad', { placement: name, result: show ? 'offered' : 'none' });
-      return show && (() => show().then(watched => { track('ad', { placement: name, result: watched ? 'watched' : 'skipped' }); return watched; }));
+      return show && (() => show().then(watched => {
+        track('ad', { placement: name, result: watched ? 'watched' : 'skipped' });
+        if (watched) countWatched();
+        return watched;
+      }));
     });
   },
 

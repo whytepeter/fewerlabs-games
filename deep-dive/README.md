@@ -39,8 +39,10 @@ Balance numbers can change without a release. The defaults live in `src/game/tun
 | `heartPrices` | [3000, 5000, 8000] | coin prices of the week's Sea Hearts in the shop |
 | `perkGap`, `chestGap`, `heartGap` | 1 | × spacing of power-ups / chests / floating Sea Hearts (above 1 = rarer) |
 | `coinRate` | 1 | × the coins a dive pays (not missions) |
-| `adSaves` | 1 | rewarded-ad saves per dive (0 turns it off) |
+| `adSaves` | 10 | rewarded-ad saves per dive, 0–10 (0 turns it off) |
 | `adDoubleCoins` | 1 | 1 offers the double-coins ad, 0 doesn't |
+| `adsPerDay` | 30 | rewarded ads a player can watch per day, all placements together (0–100) |
+| `adMinDepth` | 150 | metres a dive must reach before a revive ad is offered (0–1000) |
 
 Every player gets the same values. Players pick up a change the next time they open the game, and it applies from their next dive. Values out of range or of the wrong type are ignored. The Daily Dive keeps the default spawn spacing, so the day's trench stays the same for everyone.
 

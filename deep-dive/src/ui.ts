@@ -20,7 +20,7 @@ import { HUNT, hunt, type HuntPrize } from './game/hunt';
 import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from './game/daily';
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
-import { ads, type ShowAd } from './core/ads';
+import { ads, localDay, type ShowAd } from './core/ads';
 import { consent } from './core/consent';
 import { lagos, PRODUCTS as LAGOS_PRODUCTS } from './core/lagos';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
@@ -70,12 +70,22 @@ let hintTimer = 0;
 let guideLeft = 0;      // first-dive guide: bit 1 = swim up still to learn, bit 2 = go down
 let guideHeld = 0;      // seconds the asked-for half has been held
 let guideTimer = 0;
-const GUIDE_HOLD = 0.5; // how long a half must be held to count as learned
+const GUIDE_HOLD = 0.3; // seconds of steering one way to count that direction as learned
+const GUIDE_SWING = 2200; // ms for the guide's fingertip to go up and back down
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+/** The guide fingertip's offset from the diver's line at time `t` (in swings): bottom → top → bottom, resting at each end. */
+function guideFinger(t: number) {
+  if (reduceMotion.matches) return 0;
+  const p = ((t % 1) + 1) % 1, tri = p < 0.5 ? p * 2 : 2 - p * 2;
+  const e = Math.min(1, Math.max(0, (tri - 0.1) / 0.8));
+  return 46 - 92 * e * e * (3 - 2 * e);
+}
 // Coach tips, shown one at a time once the steering guide is done.
 type CoachTip = { target: string; text: string };
 let coachQueue: CoachTip[] = [];
 let coachSeen = new Set<string>();
 let coachTimer = 0;
+let comboTimer = 0;
 const SAVE_ME_SECONDS = 5;
 let diveEnded = false; // the next title screen comes straight after a dive
 let showcase: ReturnType<typeof liveDiver> | undefined; // the title's big, live-drawn diver
@@ -344,7 +354,14 @@ export const ui = {
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
     on('playBtn', () => { enterFullscreen(); lockLandscape(); h.play(); });
-    on('againBtn', h.again);
+    on('againBtn', () => { enterFullscreen(); lockLandscape(); h.again(); });
+    // Keyboard: dive again straight from the results.
+    document.addEventListener('keydown', e => {
+      if (!this.isOpen('over') || e.repeat || !['Enter', ' ', 'r', 'R'].includes(e.key)) return;
+      if ((e.target as Element | null)?.closest?.('input, textarea, button')) return;
+      e.preventDefault();
+      $('againBtn').click();
+    });
     on('dailyBtn', () => { enterFullscreen(); lockLandscape(); h.daily(); });
     document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.addEventListener('click', () => {
       buzz(6);
@@ -454,8 +471,8 @@ export const ui = {
 
     const syncOrientation = () => {
       const keys = !isTouch();
-      $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
-      $('howHoldText').textContent = keys ? 'top / bottom, or the arrow keys' : 'top / bottom to steer';
+      $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Drag';
+      $('howHoldText').textContent = keys ? 'top / bottom, or the arrow keys' : 'up or down to steer';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
@@ -591,11 +608,16 @@ export const ui = {
   offerInstall() {
     if (lagos.on) return;
     const mode = installMode(), asked = store.get('installAsked', { n: 0, at: 0 });
-    if (!mode || store.get('divesDone', 0) < INSTALL_AFTER_DIVES || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
+    // Safari on iPhone can't go full screen at all, so the Home Screen is the only way: ask after the first dive.
+    const after = mode === 'ios' ? 1 : INSTALL_AFTER_DIVES;
+    if (!mode || store.get('divesDone', 0) < after || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
     if (!$('rotateHint').hidden || !this.isOpen('title')) return;
     store.set('installAsked', { n: asked.n + 1, at: Date.now() });
     $('installOfferPrompt').hidden = mode !== 'prompt';
     $('installOfferIOS').hidden = mode !== 'ios';
+    $('installOfferText').textContent = mode === 'ios'
+      ? 'Safari can’t play full screen. Add Deep Dive to your Home Screen to dive full screen, even offline.'
+      : 'Play full screen, even offline, straight from your home screen.';
     $('installOffer').hidden = false;
   },
 
@@ -981,11 +1003,17 @@ export const ui = {
     }));
   },
 
-  /** One-use boosters: buy as many as you like, then tap them at the start of a dive. */
-  renderBoosters() {
-    $('gadgetInfo').innerHTML = 'Tap a booster in the <b>first few seconds</b> of a dive to use it. Chests and the Pearl Hunt give them too.';
+  /** One-use boosters: buy as many as you like, then tap them at the start of a dive. Plus one free a day for an ad. */
+  renderBoosters(note?: string) {
+    $('gadgetInfo').innerHTML = note ?? 'Tap a booster in the <b>first few seconds</b> of a dive to use it. Chests and the Pearl Hunt give them too.';
     $('gadgetInfo').classList.remove('warn');
-    $('shopList').innerHTML = BOOSTERS.map(b => {
+    const claimed = store.get('freeBoosterDay', '') === localDay();
+    const free = !ads.enabled ? '' : `<li class="shop-item free-boost"><span class="free-ico">${icon('tv')}</span>
+        <div class="shop-body"><b>Free booster</b><span>Watch an ad for a surprise booster. One a day.</span></div>
+        ${claimed
+          ? '<small class="free-done">Back tomorrow</small>'
+          : `<button type="button" class="k-btn k-btn--blue k-btn--sm" data-free-boost aria-label="Watch an ad for a free booster">${icon('tv')}Watch</button>`}</li>`;
+    $('shopList').innerHTML = free + BOOSTERS.map(b => {
       const n = boosters.count(b.id);
       return `<li class="shop-item"><img src="${portraits[b.icon] ?? ''}" alt="">
         <div class="shop-body"><b>${b.name}</b><span>${b.text}</span><small class="shop-have">You have ${n}</small></div>
@@ -994,6 +1022,20 @@ export const ui = {
     $('shopList').querySelectorAll<HTMLButtonElement>('[data-boost]').forEach(b => b.addEventListener('click', () => {
       if (boosters.buy(b.dataset.boost as BoosterId) === 'bought') { cheer(true); this.renderBoosters(); } else nope(b);
     }));
+    $('shopList').querySelector<HTMLButtonElement>('[data-free-boost]')?.addEventListener('click', e => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      buzz(6);
+      void ads.rewarded('free-booster').then(async show => {
+        if (!show) { this.renderBoosters('No ad to watch right now. Try again in a little while.'); return; }
+        if (!await show()) { this.renderBoosters(); return; }
+        const b = BOOSTERS[Math.floor(Math.random() * BOOSTERS.length)];
+        boosters.add(b.id);
+        store.set('freeBoosterDay', localDay());
+        cheer(true);
+        this.renderBoosters(`You got a free <b>${b.name}</b>! Tap it in the first few seconds of a dive.`);
+      });
+    });
   },
 
   /** Sea Hearts for coins: this week's few, each dearer than the last. */
@@ -1032,7 +1074,7 @@ export const ui = {
    * or null if they decline or time runs out. `ad` (if offered) shows its button once an ad is ready;
    * without Sea Hearts enough and no ad, the screen closes straight away.
    */
-  saveMe(reason: string, cost: number, have: number, ad: Promise<ShowAd | null> | null): Promise<'shell' | 'ad' | null> {
+  saveMe(reason: string, cost: number, have: number, ad: Promise<ShowAd | null> | null, adsLeft = 0): Promise<'shell' | 'ad' | null> {
     this.screen('saveme');
     const canPay = have >= cost;
     $('savemeYes').hidden = !canPay;
@@ -1066,6 +1108,7 @@ export const ui = {
         if (over) return;
         if (!show) { if (!canPay) done(null); return; }
         $('savemeAd').hidden = false;
+        $('savemeAdLeft').textContent = `${adsLeft} left`;
         $('savemeAd').onclick = () => {
           buzz(10);
           clearInterval(tick); // the countdown stops while the ad plays
@@ -1209,6 +1252,32 @@ export const ui = {
   /** The held lifeline (saves one dive-ending hit). */
   setLifeline(on: boolean) { $('lifeline').hidden = !on; },
 
+  /** The close-call combo under the lives: its chain (×n) and the coins riding on it. null hides it. */
+  combo(level: number | null, pot = 0) {
+    const el = $('combo');
+    clearTimeout(comboTimer);
+    if (level === null) { el.hidden = true; return; }
+    el.hidden = false;
+    el.className = `combo${level >= 10 ? ' max' : level >= 5 ? ' hot' : ''}`;
+    $('comboX').textContent = level > 1 ? `Close call ×${level}` : 'Close call!';
+    $('comboPot').innerHTML = `+${coinTag(pot)}`;
+    $('comboBar').style.transform = 'scaleX(1)';
+    bump(el);
+  },
+  /** How much of the combo's window is left (0..1). */
+  comboTime(frac: number) { $('comboBar').style.transform = `scaleX(${frac.toFixed(3)})`; },
+  /** The combo ended: its pot banked into the dive's coins, or lost to a hit. */
+  comboEnd(how: 'banked' | 'lost', pot: number) {
+    const el = $('combo');
+    el.hidden = false;
+    el.className = `combo ${how}`;
+    $('comboX').textContent = how === 'banked' ? 'Banked!' : 'Combo lost';
+    $('comboPot').innerHTML = `${how === 'banked' ? '+' : '−'}${coinTag(pot)}`;
+    $('comboBar').style.transform = 'scaleX(0)';
+    clearTimeout(comboTimer);
+    comboTimer = window.setTimeout(() => { el.hidden = true; }, 1100);
+  },
+
   /** Active power-up with its remaining time (0..1). */
   setPerk(kind: 'shield' | 'magnet' | 'turbo' | null, frac: number) {
     const el = $('perk');
@@ -1272,7 +1341,7 @@ export const ui = {
     hintTimer = window.setTimeout(() => { $('hint').hidden = true; }, ms); // don't linger over play
   },
 
-  /** First-dive guide: the half of the screen to hold (or the arrow key), one direction at a time. */
+  /** First-dive guide: a fingertip and a ghost of the diver moving together, until both directions are used. */
   guide(on: boolean) {
     const g = $('guide');
     g.hidden = !on;
@@ -1283,50 +1352,48 @@ export const ui = {
     coachQueue = [];
     coachSeen = new Set();
     this.coach(null);
-    const keys = !isTouch();
-    g.classList.toggle('touch', !keys);
-    g.querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
-      const up = z.dataset.dir === 'up';
-      z.classList.remove('on', 'done', 'pressing');
-      z.style.setProperty('--fill', '0');
-      z.querySelector('.guide-key')!.textContent = up ? '↑' : '↓';
-      z.querySelector('.guide-say')!.textContent = keys
-        ? (up ? 'Hold to swim up' : 'Hold to go down')
-        : up ? 'Hold here to swim up' : 'Hold here to go down';
-    });
-    guideZone(1).classList.add('on');
+    g.classList.remove('done', 'bump');
+    g.classList.toggle('keys', !isTouch());
+  },
+  /** Each frame: pin the guide to the diver ((x, y) in play-area pixels) and move the fingertip and tether. */
+  guideAt(x: number, y: number) {
+    const g = $('guide');
+    if (g.hidden) return;
+    const ui = $('ui'), w = ui.clientWidth * 0.72 - x;
+    const t = performance.now() / GUIDE_SWING;
+    const fy = guideFinger(t), set = (k: string, v: number, u = 'px') => g.style.setProperty(k, v.toFixed(2) + u);
+    set('--gx', x);
+    set('--gy', Math.min(Math.max(y, 80), ui.clientHeight - 80)); // the finger's rail stays on screen
+    set('--fy', fy);
+    set('--t1', guideFinger(t - 0.035));
+    set('--t2', guideFinger(t - 0.07));
+    set('--t3', guideFinger(t - 0.105));
+    set('--tl', Math.hypot(w, fy));
+    set('--ta', Math.atan2(fy, w), 'rad');
   },
   /** Called every frame with the steering (+1 up, -1 down, 0 none). Returns true once both directions are learned. */
   guidePress(dir: number, dt: number): boolean {
     if (!guideLeft) return false;
     const bit = dir > 0 ? 1 : dir < 0 ? 2 : 0;
-    $('guide').querySelectorAll('.guide-zone').forEach(z => z.classList.remove('pressing'));
-    // Holding either half counts, even the one not asked for yet.
-    if (!(bit & guideLeft)) { guideHeld = 0; showFill(); return false; }
-    const zone = guideZone(bit);
-    if (!zone.classList.contains('on')) {
-      $('guide').querySelectorAll('.guide-zone.on').forEach(z => { z.classList.remove('on'); (z as HTMLElement).style.setProperty('--fill', '0'); });
-      zone.classList.add('on');
-      guideHeld = 0;
-    }
-    zone.classList.add('pressing');
+    if (!(bit & guideLeft)) { guideHeld = 0; return false; }
     guideHeld += dt;
-    showFill();
     if (guideHeld < GUIDE_HOLD) return false;
-    buzz(12);
-    sfx.unlock();
-    zone.classList.replace('on', 'done');
-    zone.classList.remove('pressing');
     guideLeft &= ~bit;
     guideHeld = 0;
-    if (guideLeft) { guideZone(guideLeft).classList.add('on'); return false; }
-    return true;
+    buzz(12);
+    if (!guideLeft) { $('guide').classList.add('done'); return true; }
+    const g = $('guide');
+    g.classList.remove('bump');
+    void g.offsetWidth;
+    g.classList.add('bump');
+    return false;
   },
-  /** Steering learned (or time ran out): let the ticks show, then hand over to the coach tips. */
+  /** Steering learned (or time ran out): fade the guide, then hand over to the coach tips. */
   guideDone() {
     guideLeft = 0;
+    $('guide').classList.add('done');
     clearTimeout(guideTimer);
-    guideTimer = window.setTimeout(() => { $('guide').hidden = true; pumpCoach(); }, 900);
+    guideTimer = window.setTimeout(() => { $('guide').hidden = true; pumpCoach(); }, 500);
   },
   /** A coach tip pointing at a HUD element: queued, each shown once per dive. `null` clears them. */
   coach(tip: { id: string; target: string; text: string } | null) {
@@ -1488,13 +1555,15 @@ function bump(el: HTMLElement) {
   el.classList.add('bump');
 }
 
-/** Full screen where the browser allows it (Android Chrome); silently ignored elsewhere. */
-function guideZone(bit: number) {
-  return $('guide').querySelector<HTMLElement>(`.guide-zone[data-dir="${bit & 1 ? 'up' : 'down'}"]`)!;
-}
-function showFill() {
-  const on = $('guide').querySelector<HTMLElement>('.guide-zone.on');
-  on?.style.setProperty('--fill', String(Math.min(1, guideHeld / GUIDE_HOLD)));
+/**
+ * An element's box in #ui's own coordinates. On a portrait phone the dive's #ui is turned -90° (top-left
+ * origin, sitting on the screen's bottom edge), so screen rects have to be turned back.
+ */
+function uiRect(el: Element) {
+  const r = el.getBoundingClientRect(), ui = $('ui');
+  if (!ui.classList.contains('diving') || !matchMedia('(orientation: portrait)').matches) return r;
+  const u = ui.getBoundingClientRect(), left = u.bottom - r.bottom, top = r.left - u.left;
+  return { left, top, width: r.height, height: r.width, right: left + r.height, bottom: top + r.width };
 }
 /** Show the next coach tip, if nothing else is on screen. */
 function pumpCoach() {
@@ -1503,19 +1572,20 @@ function pumpCoach() {
   const tip = coachQueue.shift();
   if (!tip) return;
   const target = $(tip.target);
-  const r = target.getBoundingClientRect();
+  const r = uiRect(target);
   if (!r.width) { pumpCoach(); return; } // hidden target: skip it
   // In the HUD's middle stack (air bar over lives), sit below the whole stack so neither is covered.
-  const stack = target.closest('.hud-mid')?.getBoundingClientRect();
+  const mid = target.closest('.hud-mid'), stack = mid && uiRect(mid);
   $('coachText').textContent = tip.text;
   box.hidden = false;
   // Below the target, or above it when it's in the lower half; the arrow points at its centre.
+  const ui = $('ui'), W = ui.clientWidth, H = ui.clientHeight;
   const w = box.offsetWidth, h = box.offsetHeight, cx = r.left + r.width / 2;
-  const left = Math.max(16, Math.min(innerWidth - w - 16, cx - w / 2));
-  const above = r.top > innerHeight / 2;
+  const left = Math.max(12, Math.min(W - w - 12, cx - w / 2));
+  const above = r.top > H / 2;
   box.classList.toggle('above', above);
   box.style.left = `${left}px`;
-  box.style.top = `${above ? r.top - h - 16 : Math.max(r.bottom, stack?.bottom ?? 0) + 16}px`;
+  box.style.top = `${above ? r.top - h - 12 : Math.max(r.bottom, stack?.bottom ?? 0) + 12}px`;
   box.style.setProperty('--ax', `${cx - left}px`);
   target.classList.remove('coach-target');
   void target.offsetWidth;

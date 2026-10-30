@@ -33,14 +33,14 @@ body {
    landscape layout even on a portrait phone — no orientation-lock API needed. */
 @media (orientation: portrait) {
   #game {
-    inset: auto; left: 0; top: 100vh; top: 100dvh;
-    width: 100vh; width: 100dvh; height: 100vw;
+    inset: auto; left: 0; top: 100vh; top: max(100dvh, 100lvh);
+    width: 100vh; width: max(100dvh, 100lvh); height: 100vw;
     transform-origin: 0 0;
     transform: rotate(-90deg);
   }
   #ui.diving {
-    inset: auto; left: 0; top: 100vh; top: 100dvh;
-    width: 100vh; width: 100dvh; height: 100vw;
+    inset: auto; left: 0; top: 100vh; top: max(100dvh, 100lvh);
+    width: 100vh; width: max(100dvh, 100lvh); height: 100vw;
     transform-origin: 0 0;
     transform: rotate(-90deg);
     --safe-t: env(safe-area-inset-left, 0px);
@@ -156,6 +156,25 @@ body {
 .toast.good { color: #b6fff0; }
 .toast.show { animation: toast .9s ease forwards; }
 .low-o2.hit { animation: hit .45s ease; }
+
+/* ---------- Close-call combo: under the lives, its pot riding on a bar that drains until it banks. */
+.combo {
+  position: relative; display: flex; align-items: center; gap: 6px; padding: 3px 10px 6px; border-radius: 999px;
+  background: rgba(22, 35, 59, .72); border: 2.5px solid var(--k-outline); color: #b6fff0;
+  font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden;
+}
+.combo[hidden] { display: none; }
+.combo-pot { display: inline-flex; align-items: center; gap: 2px; color: #ffd23f; }
+.combo-pot .k-coin { width: 14px; height: 14px; margin: 0 1px; vertical-align: -2px; }
+.combo-bar { position: absolute; left: 8px; right: 8px; bottom: 2px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .15); }
+.combo-bar b { display: block; height: 100%; border-radius: 2px; background: #3ad06b; transform-origin: left; }
+.combo.hot { color: #ffe58f; border-color: #ffb21e; }
+.combo.hot .combo-bar b { background: #ffb21e; }
+.combo.max { color: #fff; border-color: #ff5a7a; background: rgba(120, 30, 60, .8); }
+.combo.max .combo-bar b { background: #ff5a7a; }
+.combo.banked { color: #8dffb0; border-color: #3ad06b; }
+.combo.lost { color: #ffb3c1; border-color: #ff5a7a; animation: heart-shake .45s ease; }
+.combo.lost .combo-pot { color: #ffb3c1; text-decoration: line-through; }
 .banner {
   position: absolute; left: 0; right: 0; top: 26%;
   text-align: center; opacity: 0; pointer-events: none;
@@ -282,6 +301,15 @@ body {
   padding: 8px 10px; border-radius: 16px; background: rgba(22, 35, 59, .06); text-align: left;
 }
 .shop-item img { width: 44px; height: 44px; }
+/* The free daily booster: a blue row on top of the Boosters list. */
+.free-boost { background: #e3f1ff; box-shadow: inset 0 0 0 2.5px #9fd0ff; }
+.free-ico {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #94d3ff, #3aa8ff); border: 2.5px solid var(--k-outline);
+}
+.free-ico svg { width: 22px; height: 22px; fill: #fff; color: #fff; }
+.free-boost .k-btn svg { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
+.free-done { font-size: 12px; font-weight: 700; color: var(--k-ink-soft); white-space: nowrap; padding: 0 6px; }
 .shop-body { display: grid; gap: 2px; min-width: 0; }
 .shop-body b { font-size: 16px; }
 .shop-body span { font-size: 13px; color: var(--k-ink); }
@@ -305,6 +333,12 @@ body {
 .over-best small { font-size: 13px; color: var(--k-ink-soft); }
 .over-main .k-tag { margin-top: 10px; }
 .over-buttons { margin-top: 16px; align-items: center; flex-wrap: nowrap; }
+/* Again stays pinned to the bottom of the card however long the results run: one tap to dive again. */
+.over-panel > .over-buttons {
+  position: sticky; bottom: calc(var(--safe-b) + 8px); z-index: 3; justify-content: center;
+  margin-top: 12px; padding-top: 8px; background: var(--k-panel);
+  box-shadow: 0 -10px 10px -4px var(--k-panel), 0 34px 0 8px var(--k-panel);
+}
 
 /* ---------- Short landscape phones: everything side by side */
 @media (max-height: 520px) {
@@ -339,10 +373,11 @@ body {
 .banner { top: auto; bottom: calc(var(--safe-b) + 14px); }
 .banner small { font-size: 11px; }
 .banner span { font-size: clamp(18px, 3.2vw, 24px); margin-top: 2px; text-shadow: var(--k-text-outline); }
-.toast { top: calc(var(--safe-t) + 92px); font-size: 18px; text-shadow: var(--k-text-outline); }
+.toast { top: calc(var(--safe-t) + 118px); font-size: 18px; text-shadow: var(--k-text-outline); }
 .hint { bottom: calc(var(--safe-b) + 12px); gap: 8px; padding: 6px 14px 6px 8px; font-size: 13px; border-width: 2px; opacity: .92; pointer-events: none; }
 .hint-finger { width: 16px; height: 16px; border-width: 2px; }
-.hint { left: calc(var(--safe-l) + 12px); transform: none; }
+/* Centred without a transform (k-pop animates transform); bottom-left belongs to the special button. */
+.hint { left: 0; right: 0; width: max-content; max-width: calc(100% - 180px); margin: 0 auto; transform: none; white-space: normal; text-align: center; }
 
 .over-close { margin-top: 8px; font-weight: 700; color: #e9558a; font-size: 15px; }
 .over-panel { width: min(420px, 100%); }
@@ -622,7 +657,14 @@ body.dev-mode::after {
 /* Space above Back so the last row never sits under it. */
 :is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .treasures-panel)::after { content: ""; order: 1; height: 14px; }
 :is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .treasures-panel) > :is(.back-btn, #boardBack) { order: 2; }
-.board-list { max-height: none; overflow: visible; }
+/* Top divers: the card never outgrows the screen; only its list scrolls, so the ribbon, tabs, name
+   box and Back stay put. */
+.board-panel { max-height: 100%; }
+.board-panel > .board-list {
+  flex: 0 1 auto; min-height: 140px; max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 -6px; padding: 2px 6px; touch-action: pan-y;
+}
+.board-panel > .board-list:empty { min-height: 0; padding: 0; }
 /* Short menus (Settings, Top divers) stay a card at their own height, centred; if one grows
    past the screen, the screen scrolls like the sheets do. */
 #settings, #board { display: flex; flex-direction: column; padding-bottom: calc(var(--safe-b) + 18px); }
@@ -718,99 +760,76 @@ body.dev-mode::after {
 }
 @keyframes k-spin { to { transform: rotate(360deg); } }
 
-/* ---------- First-dive guide: the two steering halves. On touch, the half to press glows and fills
-   up while it's held (steering is a hold, not a tap); on a computer it's an arrow key. Touches pass through. */
+/* ---------- First-dive steering hint: a fingertip slides up and down a rail on the thumb side, tethered
+   by a dotted line to a halo round the diver, so the line swings with it: the diver follows your finger.
+   ui.guideAt() sets the diver spot (--gx/--gy), the finger offset (--fy, lagged --t1..3 for its trail) and
+   the tether's length/angle (--tl/--ta) every frame. */
 .guide {
-  position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  display: grid; grid-template-rows: 1fr 1fr;
-  font-family: var(--k-font); animation: k-fade .4s ease both;
+  position: absolute; left: var(--gx, 28%); top: var(--gy, 50%); width: calc(72% - var(--gx, 28%)); height: 0;
+  z-index: 2; pointer-events: none; transition: opacity .35s ease;
+  --fy: 0px; --t1: 0px; --t2: 0px; --t3: 0px; --tl: 0px; --ta: 0rad;
 }
 .guide[hidden] { display: none; }
-.guide-zone {
-  position: relative; overflow: hidden; display: grid; place-items: center;
-  opacity: 0; transition: opacity .35s;
-  --fill: 0;
+.guide.done { opacity: 0; }
+.guide-halo {
+  position: absolute; left: 0; top: 0; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, .55); animation: guide-halo 1.4s ease-in-out infinite;
 }
-.guide-zone.on, .guide-zone.done { opacity: 1; }
-.guide-zone[data-dir="up"] { border-bottom: 2px dashed rgba(255, 255, 255, .25); padding-top: calc(var(--safe-t, 0px) + 64px); } /* clear of the HUD */
-/* Touch: the half glows, then fills from the centre line outwards as it's held. */
-.guide.touch .guide-zone.on { background: rgba(255, 255, 255, .08); animation: guide-glow 1.6s ease-in-out infinite; }
-.guide-fill {
-  position: absolute; inset: 0; background: rgba(255, 210, 63, .28);
-  transform: scaleY(var(--fill)); transform-origin: 50% 100%;
+@keyframes guide-halo { 50% { transform: scale(1.12); border-color: rgba(255, 255, 255, .25); } }
+/* Dotted, and faded out under the halo and the fingertip so it reads as joining them. */
+.guide-tether {
+  position: absolute; left: 0; top: -1.5px; width: var(--tl); height: 3px; transform-origin: 0 50%; transform: rotate(var(--ta));
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .7) 0 4px, transparent 4px 10px);
+  -webkit-mask: linear-gradient(90deg, transparent 36px, #000 52px, #000 calc(100% - 40px), transparent calc(100% - 28px));
+  mask: linear-gradient(90deg, transparent 36px, #000 52px, #000 calc(100% - 40px), transparent calc(100% - 28px));
 }
-.guide-zone[data-dir="down"] .guide-fill { transform-origin: 50% 0; }
-.guide:not(.touch) .guide-fill { display: none; }
-.guide-zone.done .guide-fill { background: rgba(30, 143, 69, .3); animation: k-fade .5s ease reverse both; }
-@keyframes guide-glow { 50% { background: rgba(255, 255, 255, .16); } }
-
-.guide-cue { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-/* The touch point: a glowing fingertip that presses in, with ripples spreading while it's held. */
-.guide-touch { position: relative; width: 64px; height: 64px; display: grid; place-items: center; }
-.guide-touch::before {
-  content: ''; width: 34px; height: 34px; border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, #fff 0 40%, rgba(255, 255, 255, .75) 70%);
-  box-shadow: 0 0 0 4px rgba(255, 210, 63, .55), 0 0 22px 6px rgba(255, 210, 63, .45);
-  animation: guide-press 1.8s ease-in-out infinite;
+/* The finger's path, with a caret at each end. */
+.guide-rail {
+  position: absolute; right: 0; top: -54px; width: 6px; height: 108px; margin-right: -3px; border-radius: 3px;
+  background: rgba(255, 255, 255, .16);
 }
-.guide-touch i {
-  position: absolute; inset: 0; border-radius: 50%; border: 3px solid #ffd23f; opacity: 0;
-  animation: guide-ring 1.8s ease-out infinite;
+.guide-rail::before, .guide-rail::after {
+  content: ''; position: absolute; left: 50%; width: 10px; height: 10px; margin-left: -5px;
+  border: solid rgba(255, 255, 255, .6); border-width: 3px 0 0 3px; border-radius: 1px;
 }
-.guide-touch i + i { animation-delay: .45s; }
-@keyframes guide-press { 0%, 100% { transform: scale(1.15); opacity: .7; } 15%, 75% { transform: scale(.85); opacity: 1; } }
-@keyframes guide-ring { 0%, 12% { transform: scale(.4); opacity: 0; } 18% { opacity: .9; } 70%, 100% { transform: scale(1.5); opacity: 0; } }
-.guide-say {
-  padding: 6px 14px 7px; border-radius: 999px;
-  background: rgba(22, 35, 59, .72); color: #fff;
-  font-size: 16px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .3);
+.guide-rail::before { top: -15px; transform: rotate(45deg); }
+.guide-rail::after { bottom: -15px; transform: rotate(225deg); }
+.guide-ring, .guide-trail {
+  position: absolute; right: 0; top: 0; width: 46px; height: 46px; margin: -23px -23px 0 0; border-radius: 50%;
 }
-.guide-zone.done .guide-say { background: #1e8f45; }
-.guide-zone.done .guide-touch::before { background: #1e8f45; box-shadow: 0 0 0 4px rgba(255, 255, 255, .8); animation: none; }
-.guide-zone.done .guide-touch i { animation: none; }
-.guide-key {
-  display: grid; place-items: center; width: 44px; height: 44px; flex: none;
-  border-radius: 10px; background: #fff; color: #1a2744; font-size: 24px;
-  box-shadow: 0 5px 0 #9fb0c8; animation: guide-key 1.8s ease-in-out infinite;
+.guide-ring {
+  transform: translateY(var(--fy));
+  border: 3px solid #fff; background: rgba(255, 255, 255, .22); box-shadow: 0 0 0 7px rgba(255, 255, 255, .1);
 }
-@keyframes guide-key { 15%, 75% { transform: translateY(4px); box-shadow: 0 1px 0 #9fb0c8; } }
-.guide.touch .guide-key, .guide:not(.touch) .guide-touch { display: none; }
-.guide-zone.done .guide-key { animation: none; }
-/* While the player holds the half, the fingertip stays pressed and the ripples keep coming. */
-.guide-zone.pressing .guide-touch::before { animation: none; transform: scale(.85); opacity: 1; }
-.guide-zone.pressing .guide-touch i { animation-duration: .9s; }
-
-@media (orientation: portrait) {
-  .guide { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
-  /* "up" (the world's) is the left half, "down" the right; each fills out from the centre line */
-  .guide-zone[data-dir="up"] { padding-top: 0; border-bottom: 0; border-right: 2px dashed rgba(255, 255, 255, .25); }
-  .guide-zone[data-dir="up"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 100% 50%; }
-  .guide-zone[data-dir="down"] .guide-fill { transform: scaleX(var(--fill)); transform-origin: 0 50%; }
-  .guide-say { white-space: normal; max-width: 40vw; font-size: 15px; text-align: center; border-radius: 14px; }
-  /* Gameplay rotates #ui to landscape: revert the guide to top/bottom rows. */
-  .diving .guide { grid-template-rows: 1fr 1fr; grid-template-columns: none; }
-  .diving .guide-zone[data-dir="up"] { padding-top: calc(var(--safe-t) + 64px); border-right: 0; border-bottom: 2px dashed rgba(255, 255, 255, .25); }
-  .diving .guide-zone[data-dir="up"] .guide-fill { transform: scaleY(var(--fill)); transform-origin: 50% 100%; }
-  .diving .guide-zone[data-dir="down"] .guide-fill { transform: scaleY(var(--fill)); transform-origin: 50% 0; }
-  .diving .guide-say { white-space: nowrap; max-width: none; font-size: 16px; border-radius: 999px; }
+.guide-ring::after { content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+.guide-trail { transform: translateY(var(--lag)) scale(.7); background: #fff; }
+.guide.bump .guide-ring::after { animation: k-bump .35s cubic-bezier(.2, 1.6, .4, 1); }
+/* Keyboard: arrow keys at the finger's spot instead of the fingertip. */
+.guide-keys { display: none; position: absolute; right: 0; top: 0; transform: translate(50%, -50%); flex-direction: column; gap: 8px; }
+.guide-keys b {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 9px;
+  background: #fff; color: #1a2744; font-size: 20px; box-shadow: 0 4px 0 #9fb0c8;
 }
+.guide.keys .guide-keys { display: flex; }
+.guide.keys .guide-ring, .guide.keys .guide-trail, .guide.keys .guide-rail, .guide.keys .guide-tether { display: none; }
+@media (prefers-reduced-motion: reduce) { .guide-halo { animation: none; } .guide-trail { display: none; } }
 
 /* ---------- Coach: one tip at a time, pointing at the part of the HUD it's about. */
 .coach {
-  position: absolute; z-index: 3; pointer-events: none; max-width: min(320px, calc(100vw - 32px));
-  padding: 10px 16px; border-radius: 16px;
-  background: #fff; color: #1a2744; border: 3px solid var(--k-outline);
-  box-shadow: 0 4px 0 rgba(22, 35, 59, .5);
-  font: 700 16px/1.3 var(--k-font); text-align: center;
-  animation: k-pop .4s cubic-bezier(.2, 1.4, .4, 1) both;
+  position: absolute; z-index: 3; pointer-events: none; max-width: 210px;
+  padding: 6px 11px; border-radius: 12px;
+  background: #fff; color: #1a2744; border: 2.5px solid var(--k-outline);
+  box-shadow: 0 3px 0 rgba(22, 35, 59, .45);
+  font: 700 13px/1.25 var(--k-font); text-align: center;
+  animation: k-pop .35s cubic-bezier(.2, 1.4, .4, 1) both;
 }
 .coach[hidden] { display: none; }
 /* The arrow: points up at the target, or down when the tip sits above it. */
 .coach::before {
-  content: ''; position: absolute; left: calc(var(--ax, 50%) - 9px); top: -12px;
-  border: 9px solid transparent; border-top: 0; border-bottom: 12px solid #fff;
+  content: ''; position: absolute; left: calc(var(--ax, 50%) - 7px); top: -9px;
+  border: 7px solid transparent; border-top: 0; border-bottom: 9px solid #fff;
 }
-.coach.above::before { top: auto; bottom: -12px; border-bottom: 0; border-top: 12px solid #fff; }
+.coach.above::before { top: auto; bottom: -9px; border-bottom: 0; border-top: 9px solid #fff; }
 .coach-target { animation: coach-pulse .9s ease-in-out 3; }
 @keyframes coach-pulse { 50% { transform: scale(1.15); filter: drop-shadow(0 0 8px #ffd23f); } }
 
@@ -928,6 +947,10 @@ body.dev-mode::after {
 
 /* ---------- Save me? (keep diving for coins) */
 .saveme-panel { width: min(320px, 100%); text-align: center; display: grid; gap: 12px; justify-items: center; }
+.saveme-left {
+  margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: rgba(255, 255, 255, .25); text-shadow: none;
+}
 .saveme-reason { margin: 0; font-size: 15px; font-weight: 600; color: var(--k-ink-soft); }
 .saveme-timer { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
 .saveme-timer svg { position: absolute; inset: 0; transform: rotate(-90deg); }
@@ -1007,22 +1030,33 @@ body.dev-mode::after {
 }
 .special-name { top: -22px; font-size: 13px; opacity: .85; }
 .special-hint { bottom: -6px; font-size: 10px; padding: 1px 7px; border-radius: 999px; background: var(--k-outline); text-shadow: none; opacity: 0; transition: opacity .2s; }
-.special-btn.ready { opacity: 1; animation: special-glow 1.2s ease-in-out infinite; }
+/* Ready: it pops in, then keeps wiggling with green ripples spreading out until it's used. */
+.special-btn.ready { opacity: 1; animation: special-pop .45s cubic-bezier(.2, 1.6, .4, 1), special-wiggle 1.6s ease-in-out .45s infinite; }
 .special-btn.ready img { filter: none; }
 .special-btn.ready .sp-fill { stroke: #3ad06b; }
-.special-btn.ready .special-hint { opacity: 1; }
+.special-btn.ready .special-hint { opacity: 1; background: #1e8f45; }
+.special-btn.ready .special-name { opacity: 1; color: #8dffb0; }
+.special-btn::before, .special-btn::after {
+  content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 3px solid #3ad06b; opacity: 0; pointer-events: none;
+}
+.special-btn.ready::before, .special-btn.ready::after { animation: special-ripple 1.6s ease-out infinite; }
+.special-btn.ready::after { animation-delay: .5s; }
+@keyframes special-pop { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+@keyframes special-wiggle {
+  0%, 40%, 100% { transform: none; }
+  8% { transform: scale(1.1) rotate(-8deg); } 16% { transform: scale(1.1) rotate(8deg); }
+  24% { transform: scale(1.1) rotate(-5deg); } 32% { transform: scale(1.05) rotate(0); }
+}
+@keyframes special-ripple { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.75); opacity: 0; } }
 .special-btn.active { opacity: 1; }
 .special-btn.active img { filter: none; animation: k-bump .5s ease infinite; }
 .special-btn.bump { animation: k-bump .3s cubic-bezier(.2, 1.6, .4, 1); }
-@keyframes special-glow {
-  0%, 100% { box-shadow: 0 0 0 3px var(--k-outline), 0 5px 0 var(--k-outline), 0 0 0 0 rgba(58, 208, 107, .55); }
-  50% { box-shadow: 0 0 0 3px var(--k-outline), 0 5px 0 var(--k-outline), 0 0 0 12px rgba(58, 208, 107, 0); }
-}
 
-/* ---------- Boosters: chips you tap in the first seconds of a dive (bottom left) */
+/* ---------- Boosters: chips you tap in the first seconds of a dive (bottom left, beside the special) */
 .booster-bar {
-  position: absolute; left: calc(var(--safe-l) + 12px); bottom: calc(var(--safe-b) + 14px);
-  display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; animation: k-pop .4s cubic-bezier(.2, 1.4, .4, 1) both;
+  /* In a row just right of the special button (78px wide at left 14px), so neither covers the other. */
+  position: absolute; left: calc(var(--safe-l) + 106px); bottom: calc(var(--safe-b) + 14px);
+  display: flex; flex-direction: row; gap: 8px; padding-bottom: 10px; animation: k-pop .4s cubic-bezier(.2, 1.4, .4, 1) both;
 }
 .booster-bar[hidden] { display: none; }
 /* Round icon buttons with a count badge; the yellow strip under them runs out with the time to use them. */
@@ -1042,14 +1076,18 @@ body.dev-mode::after {
 .booster-timer { position: absolute; left: 2px; right: 2px; bottom: 0; height: 5px; border-radius: 3px; background: #ffd23f; box-shadow: 0 0 0 2px var(--k-outline); transform-origin: left; animation: booster-time linear forwards; }
 @keyframes booster-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 @keyframes booster-nudge { 0%, 100% { transform: none; } 50% { transform: scale(1.06); } }
-@media (max-height: 520px) {
-  .booster-bar { gap: 8px; bottom: calc(var(--safe-b) + 10px); }
+/* Short landscape screens, and portrait phones (gameplay is rotated, so their width is the height). */
+@media (max-height: 520px), (orientation: portrait) and (max-width: 520px) {
+  .booster-bar { gap: 8px; left: calc(var(--safe-l) + 82px); bottom: calc(var(--safe-b) + 10px); }
   .booster-chip { width: 46px; height: 46px; box-shadow: 0 3px 0 var(--k-outline); }
   .booster-chip img { width: 32px; height: 32px; }
-  .special-btn { width: 66px; height: 66px; bottom: calc(var(--safe-b) + 10px); }
-  .special-btn img { width: 48px; height: 27px; }
+  .special-btn { width: 54px; height: 54px; bottom: calc(var(--safe-b) + 10px); box-shadow: 0 0 0 2.5px var(--k-outline), 0 3px 0 var(--k-outline); }
+  .special-btn img { width: 38px; height: 22px; }
+  .special-ring circle { stroke-width: 5; }
+  .special-name { top: -17px; font-size: 10px; opacity: .7; }
+  .special-hint { font-size: 9px; bottom: -8px; }
 }
-@media (prefers-reduced-motion: reduce) { .booster-chip, .special-btn.ready { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .booster-chip, .special-btn.ready, .special-btn.ready::before, .special-btn.ready::after { animation: none; } }
 
 /* ---------- Diver specials on the Divers screen (the title's pill is in "Title hub layout") */
 .diver-special {
@@ -1122,8 +1160,6 @@ body.dev-mode::after {
 .hunt-won svg { width: 15px; height: 15px; fill: #ffd23f; }
 .hunt-won .k-coin, .hunt-won .shell-ico { width: 16px; height: 16px; vertical-align: -3px; }
 .shop-have { color: var(--k-ink-soft) !important; }
-/* Shop prices you can't afford yet look muted, so the ones you can stand out. */
-.shop-item .k-btn--sm.short { filter: saturate(.35) brightness(.97); opacity: .85; }
 
 /* ---------- Daily missions (Missions screen) */
 .today { text-align: left; display: grid; gap: 6px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 16px; background: #fff0f4; box-shadow: inset 0 0 0 2.5px #ffc2d2; }
@@ -1151,7 +1187,7 @@ body.dev-mode::after {
 .streak-pop { z-index: 31; }
 .streak-panel { width: min(460px, 100%); text-align: center; display: grid; gap: 12px; justify-items: center; }
 .streak-sub { margin: 0; font-size: 14px; }
-.streak-days { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.streak-days { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .streak-days li {
   display: grid; justify-items: center; gap: 4px; padding: 6px 2px 8px; border-radius: 12px;
   background: #fff; box-shadow: inset 0 0 0 2px rgba(22, 35, 59, .15); font-weight: 700;
@@ -1165,7 +1201,7 @@ body.dev-mode::after {
 .streak-days li.now.claimed { background: #c9f7d6; box-shadow: inset 0 0 0 3px #3ad06b; animation: none; }
 .streak-days li.big { background: linear-gradient(180deg, #fff7d1, #ffe9a3); }
 .streak-panel > .k-btn { width: 100%; }
-@media (max-width: 380px) { .streak-days { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 500px) { .streak-days { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .streak-days li.now { animation: none; } }
 
 /* ---------- Title hub layout. Three tiers, so the eye lands on Dive first:
@@ -1339,6 +1375,10 @@ body.dev-mode::after {
 }
 .howto-ico--pink { background: linear-gradient(180deg, #ffa3b4, #ff5a7a); }
 .howto-ico svg { width: 15px; height: 15px; fill: #fff; color: #fff; }
+.howto-ico--swipe { width: 34px; height: 34px; }
+.howto-ico--swipe svg { width: 20px; height: 20px; }
+.howto-ico--swipe circle { animation: swipe-dot 1.6s ease-in-out infinite; }
+@keyframes swipe-dot { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(-5px); } }
 
 /* Where to dive: the cave (with your best there) and the Daily Dive, one row at the same height. */
 .title-row { display: flex; align-items: stretch; gap: 10px; }
