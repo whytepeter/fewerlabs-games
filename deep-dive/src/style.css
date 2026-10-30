@@ -987,7 +987,7 @@ body.dev-mode::after {
 
 /* ---------- Diver special: the worn diver in a ring that fills with pearls (bottom right, by the thumb) */
 .special-btn {
-  position: absolute; right: calc(var(--safe-r) + 14px); bottom: calc(var(--safe-b) + 14px);
+  position: absolute; left: calc(var(--safe-l) + 14px); bottom: calc(var(--safe-b) + 14px);
   width: 78px; height: 78px; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
   background: radial-gradient(circle at 40% 35%, #2f5f9e, #13284d 72%);
   box-shadow: 0 0 0 3px var(--k-outline), 0 5px 0 var(--k-outline);
