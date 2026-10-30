@@ -21,6 +21,8 @@ budget_tokens: 2000
 
 ## Do-Not-Repeat
 - [2026-10-23] Never add Claude as collaborator/co-author on any game or the store: no Co-Authored-By trailer, no "Generated with Claude Code" line. See .claude/rules/no-claude-coauthor.md.
+- [2026-10-26] Other sessions share this checkout and may switch branches (e.g. games-seo). Run `git branch --show-current` right before committing; to land work on main without disturbing their branch, cherry-pick onto main in a temporary worktree and push from there.
+- [2026-10-26] Each game gets its own UI design. Don't port Deep Dive's screens (cave chip + card list, sheets, progress-bar cards) into Ripple or Skip; design pickers and menus that fit that game (e.g. Ripple flips ponds live behind the title).
 - [2026-10-23] Store: when the user names a style reference (e.g. "Netflix") for one part, apply it only to that part. "Netflix vibe" meant the featured carousel only, not the buttons or the game lists.
 
 <!-- Mistakes made and corrected. Each entry prevents the same mistake recurring. -->
