@@ -624,20 +624,19 @@ export class GameScene extends Phaser.Scene {
     let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
     if (this.touches.size) {
-      // Average all active touch positions to one target.
       let sum = 0, n = 0;
       for (const t of this.touches.values()) {
-        // In portrait the canvas is rotated -90deg: screen X maps to game Y.
         sum += portrait ? t.x / innerWidth : t.y / innerHeight;
         n++;
       }
       const frac = sum / n; // 0 = game top, 1 = game bottom
       const targetY = frac * view.h / this.k;
       const err = this.diverY - targetY; // positive when diver is below target → swim up
-      const deadZone = 15; // world-space pixels: ignore tiny offsets
+      // Tight ramp: full steering kicks in within ~60 world-px of the target, so taps at the
+      // screen edges feel instant while dragging near the diver stays smooth.
+      const deadZone = 6;
       if (Math.abs(err) > deadZone) {
-        const visH = view.h / this.k * 0.5; // normalise by half the visible height
-        dir += clamp(err / visH, -1, 1);
+        dir += clamp(err / 55, -1, 1);
       }
     }
     return clamp(dir, -1, 1);
