@@ -1121,8 +1121,6 @@ body.dev-mode::after {
 .hunt-won svg { width: 15px; height: 15px; fill: #ffd23f; }
 .hunt-won .k-coin, .hunt-won .shell-ico { width: 16px; height: 16px; vertical-align: -3px; }
 .shop-have { color: var(--k-ink-soft) !important; }
-/* Shop prices you can't afford yet look muted, so the ones you can stand out. */
-.shop-item .k-btn--sm.short { filter: saturate(.35) brightness(.97); opacity: .85; }
 
 /* ---------- Daily missions (Missions screen) */
 .today { text-align: left; display: grid; gap: 6px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 16px; background: #fff0f4; box-shadow: inset 0 0 0 2.5px #ffc2d2; }
