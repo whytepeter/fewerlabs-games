@@ -2361,7 +2361,7 @@ export class GameScene extends Phaser.Scene {
     return this.add.image(0, 0, 'glow').setTint(tint).setBlendMode(Phaser.BlendModes.ADD).setDepth(10).setAlpha(0);
   }
 
-  /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (once a dive), Subway Surfers style, before ending the dive. */
+  /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (tuning.adSaves a dive), Subway Surfers style, before ending the dive. */
   private die(reason: string) {
     const cost = saveCost(this.saves), adOk = this.adSaves < this.tune.adSaves && ads.enabled;
     if (shells.count < cost && !adOk) { this.endDive(reason); return; }
@@ -2371,7 +2371,7 @@ export class GameScene extends Phaser.Scene {
     buzz([30, 30, 50]);
     sfx.tone(240, 0.3, { type: 'sawtooth', vol: 0.07, slideTo: 120 });
     sfx.suspend();
-    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null).then(choice => {
+    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null, this.tune.adSaves - this.adSaves).then(choice => {
       if (this.state !== 'saveme') return;
       sfx.resume();
       track('save_me', { choice: choice ?? 'none', cost, ad: adOk, cave: this.def.id });

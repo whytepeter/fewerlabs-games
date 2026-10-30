@@ -913,6 +913,10 @@ body.dev-mode::after {
 
 /* ---------- Save me? (keep diving for coins) */
 .saveme-panel { width: min(320px, 100%); text-align: center; display: grid; gap: 12px; justify-items: center; }
+.saveme-left {
+  margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  background: rgba(255, 255, 255, .25); text-shadow: none;
+}
 .saveme-reason { margin: 0; font-size: 15px; font-weight: 600; color: var(--k-ink-soft); }
 .saveme-timer { position: relative; width: 96px; height: 96px; display: grid; place-items: center; }
 .saveme-timer svg { position: absolute; inset: 0; transform: rotate(-90deg); }

@@ -1042,7 +1042,7 @@ export const ui = {
    * or null if they decline or time runs out. `ad` (if offered) shows its button once an ad is ready;
    * without Sea Hearts enough and no ad, the screen closes straight away.
    */
-  saveMe(reason: string, cost: number, have: number, ad: Promise<ShowAd | null> | null): Promise<'shell' | 'ad' | null> {
+  saveMe(reason: string, cost: number, have: number, ad: Promise<ShowAd | null> | null, adsLeft = 0): Promise<'shell' | 'ad' | null> {
     this.screen('saveme');
     const canPay = have >= cost;
     $('savemeYes').hidden = !canPay;
@@ -1076,6 +1076,7 @@ export const ui = {
         if (over) return;
         if (!show) { if (!canPay) done(null); return; }
         $('savemeAd').hidden = false;
+        $('savemeAdLeft').textContent = `${adsLeft} left`;
         $('savemeAd').onclick = () => {
           buzz(10);
           clearInterval(tick); // the countdown stops while the ad plays
