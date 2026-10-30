@@ -79,7 +79,6 @@ const MAGNET_RANGE = 170;
 const CLOSE_CALL = 22;         // clearance (px) that still counts as a close call
 const COMBO_WINDOW = 4;        // seconds to chain the next close call before the combo banks
 const COMBO_MAX = 10;          // a chained close call pays up to this many coins (×10 chain = 55 in the pot)
-const COMBO_CHARGE = 0.06;     // special-move charge from each close call
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
 const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 40; // Turbo: a few seconds of untouchable top speed, in every cave
@@ -863,8 +862,7 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Slipping past a creature or wall with very little room. Each one chained inside the window adds
-   * more coins to the combo pot (and a little special charge); the pot banks when the window runs
-   * out, and a hit before then loses it.
+   * more coins to the combo pot; the pot banks when the window runs out, and a hit before then loses it.
    */
   private closeCall() {
     const charm = this.gear.has('charm');
@@ -873,7 +871,6 @@ export class GameScene extends Phaser.Scene {
     this.comboT = this.comboWin;
     this.runClose++;
     this.comboPot += this.combo + (charm ? 1 : 0);
-    this.addCharge(COMBO_CHARGE);
     ui.combo(this.combo, this.comboPot);
     sfx.tone(660 + this.combo * 80, 0.1, { type: 'triangle', vol: 0.07, slideTo: 990 + this.combo * 80 });
     buzz(this.combo >= 5 ? 18 : 10);

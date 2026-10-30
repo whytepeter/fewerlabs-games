@@ -23,6 +23,6 @@ export const SPECIALS: Record<SpecialId, Special> = {
 export const specialOf = (outfit: string) => SPECIALS[charOf(SKINS[skinIndex(outfit)]).special];
 
 /** Pearls that fill the meter from empty, and how full it starts each dive. */
-export const SPECIAL_PEARLS = 30, SPECIAL_START = 0.5;
+export const SPECIAL_PEARLS = 50, SPECIAL_START = 0.2;
 /** Puff Up's reach (px), Steady Hands' world speed, and two taps closer than this (ms) are a double-tap. */
 export const PUFF_RANGE = 200, STEADY_RATE = 0.6, DOUBLE_TAP = 280;
