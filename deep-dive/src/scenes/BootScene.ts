@@ -24,6 +24,7 @@ export class BootScene extends Phaser.Scene {
     this.makeMine();
     this.makeAngler();
     this.makeEel();
+    this.makeCaveCreatures();
     this.makeAir();
     this.makeLight();
     this.makeParticles();
@@ -319,6 +320,122 @@ export class BootScene extends Phaser.Scene {
       // tail fin
       const [tx, ty] = pts[pts.length - 1];
       ctx.beginPath(); ctx.moveTo(tx - 2, ty); ctx.lineTo(tx + 8, ty - 6); ctx.lineTo(tx + 8, ty + 6); ctx.closePath(); fillOut(ctx, '#3aa86a', 2);
+    });
+  }
+
+  /**
+   * Each cave's own creature (see caves.ts `star`), all facing left like the angler, in the same
+   * outlined cartoon style. Logical sizes match their hit radius in GameScene.
+   */
+  private makeCaveCreatures() {
+    // Pufferfish, drawn fully puffed (r 22); the scene scales it down while it's deflated.
+    canvasTexture(this, 'puffer', 64, 60, ctx => {
+      const r = 20;
+      setup(ctx); ctx.translate(32, 30);
+      ctx.beginPath(); ctx.moveTo(r * 0.85, 0); ctx.lineTo(r * 1.45, -9); ctx.lineTo(r * 1.45, 9); ctx.closePath(); fillOut(ctx, '#f2a93b', 2.4);
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * TAU;
+        ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9); ctx.lineTo(Math.cos(a) * r * 1.32, Math.sin(a) * r * 1.32);
+        ctx.strokeStyle = OUT; ctx.lineWidth = 4.4; ctx.stroke(); ctx.strokeStyle = '#fff3c4'; ctx.lineWidth = 1.8; ctx.stroke();
+      }
+      const g = ctx.createRadialGradient(-6, -7, 2, 0, 0, r);
+      g.addColorStop(0, '#ffe08a'); g.addColorStop(1, '#f2a93b');
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); fillOut(ctx, g);
+      ctx.fillStyle = '#fff6dc'; ctx.beginPath(); ctx.ellipse(1, r * 0.45, r * 0.7, r * 0.38, 0, 0, TAU); ctx.fill();
+      for (const [x, y] of [[4, -10], [10, -2], [-2, -14]]) { ctx.fillStyle = '#c9781c'; ctx.beginPath(); ctx.arc(x, y, 2, 0, TAU); ctx.fill(); }
+      eye(ctx, -9, -5, 4.4);
+      ctx.beginPath(); ctx.arc(-17, 3, 3, 0, TAU); fillOut(ctx, '#ff7a6b', 2);
+    });
+
+    // Crab, walking on the floor (flipped by the scene to walk on the ceiling).
+    canvasTexture(this, 'crab', 64, 44, ctx => {
+      setup(ctx); ctx.translate(32, 24);
+      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
+        ctx.beginPath(); ctx.moveTo(s * (6 + k * 5), 4); ctx.lineTo(s * (14 + k * 5), 12); ctx.lineTo(s * (16 + k * 6), 18);
+        ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#ff6b4a'; ctx.lineWidth = 2.4; ctx.stroke();
+      }
+      for (const s of [-1, 1]) {
+        ctx.beginPath(); ctx.moveTo(s * 10, -2); ctx.lineTo(s * 20, -10); ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(s * 23, -14, 7, 5.5, s * 0.5, 0, TAU); fillOut(ctx, '#ff6b4a', 2.2);
+        ctx.strokeStyle = OUT; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(s * 20, -17); ctx.lineTo(s * 27, -13); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.ellipse(0, 2, 15, 10, 0, 0, TAU); fillOut(ctx, '#ff6b4a');
+      ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.ellipse(-4, -3, 6, 2.6, -0.3, 0, TAU); ctx.fill();
+      for (const s of [-1, 1]) {
+        ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s * 4, -6); ctx.lineTo(s * 5, -13); ctx.stroke();
+        ctx.beginPath(); ctx.arc(s * 5, -14, 3.2, 0, TAU); fillOut(ctx, '#fff', 1.8);
+        ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(s * 5 - 0.8, -14, 1.5, 0, TAU); ctx.fill();
+      }
+    });
+
+    // Squid (frost: pale ice blue; the octopus below is the liner's).
+    canvasTexture(this, 'squid', 76, 40, ctx => {
+      setup(ctx); ctx.translate(40, 20);
+      for (let k = -2; k <= 2; k++) {
+        ctx.beginPath(); ctx.moveTo(-8, k * 3); ctx.quadraticCurveTo(-22, k * 5 + 3, -32, k * 6);
+        ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke(); ctx.strokeStyle = '#bfe9ff'; ctx.lineWidth = 2.4; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(-10, -9); ctx.quadraticCurveTo(14, -12, 26, 0); ctx.quadraticCurveTo(14, 12, -10, 9); ctx.closePath(); fillOut(ctx, '#9fd8ff');
+      ctx.beginPath(); ctx.moveTo(18, -5); ctx.lineTo(32, -12); ctx.lineTo(30, 0); ctx.lineTo(32, 12); ctx.lineTo(18, 5); ctx.closePath(); fillOut(ctx, '#7cc4f2', 2.2);
+      ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.ellipse(6, -5, 9, 2.4, 0, 0, TAU); ctx.fill();
+      eye(ctx, -4, -1, 4);
+    });
+
+    canvasTexture(this, 'octopus', 72, 66, ctx => {
+      setup(ctx); ctx.translate(36, 26);
+      for (let k = 0; k < 6; k++) {
+        const x = -15 + k * 6;
+        ctx.beginPath(); ctx.moveTo(x, 8); ctx.quadraticCurveTo(x + (k % 2 ? 7 : -7), 22, x + (k < 3 ? -6 : 6), 34);
+        ctx.strokeStyle = OUT; ctx.lineWidth = 7; ctx.stroke(); ctx.strokeStyle = '#e0566a'; ctx.lineWidth = 3.6; ctx.stroke();
+      }
+      const g = ctx.createRadialGradient(-5, -10, 3, 0, 0, 22);
+      g.addColorStop(0, '#ff8f9c'); g.addColorStop(1, '#d9445a');
+      ctx.beginPath(); ctx.ellipse(0, -2, 19, 18, 0, Math.PI * 0.95, Math.PI * 2.05); ctx.quadraticCurveTo(0, 16, -19, 0); ctx.closePath(); fillOut(ctx, g);
+      for (const [x, y] of [[8, -12], [12, -4], [3, -16]]) { ctx.fillStyle = '#ffc2ca'; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, TAU); ctx.fill(); }
+      eye(ctx, -9, -2, 4.6); eye(ctx, 2, -1, 4);
+      ctx.strokeStyle = OUT; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-14, -9); ctx.lineTo(-5, -7); ctx.moveTo(6, -7); ctx.lineTo(-1, -6); ctx.stroke();
+    });
+
+    // Shark: long body, so the scene uses a wide hit radius.
+    canvasTexture(this, 'shark', 120, 60, ctx => {
+      setup(ctx); ctx.translate(58, 32);
+      ctx.beginPath(); ctx.moveTo(40, 0); ctx.lineTo(58, -18); ctx.lineTo(52, 0); ctx.lineTo(58, 16); ctx.closePath(); fillOut(ctx, '#6f8aa3');
+      ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(8, -28); ctx.lineTo(14, -12); ctx.closePath(); fillOut(ctx, '#6f8aa3');
+      ctx.beginPath(); ctx.moveTo(-44, 2); ctx.quadraticCurveTo(-30, -16, 4, -14); ctx.quadraticCurveTo(34, -10, 44, 0); ctx.quadraticCurveTo(30, 12, 0, 13); ctx.quadraticCurveTo(-30, 14, -44, 2); ctx.closePath(); fillOut(ctx, '#7f9bb5');
+      ctx.fillStyle = '#e8f1f8'; ctx.beginPath(); ctx.moveTo(-40, 4); ctx.quadraticCurveTo(-10, 16, 30, 6); ctx.quadraticCurveTo(-6, 9, -40, 4); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-4, 8); ctx.lineTo(4, 20); ctx.lineTo(12, 8); ctx.closePath(); fillOut(ctx, '#6f8aa3', 2.2);
+      ctx.strokeStyle = OUT; ctx.lineWidth = 1.6; for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.moveTo(-18 + k * 4, -6); ctx.lineTo(-20 + k * 4, 2); ctx.stroke(); }
+      ctx.beginPath(); ctx.moveTo(-42, 4); ctx.quadraticCurveTo(-34, 9, -26, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.stroke();
+      ctx.fillStyle = '#fff'; for (let k = 0; k < 4; k++) { ctx.beginPath(); ctx.moveTo(-40 + k * 3.5, 4.5); ctx.lineTo(-38.5 + k * 3.5, 7.5); ctx.lineTo(-37 + k * 3.5, 4.5); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(-30, -4, 3.4, 0, TAU); fillOut(ctx, '#fff', 1.8);
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(-31, -3.6, 1.7, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-36, -9); ctx.lineTo(-26, -7); ctx.stroke();
+    });
+
+    // Swordfish: a long bill out front; it darts, so its glint warns first.
+    canvasTexture(this, 'swordfish', 124, 48, ctx => {
+      setup(ctx); ctx.translate(66, 24);
+      ctx.beginPath(); ctx.moveTo(-26, -1); ctx.lineTo(-62, 0); ctx.lineTo(-26, 3); ctx.closePath(); fillOut(ctx, '#cdd9e6', 2.2);
+      ctx.beginPath(); ctx.moveTo(32, 0); ctx.lineTo(54, -18); ctx.lineTo(46, 0); ctx.lineTo(54, 18); ctx.closePath(); fillOut(ctx, '#3d6fb8');
+      ctx.beginPath(); ctx.moveTo(-14, -9); ctx.quadraticCurveTo(0, -24, 12, -10); ctx.closePath(); fillOut(ctx, '#3d6fb8', 2.2);
+      ctx.beginPath(); ctx.moveTo(-28, 1); ctx.quadraticCurveTo(-14, -12, 10, -10); ctx.quadraticCurveTo(30, -6, 36, 0); ctx.quadraticCurveTo(26, 9, 4, 10); ctx.quadraticCurveTo(-18, 10, -28, 1); ctx.closePath(); fillOut(ctx, '#4f86d6');
+      ctx.fillStyle = '#d7e9ff'; ctx.beginPath(); ctx.moveTo(-24, 3); ctx.quadraticCurveTo(0, 12, 28, 3); ctx.quadraticCurveTo(0, 7, -24, 3); ctx.fill();
+      ctx.beginPath(); ctx.arc(-18, -2, 3.4, 0, TAU); fillOut(ctx, '#fff', 1.8);
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.arc(-19, -1.6, 1.7, 0, TAU); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-24, -7); ctx.lineTo(-14, -5); ctx.stroke();
+    });
+
+    // Sea snake: banded, drawn straight; the scene tilts it along its weave.
+    canvasTexture(this, 'snake', 104, 30, ctx => {
+      setup(ctx); ctx.translate(52, 15);
+      const body = () => { ctx.beginPath(); ctx.moveTo(-40, 0); ctx.bezierCurveTo(-20, -6, 0, 6, 20, 0); ctx.quadraticCurveTo(34, -4, 44, 0); };
+      body(); ctx.strokeStyle = OUT; ctx.lineWidth = 14; ctx.stroke();
+      body(); ctx.strokeStyle = '#f4f0da'; ctx.lineWidth = 9; ctx.stroke();
+      body(); ctx.strokeStyle = '#2f3b52'; ctx.lineWidth = 9; ctx.setLineDash([6, 7]); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.ellipse(-42, 0, 9, 7, 0, 0, TAU); fillOut(ctx, '#2f3b52');
+      ctx.beginPath(); ctx.arc(-44, -2.4, 2.8, 0, TAU); fillOut(ctx, '#ffe36b', 1.6);
+      ctx.fillStyle = OUT; ctx.beginPath(); ctx.ellipse(-44.6, -2.4, 0.9, 2, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#ff5a7a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-50, 2); ctx.lineTo(-56, 2); ctx.lineTo(-58, 0); ctx.moveTo(-56, 2); ctx.lineTo(-58, 4); ctx.stroke();
     });
   }
 

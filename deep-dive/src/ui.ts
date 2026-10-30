@@ -85,6 +85,7 @@ type CoachTip = { target: string; text: string };
 let coachQueue: CoachTip[] = [];
 let coachSeen = new Set<string>();
 let coachTimer = 0;
+let comboTimer = 0;
 const SAVE_ME_SECONDS = 5;
 let diveEnded = false; // the next title screen comes straight after a dive
 let showcase: ReturnType<typeof liveDiver> | undefined; // the title's big, live-drawn diver
@@ -354,6 +355,13 @@ export const ui = {
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
     on('playBtn', () => { enterFullscreen(); lockLandscape(); h.play(); });
     on('againBtn', () => { enterFullscreen(); lockLandscape(); h.again(); });
+    // Keyboard: dive again straight from the results.
+    document.addEventListener('keydown', e => {
+      if (!this.isOpen('over') || e.repeat || !['Enter', ' ', 'r', 'R'].includes(e.key)) return;
+      if ((e.target as Element | null)?.closest?.('input, textarea, button')) return;
+      e.preventDefault();
+      $('againBtn').click();
+    });
     on('dailyBtn', () => { enterFullscreen(); lockLandscape(); h.daily(); });
     document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.addEventListener('click', () => {
       buzz(6);
@@ -1239,6 +1247,32 @@ export const ui = {
 
   /** The held lifeline (saves one dive-ending hit). */
   setLifeline(on: boolean) { $('lifeline').hidden = !on; },
+
+  /** The close-call combo under the lives: its chain (×n) and the coins riding on it. null hides it. */
+  combo(level: number | null, pot = 0) {
+    const el = $('combo');
+    clearTimeout(comboTimer);
+    if (level === null) { el.hidden = true; return; }
+    el.hidden = false;
+    el.className = `combo${level >= 10 ? ' max' : level >= 5 ? ' hot' : ''}`;
+    $('comboX').textContent = level > 1 ? `Close call ×${level}` : 'Close call!';
+    $('comboPot').innerHTML = `+${coinTag(pot)}`;
+    $('comboBar').style.transform = 'scaleX(1)';
+    bump(el);
+  },
+  /** How much of the combo's window is left (0..1). */
+  comboTime(frac: number) { $('comboBar').style.transform = `scaleX(${frac.toFixed(3)})`; },
+  /** The combo ended: its pot banked into the dive's coins, or lost to a hit. */
+  comboEnd(how: 'banked' | 'lost', pot: number) {
+    const el = $('combo');
+    el.hidden = false;
+    el.className = `combo ${how}`;
+    $('comboX').textContent = how === 'banked' ? 'Banked!' : 'Combo lost';
+    $('comboPot').innerHTML = `${how === 'banked' ? '+' : '−'}${coinTag(pot)}`;
+    $('comboBar').style.transform = 'scaleX(0)';
+    clearTimeout(comboTimer);
+    comboTimer = window.setTimeout(() => { el.hidden = true; }, 1100);
+  },
 
   /** Active power-up with its remaining time (0..1). */
   setPerk(kind: 'shield' | 'magnet' | 'turbo' | null, frac: number) {

@@ -156,6 +156,25 @@ body {
 .toast.good { color: #b6fff0; }
 .toast.show { animation: toast .9s ease forwards; }
 .low-o2.hit { animation: hit .45s ease; }
+
+/* ---------- Close-call combo: under the lives, its pot riding on a bar that drains until it banks. */
+.combo {
+  position: relative; display: flex; align-items: center; gap: 6px; padding: 3px 10px 6px; border-radius: 999px;
+  background: rgba(22, 35, 59, .72); border: 2.5px solid var(--k-outline); color: #b6fff0;
+  font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden;
+}
+.combo[hidden] { display: none; }
+.combo-pot { display: inline-flex; align-items: center; gap: 2px; color: #ffd23f; }
+.combo-pot .k-coin { width: 14px; height: 14px; margin: 0 1px; vertical-align: -2px; }
+.combo-bar { position: absolute; left: 8px; right: 8px; bottom: 2px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .15); }
+.combo-bar b { display: block; height: 100%; border-radius: 2px; background: #3ad06b; transform-origin: left; }
+.combo.hot { color: #ffe58f; border-color: #ffb21e; }
+.combo.hot .combo-bar b { background: #ffb21e; }
+.combo.max { color: #fff; border-color: #ff5a7a; background: rgba(120, 30, 60, .8); }
+.combo.max .combo-bar b { background: #ff5a7a; }
+.combo.banked { color: #8dffb0; border-color: #3ad06b; }
+.combo.lost { color: #ffb3c1; border-color: #ff5a7a; animation: heart-shake .45s ease; }
+.combo.lost .combo-pot { color: #ffb3c1; text-decoration: line-through; }
 .banner {
   position: absolute; left: 0; right: 0; top: 26%;
   text-align: center; opacity: 0; pointer-events: none;
@@ -314,6 +333,12 @@ body {
 .over-best small { font-size: 13px; color: var(--k-ink-soft); }
 .over-main .k-tag { margin-top: 10px; }
 .over-buttons { margin-top: 16px; align-items: center; flex-wrap: nowrap; }
+/* Again stays pinned to the bottom of the card however long the results run: one tap to dive again. */
+.over-panel > .over-buttons {
+  position: sticky; bottom: calc(var(--safe-b) + 8px); z-index: 3; justify-content: center;
+  margin-top: 12px; padding-top: 8px; background: var(--k-panel);
+  box-shadow: 0 -10px 10px -4px var(--k-panel), 0 34px 0 8px var(--k-panel);
+}
 
 /* ---------- Short landscape phones: everything side by side */
 @media (max-height: 520px) {
@@ -348,7 +373,7 @@ body {
 .banner { top: auto; bottom: calc(var(--safe-b) + 14px); }
 .banner small { font-size: 11px; }
 .banner span { font-size: clamp(18px, 3.2vw, 24px); margin-top: 2px; text-shadow: var(--k-text-outline); }
-.toast { top: calc(var(--safe-t) + 92px); font-size: 18px; text-shadow: var(--k-text-outline); }
+.toast { top: calc(var(--safe-t) + 118px); font-size: 18px; text-shadow: var(--k-text-outline); }
 .hint { bottom: calc(var(--safe-b) + 12px); gap: 8px; padding: 6px 14px 6px 8px; font-size: 13px; border-width: 2px; opacity: .92; pointer-events: none; }
 .hint-finger { width: 16px; height: 16px; border-width: 2px; }
 /* Centred without a transform (k-pop animates transform); bottom-left belongs to the special button. */
@@ -1027,10 +1052,11 @@ body.dev-mode::after {
 .special-btn.active img { filter: none; animation: k-bump .5s ease infinite; }
 .special-btn.bump { animation: k-bump .3s cubic-bezier(.2, 1.6, .4, 1); }
 
-/* ---------- Boosters: chips you tap in the first seconds of a dive (bottom left) */
+/* ---------- Boosters: chips you tap in the first seconds of a dive (bottom left, beside the special) */
 .booster-bar {
-  position: absolute; left: calc(var(--safe-l) + 12px); bottom: calc(var(--safe-b) + 14px);
-  display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; animation: k-pop .4s cubic-bezier(.2, 1.4, .4, 1) both;
+  /* In a row just right of the special button (78px wide at left 14px), so neither covers the other. */
+  position: absolute; left: calc(var(--safe-l) + 106px); bottom: calc(var(--safe-b) + 14px);
+  display: flex; flex-direction: row; gap: 8px; padding-bottom: 10px; animation: k-pop .4s cubic-bezier(.2, 1.4, .4, 1) both;
 }
 .booster-bar[hidden] { display: none; }
 /* Round icon buttons with a count badge; the yellow strip under them runs out with the time to use them. */
@@ -1052,7 +1078,7 @@ body.dev-mode::after {
 @keyframes booster-nudge { 0%, 100% { transform: none; } 50% { transform: scale(1.06); } }
 /* Short landscape screens, and portrait phones (gameplay is rotated, so their width is the height). */
 @media (max-height: 520px), (orientation: portrait) and (max-width: 520px) {
-  .booster-bar { gap: 8px; bottom: calc(var(--safe-b) + 10px); }
+  .booster-bar { gap: 8px; left: calc(var(--safe-l) + 82px); bottom: calc(var(--safe-b) + 10px); }
   .booster-chip { width: 46px; height: 46px; box-shadow: 0 3px 0 var(--k-outline); }
   .booster-chip img { width: 32px; height: 32px; }
   .special-btn { width: 54px; height: 54px; bottom: calc(var(--safe-b) + 10px); box-shadow: 0 0 0 2.5px var(--k-outline), 0 3px 0 var(--k-outline); }

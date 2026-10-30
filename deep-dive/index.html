@@ -53,6 +53,7 @@
           <div class="lifeline" id="lifeline" hidden>Lifeline · next hit free</div>
           <div class="perk" id="perk" hidden><span id="perkIcon"></span><div class="perk-bar"><div id="perkFill"></div></div></div>
         </div>
+        <div class="combo" id="combo" hidden aria-live="polite"><b class="combo-x" id="comboX"></b><span class="combo-pot" id="comboPot"></span><i class="combo-bar"><b id="comboBar"></b></i></div>
       </div>
       <div class="hud-right">
         <div class="hud-best" id="hudBestPill" title="Your best in this cave"><i data-icon="trophy"></i><span class="hud-best-text"><small>Best</small><span><b id="hudBest">0</b> m</span></span></div>
@@ -410,11 +411,11 @@
             <ul class="k-missions" id="overMissions"></ul>
             <div class="hunt over-hunt" id="overHunt" hidden></div>
             <div class="over-today" id="overToday" hidden></div>
-            <div class="k-row over-buttons">
-              <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
-              <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>
-            </div>
           </div>
+        </div>
+        <div class="k-row over-buttons">
+          <button class="k-btn k-btn--lg" id="againBtn"><i data-icon="restart"></i>Again</button>
+          <button class="k-icon-btn k-btn--white" id="overMenuBtn" aria-label="Menu"><i data-icon="home"></i></button>
         </div>
       </div>
     </section>
