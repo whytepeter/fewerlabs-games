@@ -1284,7 +1284,11 @@ export class GameScene extends Phaser.Scene {
   /** How each cave's own creature moves (see caves.ts `star`). */
   private moveStar(o: Obstacle, ahead: number, dt: number) {
     if (o.kind === 'puffer') {
-      // Puffs up into a spiky ball as you come near, and stays puffed.
+      // Swims at you, drifting towards your height, and puffs up into a spiky ball as you come near.
+      o.x += o.vx * dt;
+      if (ahead > 0) o.y += clamp(this.diverY - o.y, -1, 1) * 30 * dt;
+      const [t, b] = cave(o.x, this.H, this.cv, this.def.shape);
+      o.y = clamp(o.y, t + o.r + 6, b - o.r - 6);
       const want = ahead < PUFF_AT ? PUFF_R[1] : PUFF_R[0];
       o.r += clamp(want - o.r, -40 * dt, 40 * dt);
       o.sprite.setScale(TEX_SCALE * (o.r / 20));
@@ -1350,7 +1354,7 @@ export class GameScene extends Phaser.Scene {
       o = { ...base, x: wx + EEL_HALF, r: 10, ph: this.cr(0, EEL_CYCLE), sprite: this.add.sprite(wx + EEL_HALF, y, 'eel', 0), glow: this.glow(0x8ff6ff) };
       o.sprite.play({ key: 'eel', startFrame: (Math.random() * 4) | 0 });
     } else if (kind === 'puffer') {
-      o = { ...base, x: wx, r: PUFF_R[0], amp: this.cr(10, 24), sprite: this.add.sprite(wx, y, 'puffer'), glow: this.glow(0xffd36b) };
+      o = { ...base, x: wx + 80, r: PUFF_R[0], amp: this.cr(6, 14), vx: -this.cr(55, 95), sprite: this.add.sprite(wx + 80, y, 'puffer'), glow: this.glow(0xffd36b) };
     } else if (kind === 'crab') {
       // Walks along the floor, or upside down along the ceiling, towards you.
       const top = this.rng() < 0.35;
