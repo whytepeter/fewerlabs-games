@@ -623,7 +623,14 @@ body.dev-mode::after {
 /* Space above Back so the last row never sits under it. */
 :is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .treasures-panel)::after { content: ""; order: 1; height: 14px; }
 :is(.shop-panel, .missions-panel, .divers-panel, .settings-panel, .board-panel, .caves-panel, .treasures-panel) > :is(.back-btn, #boardBack) { order: 2; }
-.board-list { max-height: none; overflow: visible; }
+/* Top divers: the card never outgrows the screen; only its list scrolls, so the ribbon, tabs, name
+   box and Back stay put. */
+.board-panel { max-height: 100%; }
+.board-panel > .board-list {
+  flex: 0 1 auto; min-height: 140px; max-height: none; overflow-y: auto; overscroll-behavior: contain;
+  margin: 0 -6px; padding: 2px 6px; touch-action: pan-y;
+}
+.board-panel > .board-list:empty { min-height: 0; padding: 0; }
 /* Short menus (Settings, Top divers) stay a card at their own height, centred; if one grows
    past the screen, the screen scrolls like the sheets do. */
 #settings, #board { display: flex; flex-direction: column; padding-bottom: calc(var(--safe-b) + 18px); }
