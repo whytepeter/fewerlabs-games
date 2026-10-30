@@ -72,8 +72,10 @@
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
     <div id="guide" class="guide" hidden aria-live="polite">
-      <div class="guide-zone" data-dir="up"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↑</b><b class="guide-say"></b></span></div>
-      <div class="guide-zone" data-dir="down"><i class="guide-fill"></i><span class="guide-cue"><span class="guide-touch"><i></i><i></i></span><b class="guide-key">↓</b><b class="guide-say"></b></span></div>
+      <svg class="guide-arrow" viewBox="0 0 48 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M24 8l-10 12h6v20h-6l10 12 10-12h-6V20h6z" fill="#fff"/>
+        <circle class="guide-dot" cx="24" cy="40" r="6" fill="#fff"/>
+      </svg>
     </div>
     <div id="coach" class="coach" hidden aria-live="polite"><b id="coachText"></b></div>
     <div id="lowO2" class="low-o2"></div>

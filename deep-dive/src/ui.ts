@@ -70,7 +70,7 @@ let hintTimer = 0;
 let guideLeft = 0;      // first-dive guide: bit 1 = swim up still to learn, bit 2 = go down
 let guideHeld = 0;      // seconds the asked-for half has been held
 let guideTimer = 0;
-const GUIDE_HOLD = 0.5; // how long a half must be held to count as learned
+const GUIDE_HOLD = 0.3; // seconds of steering one way to count that direction as learned
 // Coach tips, shown one at a time once the steering guide is done.
 type CoachTip = { target: string; text: string };
 let coachQueue: CoachTip[] = [];
@@ -1279,50 +1279,28 @@ export const ui = {
     coachQueue = [];
     coachSeen = new Set();
     this.coach(null);
-    const keys = !isTouch();
-    g.classList.toggle('touch', !keys);
-    g.querySelectorAll<HTMLElement>('.guide-zone').forEach(z => {
-      const up = z.dataset.dir === 'up';
-      z.classList.remove('on', 'done', 'pressing');
-      z.style.setProperty('--fill', '0');
-      z.querySelector('.guide-key')!.textContent = up ? '↑' : '↓';
-      z.querySelector('.guide-say')!.textContent = keys
-        ? (up ? 'Hold to swim up' : 'Hold to go down')
-        : up ? 'Drag up to swim up' : 'Drag down to go down';
-    });
-    guideZone(1).classList.add('on');
+    g.classList.remove('done');
   },
   /** Called every frame with the steering (+1 up, -1 down, 0 none). Returns true once both directions are learned. */
   guidePress(dir: number, dt: number): boolean {
     if (!guideLeft) return false;
     const bit = dir > 0 ? 1 : dir < 0 ? 2 : 0;
-    $('guide').querySelectorAll('.guide-zone').forEach(z => z.classList.remove('pressing'));
-    // Holding either half counts, even the one not asked for yet.
-    if (!(bit & guideLeft)) { guideHeld = 0; showFill(); return false; }
-    const zone = guideZone(bit);
-    if (!zone.classList.contains('on')) {
-      $('guide').querySelectorAll('.guide-zone.on').forEach(z => { z.classList.remove('on'); (z as HTMLElement).style.setProperty('--fill', '0'); });
-      zone.classList.add('on');
-      guideHeld = 0;
-    }
-    zone.classList.add('pressing');
+    if (!(bit & guideLeft)) { guideHeld = 0; return false; }
     guideHeld += dt;
-    showFill();
     if (guideHeld < GUIDE_HOLD) return false;
-    buzz(12);
-    sfx.unlock();
-    zone.classList.replace('on', 'done');
-    zone.classList.remove('pressing');
     guideLeft &= ~bit;
     guideHeld = 0;
-    if (guideLeft) { guideZone(guideLeft).classList.add('on'); return false; }
+    if (guideLeft) return false;
+    buzz(12);
+    $('guide').classList.add('done');
     return true;
   },
-  /** Steering learned (or time ran out): let the ticks show, then hand over to the coach tips. */
+  /** Steering learned (or time ran out): fade the arrow, then hand over to the coach tips. */
   guideDone() {
     guideLeft = 0;
+    $('guide').classList.add('done');
     clearTimeout(guideTimer);
-    guideTimer = window.setTimeout(() => { $('guide').hidden = true; pumpCoach(); }, 900);
+    guideTimer = window.setTimeout(() => { $('guide').hidden = true; pumpCoach(); }, 500);
   },
   /** A coach tip pointing at a HUD element: queued, each shown once per dive. `null` clears them. */
   coach(tip: { id: string; target: string; text: string } | null) {
@@ -1484,14 +1462,6 @@ function bump(el: HTMLElement) {
   el.classList.add('bump');
 }
 
-/** Full screen where the browser allows it (Android Chrome); silently ignored elsewhere. */
-function guideZone(bit: number) {
-  return $('guide').querySelector<HTMLElement>(`.guide-zone[data-dir="${bit & 1 ? 'up' : 'down'}"]`)!;
-}
-function showFill() {
-  const on = $('guide').querySelector<HTMLElement>('.guide-zone.on');
-  on?.style.setProperty('--fill', String(Math.min(1, guideHeld / GUIDE_HOLD)));
-}
 /** Show the next coach tip, if nothing else is on screen. */
 function pumpCoach() {
   const box = $('coach');
