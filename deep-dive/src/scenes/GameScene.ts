@@ -449,6 +449,7 @@ export class GameScene extends Phaser.Scene {
     this.clearWorld();
     this.daily = daily;
     this.tune = tuning.dive(daily);
+    ads.setDailyLimit(this.tune.adsPerDay);
     for (const k of STREAMS) this.streams[k] = daily ? mulberry32(dailyRun.seed(k)) : Math.random;
     this.place = daily ? mulberry32(dailyRun.seed('place')) : Math.random;
     this.rng = Math.random;
@@ -2363,7 +2364,10 @@ export class GameScene extends Phaser.Scene {
 
   /** Out of lives (or air): offer a "Save me" for Sea Hearts or a rewarded ad (tuning.adSaves a dive), Subway Surfers style, before ending the dive. */
   private die(reason: string) {
-    const cost = saveCost(this.saves), adOk = this.adSaves < this.tune.adSaves && ads.enabled;
+    const cost = saveCost(this.saves);
+    // Ad revives: a few a dive, not on a dive that's barely started, and within the day's ad allowance.
+    const adsLeft = Math.min(this.tune.adSaves - this.adSaves, ads.leftToday());
+    const adOk = adsLeft > 0 && ads.enabled && this.dist / 10 >= this.tune.adMinDepth;
     if (shells.count < cost && !adOk) { this.endDive(reason); return; }
     this.state = 'saveme';
     this.sparks.explode(14, this.dist, this.diverY);
@@ -2371,7 +2375,7 @@ export class GameScene extends Phaser.Scene {
     buzz([30, 30, 50]);
     sfx.tone(240, 0.3, { type: 'sawtooth', vol: 0.07, slideTo: 120 });
     sfx.suspend();
-    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null, this.tune.adSaves - this.adSaves).then(choice => {
+    void ui.saveMe(reason, cost, shells.count, adOk ? ads.rewarded('save-me') : null, adsLeft).then(choice => {
       if (this.state !== 'saveme') return;
       sfx.resume();
       track('save_me', { choice: choice ?? 'none', cost, ad: adOk, cave: this.def.id });

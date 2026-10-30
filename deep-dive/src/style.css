@@ -282,6 +282,15 @@ body {
   padding: 8px 10px; border-radius: 16px; background: rgba(22, 35, 59, .06); text-align: left;
 }
 .shop-item img { width: 44px; height: 44px; }
+/* The free daily booster: a blue row on top of the Boosters list. */
+.free-boost { background: #e3f1ff; box-shadow: inset 0 0 0 2.5px #9fd0ff; }
+.free-ico {
+  width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #94d3ff, #3aa8ff); border: 2.5px solid var(--k-outline);
+}
+.free-ico svg { width: 22px; height: 22px; fill: #fff; color: #fff; }
+.free-boost .k-btn svg { width: 16px; height: 16px; margin-right: 4px; vertical-align: -3px; }
+.free-done { font-size: 12px; font-weight: 700; color: var(--k-ink-soft); white-space: nowrap; padding: 0 6px; }
 .shop-body { display: grid; gap: 2px; min-width: 0; }
 .shop-body b { font-size: 16px; }
 .shop-body span { font-size: 13px; color: var(--k-ink); }

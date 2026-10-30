@@ -29,6 +29,10 @@ export const DEFAULTS = {
   adSaves: 10,
   /** 1 offers the double-coins ad on game over, 0 doesn't. */
   adDoubleCoins: 1,
+  /** Rewarded ads a player can watch per day, all placements together (revives, double coins, free booster). */
+  adsPerDay: 30,
+  /** Metres a dive must reach before a revive ad is offered. */
+  adMinDepth: 150,
 };
 export type Tuning = typeof DEFAULTS;
 type Key = keyof Tuning;
@@ -37,6 +41,7 @@ type Key = keyof Tuning;
 const LIMITS: Record<Key, [number, number]> = {
   treasureOdds: [0, 5], chestHeart: [0, 0.5], chestBooster: [0, 0.5], heartPrices: [100, 100000],
   perkGap: [0.25, 4], chestGap: [0.25, 4], heartGap: [0.25, 4], coinRate: [0.25, 4], adSaves: [0, 10], adDoubleCoins: [0, 1],
+  adsPerDay: [0, 100], adMinDepth: [0, 1000],
 };
 /** Keys that change where things spawn: the Daily Dive keeps these at their defaults. */
 const COURSE: Key[] = ['perkGap', 'chestGap', 'heartGap'];

@@ -20,7 +20,7 @@ import { HUNT, hunt, type HuntPrize } from './game/hunt';
 import { daily as dailyRun, DAILY_BONUS, dailyMissions, type DailyResult } from './game/daily';
 import { STREAK, streak, type StreakGift } from './game/streak';
 import { dev } from './core/dev';
-import { ads, type ShowAd } from './core/ads';
+import { ads, localDay, type ShowAd } from './core/ads';
 import { consent } from './core/consent';
 import { lagos, PRODUCTS as LAGOS_PRODUCTS } from './core/lagos';
 import { CAVES, caveBest, currentCave, isUnlocked, markCavesSeen, newCaves, type CaveDef, type CaveId } from './game/caves';
@@ -991,11 +991,17 @@ export const ui = {
     }));
   },
 
-  /** One-use boosters: buy as many as you like, then tap them at the start of a dive. */
-  renderBoosters() {
-    $('gadgetInfo').innerHTML = 'Tap a booster in the <b>first few seconds</b> of a dive to use it. Chests and the Pearl Hunt give them too.';
+  /** One-use boosters: buy as many as you like, then tap them at the start of a dive. Plus one free a day for an ad. */
+  renderBoosters(note?: string) {
+    $('gadgetInfo').innerHTML = note ?? 'Tap a booster in the <b>first few seconds</b> of a dive to use it. Chests and the Pearl Hunt give them too.';
     $('gadgetInfo').classList.remove('warn');
-    $('shopList').innerHTML = BOOSTERS.map(b => {
+    const claimed = store.get('freeBoosterDay', '') === localDay();
+    const free = !ads.enabled ? '' : `<li class="shop-item free-boost"><span class="free-ico">${icon('tv')}</span>
+        <div class="shop-body"><b>Free booster</b><span>Watch an ad for a surprise booster. One a day.</span></div>
+        ${claimed
+          ? '<small class="free-done">Back tomorrow</small>'
+          : `<button type="button" class="k-btn k-btn--blue k-btn--sm" data-free-boost aria-label="Watch an ad for a free booster">${icon('tv')}Watch</button>`}</li>`;
+    $('shopList').innerHTML = free + BOOSTERS.map(b => {
       const n = boosters.count(b.id);
       return `<li class="shop-item"><img src="${portraits[b.icon] ?? ''}" alt="">
         <div class="shop-body"><b>${b.name}</b><span>${b.text}</span><small class="shop-have">You have ${n}</small></div>
@@ -1004,6 +1010,20 @@ export const ui = {
     $('shopList').querySelectorAll<HTMLButtonElement>('[data-boost]').forEach(b => b.addEventListener('click', () => {
       if (boosters.buy(b.dataset.boost as BoosterId) === 'bought') { cheer(true); this.renderBoosters(); } else nope(b);
     }));
+    $('shopList').querySelector<HTMLButtonElement>('[data-free-boost]')?.addEventListener('click', e => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      btn.disabled = true;
+      buzz(6);
+      void ads.rewarded('free-booster').then(async show => {
+        if (!show) { this.renderBoosters('No ad to watch right now. Try again in a little while.'); return; }
+        if (!await show()) { this.renderBoosters(); return; }
+        const b = BOOSTERS[Math.floor(Math.random() * BOOSTERS.length)];
+        boosters.add(b.id);
+        store.set('freeBoosterDay', localDay());
+        cheer(true);
+        this.renderBoosters(`You got a free <b>${b.name}</b>! Tap it in the first few seconds of a dive.`);
+      });
+    });
   },
 
   /** Sea Hearts for coins: this week's few, each dearer than the last. */
