@@ -333,11 +333,14 @@ body {
 .over-best small { font-size: 13px; color: var(--k-ink-soft); }
 .over-main .k-tag { margin-top: 10px; }
 .over-buttons { margin-top: 16px; align-items: center; flex-wrap: nowrap; }
-/* Again stays pinned to the bottom of the card however long the results run: one tap to dive again. */
+/* Again stays pinned to the bottom of the screen however long the results run: one tap to dive again.
+   It sticks flush to the edge and carries the card's bottom spacing itself, so while stuck its own
+   background hides the rows scrolling underneath, and at rest it fits inside the card exactly. */
+.k-panel.over-panel { padding-bottom: 0; background: var(--k-panel); } /* flat, so the pinned strip blends in anywhere */
 .over-panel > .over-buttons {
-  position: sticky; bottom: calc(var(--safe-b) + 8px); z-index: 3; justify-content: center;
-  margin-top: 12px; padding-top: 8px; background: var(--k-panel);
-  box-shadow: 0 -10px 10px -4px var(--k-panel), 0 34px 0 8px var(--k-panel);
+  position: sticky; bottom: 0; z-index: 3; justify-content: center;
+  margin-top: 12px; padding: 8px 0 calc(var(--safe-b) + 14px); background: var(--k-panel);
+  box-shadow: 0 -10px 10px -4px var(--k-panel);
 }
 
 /* ---------- Short landscape phones: everything side by side */

@@ -20,6 +20,7 @@ budget_tokens: 2000
 - **Description:** Small, endless, one-thumb games in one site, with a bright cartoon look. Each game has its own page and can be installed to a home screen as its own app. One service worker caches the whole site, so e
 
 ## Do-Not-Repeat
+- [2026-10-30] Deep Dive is a cave: no starfield/galaxy-like background (twinkling glow dots, spiralling schools). New creatures must be deep-only (not in the opening few hundred metres), not stacked on top of existing difficulty, and must move with real body motion (no rigid single-frame sliding).
 - [2026-10-23] Never add Claude as collaborator/co-author on any game or the store: no Co-Authored-By trailer, no "Generated with Claude Code" line. See .claude/rules/no-claude-coauthor.md.
 - [2026-10-26] Other sessions share this checkout and may switch branches (e.g. games-seo). Run `git branch --show-current` right before committing; to land work on main without disturbing their branch, cherry-pick onto main in a temporary worktree and push from there.
 - [2026-10-26] Each game gets its own UI design. Don't port Deep Dive's screens (cave chip + card list, sheets, progress-bar cards) into Ripple or Skip; design pickers and menus that fit that game (e.g. Ripple flips ponds live behind the title).

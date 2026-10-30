@@ -9,7 +9,7 @@ export type SpecialId = 'wind' | 'dash' | 'bloom' | 'puff' | 'gold' | 'flash' | 
 export interface Special { id: SpecialId; name: string; text: string; /** Seconds it lasts (0 = instant). */ time: number }
 
 export const SPECIALS: Record<SpecialId, Special> = {
-  wind:   { id: 'wind',   name: 'Second Wind', text: 'Fills your air and puts up a short shield.',          time: 3 },
+  wind:   { id: 'wind',   name: 'Second Wind', text: 'Fills your air and puts up a shield for a while.',   time: 5 },
   dash:   { id: 'dash',   name: 'Dash',        text: 'A quick burst of speed that bowls through anything.', time: 2.5 },
   bloom:  { id: 'bloom',  name: 'Pearl Bloom', text: 'A trail of pearls blooms ahead and drifts to you.',   time: 5 },
   puff:   { id: 'puff',   name: 'Puff Up',     text: 'Pops every creature close by.',                       time: 0 },
@@ -23,6 +23,6 @@ export const SPECIALS: Record<SpecialId, Special> = {
 export const specialOf = (outfit: string) => SPECIALS[charOf(SKINS[skinIndex(outfit)]).special];
 
 /** Pearls that fill the meter from empty, and how full it starts each dive. */
-export const SPECIAL_PEARLS = 30, SPECIAL_START = 0.5;
+export const SPECIAL_PEARLS = 50, SPECIAL_START = 0.2;
 /** Puff Up's reach (px), Steady Hands' world speed, and two taps closer than this (ms) are a double-tap. */
 export const PUFF_RANGE = 200, STEADY_RATE = 0.6, DOUBLE_TAP = 280;
