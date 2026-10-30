@@ -1339,6 +1339,10 @@ body.dev-mode::after {
 }
 .howto-ico--pink { background: linear-gradient(180deg, #ffa3b4, #ff5a7a); }
 .howto-ico svg { width: 15px; height: 15px; fill: #fff; color: #fff; }
+.howto-ico--swipe { width: 34px; height: 34px; }
+.howto-ico--swipe svg { width: 20px; height: 20px; }
+.howto-ico--swipe circle { animation: swipe-dot 1.6s ease-in-out infinite; }
+@keyframes swipe-dot { 0%, 100% { transform: translateY(5px); } 50% { transform: translateY(-5px); } }
 
 /* Where to dive: the cave (with your best there) and the Daily Dive, one row at the same height. */
 .title-row { display: flex; align-items: stretch; gap: 10px; }
