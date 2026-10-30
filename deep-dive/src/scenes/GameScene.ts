@@ -119,7 +119,7 @@ export class GameScene extends Phaser.Scene {
   private hearts = HEARTS;
   private invuln = 0;
   private wallT = 0;
-  private touches = new Map<number, { x: number; y: number; anchor: number }>(); // pointerId -> screen position + drag anchor
+  private touches = new Map<number, { x: number; y: number; sx: number; sy: number; anchor: number; dragging: boolean }>();
   private shieldT = 0;
   private magnetT = 0;
   /** Held until the next hit (or an empty tank), which it takes for you instead. */
@@ -292,15 +292,22 @@ export class GameScene extends Phaser.Scene {
         if (e.timeStamp - this.lastTap < DOUBLE_TAP) { this.lastTap = 0; this.fireSpecial(); } else this.lastTap = e.timeStamp;
       }
       if (e.type === 'pointerdown') {
-        // Anchor: the offset between the diver's current screen fraction and the finger's.
-        // On drag, the target = finger + anchor, so the diver doesn't jerk on first touch.
         const portrait = portraitView();
         const frac = portrait ? e.clientX / innerWidth : e.clientY / innerHeight;
         const diverFrac = this.diverY * this.k / view.h;
-        this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, anchor: diverFrac - frac });
+        this.touches.set(e.pointerId, {
+          x: e.clientX, y: e.clientY,
+          sx: e.clientX, sy: e.clientY,
+          anchor: diverFrac - frac,
+          dragging: false,
+        });
       } else if (this.touches.has(e.pointerId)) {
         const t = this.touches.get(e.pointerId)!;
         t.x = e.clientX; t.y = e.clientY;
+        if (!t.dragging) {
+          const dx = t.x - t.sx, dy = t.y - t.sy;
+          if (dx * dx + dy * dy > 100) t.dragging = true; // 10px threshold
+        }
       }
     };
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
@@ -630,23 +637,20 @@ export class GameScene extends Phaser.Scene {
     const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
     let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
-    // Two-hand tap: each finger in the top half counts as +1 (up), bottom half as -1 (down).
-    if (this.touches.size >= 2) {
-      for (const t of this.touches.values()) {
-        const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
-        dir += frac < 0.5 ? 1 : -1;
-      }
+    // Tap/hold (not dragging): top half = up, bottom half = down.
+    for (const t of this.touches.values()) {
+      if (t.dragging) continue;
+      const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
+      dir += frac < 0.5 ? 1 : -1;
     }
     return clamp(dir, -1, 1);
   }
 
-  /**
-   * Single-finger drag: world-Y target using anchor offset (no first-touch jerk).
-   * Two+ fingers: returns null — binary steering in steering() handles two-hand taps.
-   */
+  /** Anchor-based drag target, or null when the touch is a tap/hold (binary steering). */
   private touchTargetY(): number | null {
     if (this.touches.size !== 1) return null;
     const t = this.touches.values().next().value!;
+    if (!t.dragging) return null;
     const portrait = portraitView();
     const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
     return (frac + t.anchor) * view.h / this.k;
