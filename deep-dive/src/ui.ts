@@ -600,11 +600,16 @@ export const ui = {
   offerInstall() {
     if (lagos.on) return;
     const mode = installMode(), asked = store.get('installAsked', { n: 0, at: 0 });
-    if (!mode || store.get('divesDone', 0) < INSTALL_AFTER_DIVES || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
+    // Safari on iPhone can't go full screen at all, so the Home Screen is the only way: ask after the first dive.
+    const after = mode === 'ios' ? 1 : INSTALL_AFTER_DIVES;
+    if (!mode || store.get('divesDone', 0) < after || asked.n >= 3 || Date.now() - asked.at < INSTALL_GAP) return;
     if (!$('rotateHint').hidden || !this.isOpen('title')) return;
     store.set('installAsked', { n: asked.n + 1, at: Date.now() });
     $('installOfferPrompt').hidden = mode !== 'prompt';
     $('installOfferIOS').hidden = mode !== 'ios';
+    $('installOfferText').textContent = mode === 'ios'
+      ? 'Safari can’t play full screen. Add Deep Dive to your Home Screen to dive full screen, even offline.'
+      : 'Play full screen, even offline, straight from your home screen.';
     $('installOffer').hidden = false;
   },
 
@@ -1491,6 +1496,16 @@ function bump(el: HTMLElement) {
   el.classList.add('bump');
 }
 
+/**
+ * An element's box in #ui's own coordinates. On a portrait phone the dive's #ui is turned -90° (top-left
+ * origin, sitting on the screen's bottom edge), so screen rects have to be turned back.
+ */
+function uiRect(el: Element) {
+  const r = el.getBoundingClientRect(), ui = $('ui');
+  if (!ui.classList.contains('diving') || !matchMedia('(orientation: portrait)').matches) return r;
+  const u = ui.getBoundingClientRect(), left = u.bottom - r.bottom, top = r.left - u.left;
+  return { left, top, width: r.height, height: r.width, right: left + r.height, bottom: top + r.width };
+}
 /** Show the next coach tip, if nothing else is on screen. */
 function pumpCoach() {
   const box = $('coach');
@@ -1498,19 +1513,20 @@ function pumpCoach() {
   const tip = coachQueue.shift();
   if (!tip) return;
   const target = $(tip.target);
-  const r = target.getBoundingClientRect();
+  const r = uiRect(target);
   if (!r.width) { pumpCoach(); return; } // hidden target: skip it
   // In the HUD's middle stack (air bar over lives), sit below the whole stack so neither is covered.
-  const stack = target.closest('.hud-mid')?.getBoundingClientRect();
+  const mid = target.closest('.hud-mid'), stack = mid && uiRect(mid);
   $('coachText').textContent = tip.text;
   box.hidden = false;
   // Below the target, or above it when it's in the lower half; the arrow points at its centre.
+  const ui = $('ui'), W = ui.clientWidth, H = ui.clientHeight;
   const w = box.offsetWidth, h = box.offsetHeight, cx = r.left + r.width / 2;
-  const left = Math.max(16, Math.min(innerWidth - w - 16, cx - w / 2));
-  const above = r.top > innerHeight / 2;
+  const left = Math.max(12, Math.min(W - w - 12, cx - w / 2));
+  const above = r.top > H / 2;
   box.classList.toggle('above', above);
   box.style.left = `${left}px`;
-  box.style.top = `${above ? r.top - h - 16 : Math.max(r.bottom, stack?.bottom ?? 0) + 16}px`;
+  box.style.top = `${above ? r.top - h - 12 : Math.max(r.bottom, stack?.bottom ?? 0) + 12}px`;
   box.style.setProperty('--ax', `${cx - left}px`);
   target.classList.remove('coach-target');
   void target.offsetWidth;

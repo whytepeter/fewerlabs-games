@@ -540,7 +540,7 @@ export class GameScene extends Phaser.Scene {
     ui.setBoosters(this.boosterOpen ? boosters.held() : null);
     ui.banner(this.def.biomes[0].name);
     ui.guide(!this.learned);
-    if (this.rookie && this.boosterOpen) ui.coach({ id: 'boosters', target: 'boosterBar', text: 'Tap a booster to power up your dive' });
+    if (this.rookie && this.boosterOpen) ui.coach({ id: 'boosters', target: 'boosterBar', text: 'Tap a booster for a power-up' });
     // Head Start: blast through the shallows in a Turbo, then a short shield to land safely.
     if (this.gear.has('headstart')) {
       this.kickoff = true;
@@ -851,7 +851,7 @@ export class GameScene extends Phaser.Scene {
     const using = (k: Stream, timer: number, fn: () => void) => { this.lag = this.daily ? -timer : 0; this.withRng(this.streams[k], fn); };
     if ((this.nextObs -= step) <= 0) using('obs', this.nextObs, () => {
       this.spawnObstacle(depth);
-      if (this.rookie) ui.coach({ id: 'lives', target: 'hearts', text: 'Dodge critters: each bump costs a life' });
+      if (this.rookie) ui.coach({ id: 'lives', target: 'hearts', text: 'Hitting a critter costs a life' });
       // Sawtooth pacing: the cave closes in with depth, breathes in and out every ~450 m, and eases off after a new zone.
       const { gap, over } = this.def.pace;
       const wave = 1 + 0.2 * Math.sin((depth / 450) * TAU);
@@ -861,7 +861,7 @@ export class GameScene extends Phaser.Scene {
     });
     if ((this.nextAir -= step) <= 0) using('air', this.nextAir, () => {
       this.spawnRow('air', 3, 34);
-      if (this.rookie) ui.coach({ id: 'air', target: 'o2bar', text: 'Swim through bubbles to refill your air' });
+      if (this.rookie) ui.coach({ id: 'air', target: 'o2bar', text: 'Grab bubbles to refill air' });
       this.nextAir = this.cr(420, 620) + depth * 0.08 - this.lag;
     });
     if ((this.nextPearls -= step) <= 0) using('pearl', this.nextPearls, () => {
@@ -1044,7 +1044,7 @@ export class GameScene extends Phaser.Scene {
       sfx.tone(784, 0.12, { type: 'triangle', vol: 0.06 }); sfx.tone(1175, 0.2, { type: 'triangle', vol: 0.06, delay: 0.08 });
       buzz(12);
       // The first time ever, say how to use it.
-      if (!store.get('specialTip', false)) { store.set('specialTip', true); ui.hint(`${this.special.name} is ready: double-tap to use it`, 4500); }
+      if (!store.get('specialTip', false)) { store.set('specialTip', true); ui.coach({ id: 'special', target: 'specialBtn', text: 'Ready! Double-tap to use it' }); }
     }
   }
 
