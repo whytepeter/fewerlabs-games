@@ -682,6 +682,7 @@ export class GameScene extends Phaser.Scene {
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
+    if (!this.learned) ui.guideAt(this.diverX() * this.k, this.diverY * this.k, this.skin);
     if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 25)) {
       this.learned = true;
       store.set('learned', true);

@@ -71,11 +71,13 @@
     <div id="banner" class="banner" aria-live="polite"><small id="bannerLabel">Entering</small><span id="bannerText"></span></div>
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
-    <div id="guide" class="guide" hidden aria-live="polite">
-      <svg class="guide-arrow" viewBox="0 0 48 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M24 8l-10 12h6v20h-6l10 12 10-12h-6V20h6z" fill="#fff"/>
-        <circle class="guide-dot" cx="24" cy="40" r="6" fill="#fff"/>
-      </svg>
+    <div id="guide" class="guide" hidden aria-hidden="true">
+      <div class="guide-rig">
+        <img class="guide-ghost" id="guideGhost" alt="" />
+        <span class="guide-line"></span>
+        <span class="guide-ring"></span>
+      </div>
+      <span class="guide-keys"><b>↑</b><b>↓</b></span>
     </div>
     <div id="coach" class="coach" hidden aria-live="polite"><b id="coachText"></b></div>
     <div id="lowO2" class="low-o2"></div>

@@ -1268,7 +1268,7 @@ export const ui = {
     hintTimer = window.setTimeout(() => { $('hint').hidden = true; }, ms); // don't linger over play
   },
 
-  /** First-dive guide: the half of the screen to hold (or the arrow key), one direction at a time. */
+  /** First-dive guide: a fingertip and a ghost of the diver moving together, until both directions are used. */
   guide(on: boolean) {
     const g = $('guide');
     g.hidden = !on;
@@ -1279,7 +1279,19 @@ export const ui = {
     coachQueue = [];
     coachSeen = new Set();
     this.coach(null);
-    g.classList.remove('done');
+    g.classList.remove('done', 'bump');
+    g.classList.toggle('keys', !isTouch());
+  },
+  /** Keep the guide on the diver: (x, y) in screen pixels of the landscape play area. */
+  guideAt(x: number, y: number, diver: string) {
+    const g = $('guide');
+    if (g.hidden) return;
+    const ghost = $('guideGhost') as HTMLImageElement, src = portraits[`diver-${diver}`] ?? '';
+    if (src && ghost.getAttribute('src') !== src) ghost.src = src;
+    // Keep the ghost's swing (±46px) on screen when the diver hugs the top or bottom.
+    const h = $('ui').clientHeight;
+    g.style.setProperty('--gx', `${Math.round(x)}px`);
+    g.style.setProperty('--gy', `${Math.round(Math.min(Math.max(y, 70), h - 70))}px`);
   },
   /** Called every frame with the steering (+1 up, -1 down, 0 none). Returns true once both directions are learned. */
   guidePress(dir: number, dt: number): boolean {
@@ -1290,12 +1302,15 @@ export const ui = {
     if (guideHeld < GUIDE_HOLD) return false;
     guideLeft &= ~bit;
     guideHeld = 0;
-    if (guideLeft) return false;
     buzz(12);
-    $('guide').classList.add('done');
-    return true;
+    if (!guideLeft) { $('guide').classList.add('done'); return true; }
+    const g = $('guide');
+    g.classList.remove('bump');
+    void g.offsetWidth;
+    g.classList.add('bump');
+    return false;
   },
-  /** Steering learned (or time ran out): fade the arrow, then hand over to the coach tips. */
+  /** Steering learned (or time ran out): fade the guide, then hand over to the coach tips. */
   guideDone() {
     guideLeft = 0;
     $('guide').classList.add('done');
