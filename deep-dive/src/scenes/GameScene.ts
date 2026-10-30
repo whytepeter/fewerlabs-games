@@ -611,58 +611,57 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Steering: positive swims up, negative down, 0 drifts. Returns a value in [-1, 1].
-   *
-   * Touch: the diver seeks toward the finger's vertical position on screen — dragging gives
-   * fluid, proportional control instead of the old binary top-half / bottom-half tap. A dead
-   * zone around the diver prevents jitter when the finger is close.
-   *
    * Keys: ↑/W/Space up, ↓/S down (binary ±1). Side arrows follow the screen orientation.
+   *
+   * Touch steering is handled separately in step() via touchTargetY() — the diver's velocity
+   * is set directly to chase the finger, bypassing the acceleration model for instant response.
    */
   private steering() {
     const k = this.keys, portrait = portraitView();
     const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
-    let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
+    const dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
-    if (this.touches.size) {
-      let sum = 0, n = 0;
-      for (const t of this.touches.values()) {
-        sum += portrait ? t.x / innerWidth : t.y / innerHeight;
-        n++;
-      }
-      const frac = sum / n;
-      const targetY = frac * view.h / this.k;
-      const err = this.diverY - targetY;
-      // Sqrt curve: strong at medium distances (swift), tapers near zero (steady).
-      // Full steering at ≥35 world-px; anything closer is proportional.
-      const abs = Math.abs(err);
-      if (abs > 4) {
-        const t = Math.min((abs - 4) / 35, 1);
-        dir += Math.sign(err) * Math.sqrt(t);
-      }
-    }
     return clamp(dir, -1, 1);
+  }
+
+  /** The world-Y the finger is pointing at, or null when no touches are active. */
+  private touchTargetY(): number | null {
+    if (!this.touches.size) return null;
+    const portrait = portraitView();
+    let sum = 0, n = 0;
+    for (const t of this.touches.values()) {
+      sum += portrait ? t.x / innerWidth : t.y / innerHeight;
+      n++;
+    }
+    return (sum / n) * view.h / this.k;
   }
 
   private step(dt: number) {
     this.runT += dt;
-    // No gravity: the diver drifts to a stop when you let go.
-    const steer = this.steering();
-    const hold = steer !== 0;
-    // Kelp drags on you: slower forward and heavier to steer, for a moment after you're out too.
-    // Ice is the opposite: you keep sliding, and it takes longer to change direction.
     this.tangle = Math.max(0, this.tangle - dt);
-    // The Captain grips the ice: half of its slipperiness is gone.
     const grip = this.perk === 'ice' ? DIVER_PERK.iceGrip : 0, glide = this.def.glide;
     const drag = this.tangle > 0 ? 5 : glide ? lerp(glide.drag, 2.6, grip) : 2.6;
     const push = (this.tangle > 0 ? 0.7 : glide ? lerp(glide.steer, 1, grip) : 1) * (this.perk === 'steer' ? DIVER_PERK.steer : 1);
-    this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * push * dt, -340, 340);
+
+    // Touch: the diver's velocity tracks the finger directly — swift and steady.
+    // Keyboard: the original acceleration model (binary ±1 through STEER).
+    const target = this.touchTargetY();
+    const steer = target !== null ? Math.sign(this.diverY - target) || 0 : this.steering();
+    const hold = steer !== 0 || target !== null;
+
+    if (target !== null) {
+      const err = target - this.diverY;
+      // Seek speed scales with distance: fast when far, gentle when close, zero at target.
+      const seekRate = 10 * push;
+      this.vy = clamp(err * seekRate, -500, 500);
+    } else {
+      this.vy = clamp(this.vy * Math.exp(-drag * dt) - steer * STEER * push * dt, -340, 340);
+    }
     this.vy += this.currentPush() * dt; // Riptide Canyon's currents
-    // Turbo steers you gently towards open water so the burst is all fun.
     if (this.turboT > 0) this.vy += clamp(this.caveMid(this.dist + 160) - this.diverY, -80, 80) * 10 * dt;
     this.diverY += this.vy * dt;
     this.diver.anims.timeScale = hold ? 1.8 : 0.6;
 
-    // First dive: the guide stays until both directions have been held, 10 seconds at most.
     if (!this.learned && (ui.guidePress(steer, dt) || this.runT > 10)) {
       this.learned = true;
       store.set('learned', true);
