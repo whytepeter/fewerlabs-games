@@ -119,7 +119,7 @@ export class GameScene extends Phaser.Scene {
   private hearts = HEARTS;
   private invuln = 0;
   private wallT = 0;
-  private touches = new Map<number, { x: number; y: number }>(); // pointerId -> screen position, for steering
+  private touches = new Map<number, { x: number; y: number; anchor: number }>(); // pointerId -> screen position + drag anchor
   private shieldT = 0;
   private magnetT = 0;
   /** Held until the next hit (or an empty tank), which it takes for you instead. */
@@ -288,11 +288,20 @@ export class GameScene extends Phaser.Scene {
     const track = (e: PointerEvent) => {
       if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
       if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
-      // A quick double-tap anywhere fires the diver's special (steering taps are held, not tapped twice).
       if (e.type === 'pointerdown' && this.state === 'play') {
         if (e.timeStamp - this.lastTap < DOUBLE_TAP) { this.lastTap = 0; this.fireSpecial(); } else this.lastTap = e.timeStamp;
       }
-      if (e.type === 'pointerdown' || this.touches.has(e.pointerId)) this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.type === 'pointerdown') {
+        // Anchor: the offset between the diver's current screen fraction and the finger's.
+        // On drag, the target = finger + anchor, so the diver doesn't jerk on first touch.
+        const portrait = portraitView();
+        const frac = portrait ? e.clientX / innerWidth : e.clientY / innerHeight;
+        const diverFrac = this.diverY * this.k / view.h;
+        this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, anchor: diverFrac - frac });
+      } else if (this.touches.has(e.pointerId)) {
+        const t = this.touches.get(e.pointerId)!;
+        t.x = e.clientX; t.y = e.clientY;
+      }
     };
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel'] as const) window.addEventListener(t, track);
     addEventListener('blur', () => this.touches.clear());
@@ -619,21 +628,28 @@ export class GameScene extends Phaser.Scene {
   private steering() {
     const k = this.keys, portrait = portraitView();
     const left = k.left.isDown || k.a.isDown, right = k.right.isDown || k.d.isDown;
-    const dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
+    let dir = (k.up.isDown || k.w.isDown || k.space.isDown || (portrait ? left : right) ? 1 : 0)
       - (k.down.isDown || k.s.isDown || (portrait ? right : left) ? 1 : 0);
+    // Two-hand tap: each finger in the top half counts as +1 (up), bottom half as -1 (down).
+    if (this.touches.size >= 2) {
+      for (const t of this.touches.values()) {
+        const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
+        dir += frac < 0.5 ? 1 : -1;
+      }
+    }
     return clamp(dir, -1, 1);
   }
 
-  /** The world-Y the finger is pointing at, or null when no touches are active. */
+  /**
+   * Single-finger drag: world-Y target using anchor offset (no first-touch jerk).
+   * Two+ fingers: returns null — binary steering in steering() handles two-hand taps.
+   */
   private touchTargetY(): number | null {
-    if (!this.touches.size) return null;
+    if (this.touches.size !== 1) return null;
+    const t = this.touches.values().next().value!;
     const portrait = portraitView();
-    let sum = 0, n = 0;
-    for (const t of this.touches.values()) {
-      sum += portrait ? t.x / innerWidth : t.y / innerHeight;
-      n++;
-    }
-    return (sum / n) * view.h / this.k;
+    const frac = portrait ? t.x / innerWidth : t.y / innerHeight;
+    return (frac + t.anchor) * view.h / this.k;
   }
 
   private step(dt: number) {
