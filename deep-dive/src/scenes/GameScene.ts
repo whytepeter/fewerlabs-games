@@ -34,6 +34,7 @@ import { ui } from '../ui';
 import { LIGHT_SPAN } from './BootScene';
 
 type Sprite = Phaser.GameObjects.Sprite;
+type Rope = Phaser.GameObjects.Rope;
 type Image = Phaser.GameObjects.Image;
 type Emitter = Phaser.GameObjects.Particles.ParticleEmitter;
 type Point = { x: number; y: number };
@@ -42,7 +43,9 @@ type State = 'title' | 'play' | 'paused' | 'saveme' | 'over';
 
 interface Obstacle {
   kind: Kind; x: number; y: number; y0: number; r: number; ph: number; amp: number; vx: number; floor: number; dy: number;
-  sprite: Sprite; glow: Image; dead?: boolean;
+  sprite: Sprite | Rope; glow: Image; dead?: boolean;
+  /** Swimmers (see SWIM): how far the wave down the body has run, and how hard a squid or octopus is jetting (0..1). */
+  swim?: number; squash?: number;
   /** angler: seconds left in its lunge wind-up / dash; eel: charge cycle offset */
   lunge?: number; dash?: number;
   /** counted for missions once it is behind the diver */
@@ -101,9 +104,9 @@ const ICICLE_SHAKE = 0.35, ICICLE_G = 1100, ICICLE_SINK = 0.3;  // seconds an ic
 const BASE_H = 440;            // logical trench height the world is designed for; phones (~375–430 px) see a little more, big screens a little less
 const OUTLINE = 0x16233b;
 const CORAL = [0xff7aa8, 0xff9f43, 0xb07cff, 0xffd23f];
-const MOTES = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1), glow: Math.random() < 0.3 }));
-/** A rare sight in the far background (no gameplay): a whale in lit water, a glowing school in the dark. */
-interface Sight { kind: 'whale' | 'school'; born: number; y: number; size: number }
+const MOTES = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), z: rand(0.25, 1) }));
+/** A rare sight in the far background (no gameplay): a whale, only while the water is still lit. */
+interface Sight { kind: 'whale'; born: number; y: number; size: number }
 const SIGHT_GAP: [number, number] = [35, 75]; // seconds between sights
 /** Portrait turns the dive 90° (see style.css): you sink down the screen and steer left/right. */
 const portraitView = () => matchMedia('(orientation: portrait)').matches;
@@ -117,6 +120,24 @@ const PUFF_R: [number, number] = [11, 21], PUFF_AT = 210;
 /** Squid and octopus swim in bursts: seconds per burst cycle, how long the jet lasts, and its speed. */
 const JET = { squid: { cycle: 1.5, on: 0.35, speed: 170 }, octopus: { cycle: 2.2, on: 0.5, speed: 110 } };
 /** Swordfish: hangs still until you're this near, glints for SWORD_WARN seconds, then darts. */
+/**
+ * Cave creatures drawn as a bendy strip, so a wave runs from head to tail instead of the whole picture
+ * sliding stiffly: how far it bends (world px), how many waves fit along the body, how fast they run,
+ * and where along the body (0 head, 1 tail) the bending starts. The octopus bends top to bottom.
+ */
+const SWIM: Partial<Record<Kind, { amp: number; waves: number; speed: number; from: number }>> = {
+  shark:     { amp: 5, waves: 0.7, speed: 6,  from: 0.3 },
+  swordfish: { amp: 4, waves: 0.7, speed: 8,  from: 0.35 },
+  snake:     { amp: 6, waves: 1.3, speed: 7,  from: 0 },
+  squid:     { amp: 4, waves: 1.1, speed: 7,  from: 0.45 },
+  octopus:   { amp: 5, waves: 0.9, speed: 4,  from: 0.5 },
+};
+const SWIM_POINTS = 16;
+/**
+ * Swim speed climbs from 200 by SPEED_RAMP per metre, up to SPEED_GAIN more (320 in all by ~1,500 m), and
+ * creatures deep down keep DEEP_ROOM times each cave's tightest spacing: deep water is harder, not a wall.
+ */
+const SPEED_GAIN = 120, SPEED_RAMP = 0.08, DEEP_ROOM = 1.15;
 const SWORD_AT = 360, SWORD_WARN = 0.5, SWORD_SPEED = 460;
 /** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
 const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
@@ -721,7 +742,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     const depth = this.dist / 10;
-    this.speed = 200 + Math.min(200, depth * (this.rookie ? 0.09 : 0.14));
+    this.speed = 200 + Math.min(SPEED_GAIN, depth * (this.rookie ? SPEED_RAMP * 0.65 : SPEED_RAMP));
     this.moved = this.speed * (this.turboT > 0 ? TURBO_SPEED : this.tangle > 0 ? (this.perk === 'kelp' ? DIVER_PERK.kelpSlow : KELP_SLOW) : 1) * dt;
     this.dist += this.moved;
     ui.setDepth(Math.floor(depth));
@@ -746,7 +767,7 @@ export class GameScene extends Phaser.Scene {
     }
     if (!this.sight && this.runT > this.nextSight) {
       const dark = palette(this.def.biomes, this.dist / 10, this.pal).dark;
-      this.sight = { kind: dark > 0.3 ? 'school' : 'whale', born: this.dist, y: rand(0.22, 0.55), size: rand(0.8, 1.15) };
+      if (dark <= 0.3) this.sight = { kind: 'whale', born: this.dist, y: rand(0.22, 0.55), size: rand(0.8, 1.15) };
       this.nextSight = this.runT + rand(...SIGHT_GAP);
     }
     if (this.comboT > 0) {
@@ -900,17 +921,6 @@ export class GameScene extends Phaser.Scene {
     g.fillTriangle(tx - 10 * k, y, tx + 46 * k, y - 26 * k + sway, tx + 40 * k, y + 22 * k + sway);
     g.fillTriangle(x - 20 * k, y + 18 * k, x + 20 * k, y + 20 * k, x - 4 * k, y + 52 * k); // flipper
   }
-  /** A school of glowing fish crossing far off in the dark, drawn above the darkness. */
-  private drawSchool(x0: number, W: number, H: number, T: number, dark: number) {
-    const x = this.sightX(W), sg = this.sight;
-    if (!sg) return;
-    for (let i = 0; i < 26; i++) {
-      const a = i * 2.39996, r = 10 + (i % 7) * 9;
-      const fx = x + Math.cos(a + T * 0.6) * r * 1.8, fy = sg.y * H + Math.sin(a + T * 0.6) * r * 0.7 + Math.sin(T * 2 + i) * 3;
-      this.edges.fillStyle(0x5cffd6, 0.6 * dark * (0.6 + 0.4 * Math.sin(T * 3 + i)));
-      this.edges.fillEllipse(x0 + fx, fy, 9, 4);
-    }
-  }
   /** The combo's window ran out: its pot is safe. */
   private bankCombo() {
     if (this.comboPot) {
@@ -940,7 +950,7 @@ export class GameScene extends Phaser.Scene {
       const wave = 1 + 0.2 * Math.sin((depth / 450) * TAU);
       const calm = depth < this.calmUntil ? 1.7 : 1;
       const rookie = this.rookie ? 1.6 : 1; // first game: obstacles are spaced 60% further apart
-      this.nextObs = lerp(gap[0], gap[1], clamp(depth / over, 0, 1)) * wave * calm * rookie * this.cr(0.75, 1.25) - this.lag;
+      this.nextObs = lerp(gap[0], gap[1] * DEEP_ROOM, clamp(depth / over, 0, 1)) * wave * calm * rookie * this.cr(0.75, 1.25) - this.lag;
     });
     if ((this.nextAir -= step) <= 0) using('air', this.nextAir, () => {
       this.spawnRow('air', 3, 34);
@@ -1288,31 +1298,44 @@ export class GameScene extends Phaser.Scene {
       o.y = clamp(o.y, t + o.r + 6, b - o.r - 6);
       const want = ahead < PUFF_AT ? PUFF_R[1] : PUFF_R[0];
       o.r += clamp(want - o.r, -40 * dt, 40 * dt);
-      o.sprite.setScale(TEX_SCALE * (o.r / 20));
+      o.sprite.setScale(TEX_SCALE * (o.r / 20)).setRotation(Math.sin(o.ph * 2.2) * 0.08);
     } else if (o.kind === 'crab') {
+      // Scuttles: a little bob and rock with each step.
       o.x += o.vx * dt;
-      const [t, b] = cave(o.x, this.H, this.cv, this.def.shape);
+      const [t, b] = cave(o.x, this.H, this.cv, this.def.shape), step = Math.sin(o.ph * 9);
       o.y = o.y0 ? t + 12 : b - 12;
-      o.sprite.setRotation(Math.sin(o.ph * 14) * 0.08);
+      o.dy = -Math.abs(step) * 2 * (o.y0 ? -1 : 1);
+      o.sprite.setRotation(step * 0.06);
     } else if (o.kind === 'squid' || o.kind === 'octopus') {
-      // Bursts towards your line, then drifts.
+      // Bursts towards your line, then drifts: the body squeezes on each push and eases back out.
       const j = JET[o.kind], p = o.ph % j.cycle, on = p < j.on && ahead > 0;
-      o.x += o.vx * dt - (on ? j.speed * 0.4 * dt : 0);
-      if (on) o.y += clamp(this.diverY - o.y, -1, 1) * j.speed * (1 - p / j.on) * dt;
+      const push = on ? Math.sin((p / j.on) * Math.PI) : 0;
+      o.x += o.vx * dt - push * j.speed * 0.5 * dt;
+      o.y += clamp(this.diverY - o.y, -1, 1) * j.speed * 0.8 * push * dt;
       const [t, b] = cave(o.x, this.H, this.cv, this.def.shape);
       o.y = clamp(o.y, t + o.r + 4, b - o.r - 4);
-      o.sprite.setScale(TEX_SCALE * (on ? 1.12 : 1), TEX_SCALE * (on ? 0.9 : 1));
+      o.squash = (o.squash ?? 0) + (push - (o.squash ?? 0)) * Math.min(1, dt * 8);
+      const sq = o.squash;
+      if (o.kind === 'squid') o.sprite.setScale(TEX_SCALE * (1 + sq * 0.1), TEX_SCALE * (1 - sq * 0.12));
+      else o.sprite.setScale(TEX_SCALE * (1 - sq * 0.1), TEX_SCALE * (1 + sq * 0.1));
+      this.bend(o, dt, 1 + sq * 1.5);
     } else if (o.kind === 'shark') {
+      // Steers towards your height, turning its body smoothly rather than snapping.
       o.x += o.vx * dt;
-      if (ahead > 40) o.y += clamp(this.diverY - o.y, -1, 1) * 38 * dt;
-      o.sprite.setRotation(clamp((this.diverY - o.y) / 300, -0.15, 0.15));
+      if (ahead > 40) o.y += clamp(this.diverY - o.y, -1, 1) * 30 * dt;
+      const tilt = clamp((this.diverY - o.y) / 300, -0.15, 0.15);
+      o.sprite.setRotation(o.sprite.rotation + (tilt - o.sprite.rotation) * Math.min(1, dt * 4));
+      this.bend(o, dt);
     } else if (o.kind === 'swordfish') {
       // Hangs still, glints a warning, then darts straight across.
       if (o.lunge === undefined && ahead > 0 && ahead < SWORD_AT) { o.lunge = SWORD_WARN; sfx.tone(1400, 0.08, { type: 'triangle', vol: 0.04 }); }
       if (o.lunge !== undefined && o.lunge > 0) { o.lunge -= dt; if (o.lunge <= 0) { o.dash = 1; sfx.noise(0.15, 0.05, 2400); } }
       if (o.dash) o.x -= SWORD_SPEED * dt;
+      // A slow tail while it hangs, quickening as it winds up, beating hard once it darts.
+      this.bend(o, dt, o.dash ? 3 : o.lunge !== undefined ? 2 : 0.6);
     } else if (o.kind === 'snake') {
       o.x += o.vx * dt;
+      this.bend(o, dt);
     }
   }
 
@@ -1324,7 +1347,7 @@ export class GameScene extends Phaser.Scene {
     if (o.kind === 'snake') {
       const k = o.ph * 2.4;
       o.y = o.y0 + Math.sin(k) * o.amp;
-      o.sprite.setRotation(-Math.atan2(Math.cos(k) * o.amp * 2.4, -o.vx) * 0.6);
+      o.sprite.setRotation(-Math.atan2(Math.cos(k) * o.amp * 2.4, -o.vx) * 0.35); // the body wave does the rest
     }
   }
 
@@ -1332,10 +1355,12 @@ export class GameScene extends Phaser.Scene {
     const wx = this.dist - this.diverX() + this.W + 80 - this.lag;
     const [t, b] = cave(wx, this.H, this.cv, this.def.shape);
     // Each cave lets creatures in at its own depths; deep down every kind is doubled up.
+    // The cave's own creature is a deep-water sight: only one of it about at a time.
+    const starOut = this.obs.some(o => o.kind === this.def.star);
     const kinds: Kind[] = [];
     for (const [k, from] of Object.entries(this.def.creatures) as [Kind, number][]) {
+      if (k === this.def.star && starOut) continue;
       if (depth >= from) kinds.push(k);
-      if (depth >= from && k === this.def.star) kinds.push(k); // the cave's own creature is the common one
       if (depth >= Math.max(from, this.def.crowdFrom)) kinds.push(k);
     }
     if (!kinds.length) kinds.push('jelly');
@@ -1343,13 +1368,13 @@ export class GameScene extends Phaser.Scene {
     const base = { kind, y, y0: y, ph: this.cr(0, TAU), amp: 0, vx: 0, floor: b, dy: 0 };
     let o: Obstacle;
     if (kind === 'jelly') {
-      o = { ...base, x: wx, r: 15, amp: this.cr(18, 46), sprite: this.add.sprite(wx, y, 'jelly', 0).setOrigin(0.5, 20 / 60), glow: this.glow(0xff78d2) };
-      o.sprite.play({ key: 'jelly', startFrame: (Math.random() * 6) | 0 });
+      const sprite = this.add.sprite(wx, y, 'jelly', 0).setOrigin(0.5, 20 / 60).play({ key: 'jelly', startFrame: (Math.random() * 6) | 0 });
+      o = { ...base, x: wx, r: 15, amp: this.cr(18, 46), sprite, glow: this.glow(0xff78d2) };
     } else if (kind === 'mine') {
       o = { ...base, x: wx, r: 14, sprite: this.add.sprite(wx, y, 'mine'), glow: this.glow(0xff3c3c) };
     } else if (kind === 'eel') {
-      o = { ...base, x: wx + EEL_HALF, r: 10, ph: this.cr(0, EEL_CYCLE), sprite: this.add.sprite(wx + EEL_HALF, y, 'eel', 0), glow: this.glow(0x8ff6ff) };
-      o.sprite.play({ key: 'eel', startFrame: (Math.random() * 4) | 0 });
+      const sprite = this.add.sprite(wx + EEL_HALF, y, 'eel', 0).play({ key: 'eel', startFrame: (Math.random() * 4) | 0 });
+      o = { ...base, x: wx + EEL_HALF, r: 10, ph: this.cr(0, EEL_CYCLE), sprite, glow: this.glow(0x8ff6ff) };
     } else if (kind === 'puffer') {
       o = { ...base, x: wx + 80, r: PUFF_R[0], amp: this.cr(6, 14), vx: -this.cr(55, 95), sprite: this.add.sprite(wx + 80, y, 'puffer'), glow: this.glow(0xffd36b) };
     } else if (kind === 'crab') {
@@ -1358,19 +1383,38 @@ export class GameScene extends Phaser.Scene {
       o = { ...base, x: wx, r: 13, vx: -this.cr(45, 85), y: top ? t + 12 : b - 12, y0: top ? 1 : 0, sprite: this.add.sprite(wx, y, 'crab').setFlipY(top), glow: this.glow(0xff8a6b) };
     } else if (kind === 'squid' || kind === 'octopus') {
       const big = kind === 'octopus';
-      o = { ...base, x: wx, r: big ? 18 : 13, vx: -this.cr(10, 30), sprite: this.add.sprite(wx, y, kind).setFlipX(!big), glow: this.glow(big ? 0xff8fa0 : 0x9fe2ff) }; // squid jet fins-first
+      o = { ...base, x: wx, r: big ? 18 : 13, vx: -this.cr(10, 30), sprite: this.swimmer(kind, wx, y).setFlipX(!big), glow: this.glow(big ? 0xff8fa0 : 0x9fe2ff) }; // squid jet fins-first
     } else if (kind === 'shark') {
-      o = { ...base, x: wx + 160, r: 19, vx: -this.cr(150, 210), sprite: this.add.sprite(wx + 160, y, 'shark').setOrigin(58 / 120, 32 / 60), glow: this.glow(0xbfd8ee) };
+      o = { ...base, x: wx + 160, r: 19, vx: -this.cr(130, 180), sprite: this.swimmer('shark', wx + 160, y), glow: this.glow(0xbfd8ee) };
     } else if (kind === 'swordfish') {
-      o = { ...base, x: wx + 60, r: 13, sprite: this.add.sprite(wx + 60, y, 'swordfish').setOrigin(66 / 124, 0.5), glow: this.glow(0xe8f4ff) };
+      o = { ...base, x: wx + 60, r: 13, sprite: this.swimmer('swordfish', wx + 60, y), glow: this.glow(0xe8f4ff) };
     } else if (kind === 'snake') {
-      o = { ...base, x: wx + 60, r: 11, vx: -this.cr(55, 85), amp: this.cr(28, 52), sprite: this.add.sprite(wx + 60, y, 'snake'), glow: this.glow(0xffe36b) };
+      o = { ...base, x: wx + 60, r: 11, vx: -this.cr(55, 85), amp: this.cr(28, 52), sprite: this.swimmer('snake', wx + 60, y), glow: this.glow(0xffe36b) };
     } else {
-      o = { ...base, x: wx + 140, r: 17, vx: -this.cr(70, 140), sprite: this.add.sprite(wx + 140, y, 'angler', 0).setOrigin(56 / 108, 38 / 72), glow: this.glow(0xbeff8c) };
-      o.sprite.play('angler');
+      const sprite = this.add.sprite(wx + 140, y, 'angler', 0).setOrigin(56 / 108, 38 / 72).play('angler');
+      o = { ...base, x: wx + 140, r: 17, vx: -this.cr(70, 140), sprite, glow: this.glow(0xbeff8c) };
     }
     o.sprite.setScale(TEX_SCALE).setDepth(5);
     this.obs.push(o);
+  }
+
+  /** A cave creature's bendy body (see SWIM), centred on where it is. */
+  private swimmer(kind: Kind, x: number, y: number): Rope {
+    return this.add.rope(x, y, kind, undefined, SWIM_POINTS as unknown as Phaser.Types.Math.Vector2Like[], kind !== 'octopus'); // a count spreads the points along the picture
+  }
+
+  /** Runs a wave down a swimmer's body: still at the head, swinging wider towards the tail. */
+  private bend(o: Obstacle, dt: number, pace = 1) {
+    const sw = SWIM[o.kind], rope = o.sprite as Rope;
+    if (!sw) return;
+    o.swim = (o.swim ?? o.ph) + sw.speed * pace * dt;
+    const n = rope.points.length, amp = sw.amp / TEX_SCALE;
+    for (let i = 0; i < n; i++) {
+      const u = i / (n - 1), reach = Math.max(0, (u - sw.from) / (1 - sw.from));
+      const off = Math.sin(u * sw.waves * TAU - o.swim) * amp * reach * reach;
+      if (rope.horizontal) rope.points[i].y = off; else rope.points[i].x = off;
+    }
+    rope.setDirty();
   }
 
   /** A clump of kelp just off-screen, from the floor or the ceiling, always leaving a way past. */
@@ -2683,14 +2727,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    // Marine snow drifting past at different depths: sparse in the sunlit shallows, thicker the deeper you go.
+    // Marine snow drifting past at different depths.
     this.snow.clear();
     const flake = this.def.glide ? 1.6 : 1; // icy caves get real snowflakes
-    const shown = Math.round(MOTES.length * (0.45 + 0.55 * pal.dark));
-    for (let i = 0; i < shown; i++) {
-      const m = MOTES[i];
+    for (const m of MOTES) {
       const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z * flake) % H, s = (1.6 * m.z + 0.6) * flake;
-      this.snow.fillStyle(0xdcf0ff, (0.24 + 0.14 * pal.dark) * m.z * flake);
+      this.snow.fillStyle(0xdcf0ff, 0.28 * m.z * flake);
       this.snow.fillRect(x, y, s, s);
     }
 
@@ -2845,7 +2887,7 @@ export class GameScene extends Phaser.Scene {
       } else if (o.kind === 'eel') {
         // Charged: bright, crackling, a little jittery. Resting: dull. A brief flicker warns before it charges.
         const phase = (T + o.ph) % EEL_CYCLE, on = phase < EEL_ON, warn = !on && phase > EEL_CYCLE - 0.35;
-        o.sprite.setTint(on ? 0xd9ffff : warn && Math.sin(T * 50) > 0 ? 0xbfefff : 0x9aa6b4);
+        (o.sprite as Sprite).setTint(on ? 0xd9ffff : warn && Math.sin(T * 50) > 0 ? 0xbfefff : 0x9aa6b4);
         o.sprite.setPosition(o.x + (on ? (Math.random() - 0.5) * 2 : 0), o.y + (on ? (Math.random() - 0.5) * 2 : 0));
         o.glow.setPosition(o.x, o.y).setDisplaySize(EEL_HALF * 3, 46).setAlpha(on ? 0.75 + Math.random() * 0.25 : warn ? 0.25 : 0);
       } else if (o.kind === 'angler') {
@@ -2891,19 +2933,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.edges.clear();
-    // In the dark, some of the snow glows (bioluminescent plankton), twinkling above the darkness.
-    if (dark > 0.3) {
-      const shown = Math.round(MOTES.length * (0.45 + 0.55 * dark));
-      for (let i = 0; i < shown; i++) {
-        const m = MOTES[i];
-        if (!m.glow) continue;
-        const x = (((m.x * W - this.dist * m.z * 0.6) % W) + W) % W, y = (m.y * H + T * 10 * m.z) % H;
-        const tw = 0.5 + 0.5 * Math.sin(T * (1.5 + m.z * 2) + m.x * 40);
-        this.edges.fillStyle(0x7dffe0, (dark - 0.3) * 0.5 * tw * m.z);
-        this.edges.fillCircle(x0 + x, y, 1.2 + m.z * 1.3);
-      }
-    }
-    if (this.sight?.kind === 'school') this.drawSchool(x0, W, H, T, dark);
     if (dark > 0.01) {
       this.edges.lineStyle(2, 0x6ebeff, 0.16 * dark);
       this.edges.strokePoints(this.topEdge);

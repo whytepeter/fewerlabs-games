@@ -20,6 +20,7 @@ budget_tokens: 2000
 - **Description:** Small, endless, one-thumb games in one site, with a bright cartoon look. Each game has its own page and can be installed to a home screen as its own app. One service worker caches the whole site, so e
 
 ## Do-Not-Repeat
+- [2026-10-30] Deep Dive is a cave: no starfield/galaxy-like background (twinkling glow dots, spiralling schools). New creatures must be deep-only (not in the opening few hundred metres), not stacked on top of existing difficulty, and must move with real body motion (no rigid single-frame sliding).
 - [2026-10-23] Never add Claude as collaborator/co-author on any game or the store: no Co-Authored-By trailer, no "Generated with Claude Code" line. See .claude/rules/no-claude-coauthor.md.
 - [2026-10-23] Store: when the user names a style reference (e.g. "Netflix") for one part, apply it only to that part. "Netflix vibe" meant the featured carousel only, not the buttons or the game lists.
 
