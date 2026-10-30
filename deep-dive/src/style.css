@@ -718,33 +718,50 @@ body.dev-mode::after {
 }
 @keyframes k-spin { to { transform: rotate(360deg); } }
 
-/* ---------- First-dive steering hint: a fingertip on the thumb side and a ghost of the diver move up
-   and down together, joined by a dotted line: the diver follows your finger. Anchored to the diver
-   (--gx/--gy, set each frame from GameScene); the real diver stays under the player's control. */
+/* ---------- First-dive steering hint: a fingertip slides up and down a rail on the thumb side, tethered
+   by a dotted line to a halo round the diver, so the line swings with it: the diver follows your finger.
+   ui.guideAt() sets the diver spot (--gx/--gy), the finger offset (--fy, lagged --t1..3 for its trail) and
+   the tether's length/angle (--tl/--ta) every frame. */
 .guide {
   position: absolute; left: var(--gx, 28%); top: var(--gy, 50%); width: calc(72% - var(--gx, 28%)); height: 0;
   z-index: 2; pointer-events: none; transition: opacity .35s ease;
+  --fy: 0px; --t1: 0px; --t2: 0px; --t3: 0px; --tl: 0px; --ta: 0rad;
 }
 .guide[hidden] { display: none; }
 .guide.done { opacity: 0; }
-/* The finger's path: a faint rail it slides along. */
-.guide::before {
-  content: ''; position: absolute; right: -3px; top: -58px; width: 6px; height: 116px; border-radius: 3px;
-  background: rgba(255, 255, 255, .14);
+.guide-halo {
+  position: absolute; left: 0; top: 0; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, .55); animation: guide-halo 1.4s ease-in-out infinite;
 }
-.guide-rig { position: absolute; inset: 0; animation: guide-lead 2.2s ease-in-out infinite; }
-@keyframes guide-lead { 0%, 10%, 100% { transform: translateY(46px); } 50%, 60% { transform: translateY(-46px); } }
-.guide-ghost {
-  position: absolute; left: 0; top: 0; width: 58px; height: 33px; object-fit: contain;
-  transform: translate(-50%, -50%); filter: brightness(0) invert(1); opacity: .5;
+@keyframes guide-halo { 50% { transform: scale(1.12); border-color: rgba(255, 255, 255, .25); } }
+/* Dotted, and faded out under the halo and the fingertip so it reads as joining them. */
+.guide-tether {
+  position: absolute; left: 0; top: -1.5px; width: var(--tl); height: 3px; transform-origin: 0 50%; transform: rotate(var(--ta));
+  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .7) 0 4px, transparent 4px 10px);
+  -webkit-mask: linear-gradient(90deg, transparent 36px, #000 52px, #000 calc(100% - 40px), transparent calc(100% - 28px));
+  mask: linear-gradient(90deg, transparent 36px, #000 52px, #000 calc(100% - 40px), transparent calc(100% - 28px));
 }
-.guide-line { position: absolute; left: 36px; right: 28px; top: -1.5px; border-top: 3px dotted rgba(255, 255, 255, .55); }
-.guide-ring {
+/* The finger's path, with a caret at each end. */
+.guide-rail {
+  position: absolute; right: 0; top: -54px; width: 6px; height: 108px; margin-right: -3px; border-radius: 3px;
+  background: rgba(255, 255, 255, .16);
+}
+.guide-rail::before, .guide-rail::after {
+  content: ''; position: absolute; left: 50%; width: 10px; height: 10px; margin-left: -5px;
+  border: solid rgba(255, 255, 255, .6); border-width: 3px 0 0 3px; border-radius: 1px;
+}
+.guide-rail::before { top: -15px; transform: rotate(45deg); }
+.guide-rail::after { bottom: -15px; transform: rotate(225deg); }
+.guide-ring, .guide-trail {
   position: absolute; right: 0; top: 0; width: 46px; height: 46px; margin: -23px -23px 0 0; border-radius: 50%;
-  border: 3px solid #fff; background: rgba(255, 255, 255, .2); box-shadow: 0 0 0 7px rgba(255, 255, 255, .1);
+}
+.guide-ring {
+  transform: translateY(var(--fy));
+  border: 3px solid #fff; background: rgba(255, 255, 255, .22); box-shadow: 0 0 0 7px rgba(255, 255, 255, .1);
 }
 .guide-ring::after { content: ''; position: absolute; inset: 0; margin: auto; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
-.guide.bump .guide-ring { animation: k-bump .35s cubic-bezier(.2, 1.6, .4, 1); }
+.guide-trail { transform: translateY(var(--lag)) scale(.7); background: #fff; }
+.guide.bump .guide-ring::after { animation: k-bump .35s cubic-bezier(.2, 1.6, .4, 1); }
 /* Keyboard: arrow keys at the finger's spot instead of the fingertip. */
 .guide-keys { display: none; position: absolute; right: 0; top: 0; transform: translate(50%, -50%); flex-direction: column; gap: 8px; }
 .guide-keys b {
@@ -752,8 +769,8 @@ body.dev-mode::after {
   background: #fff; color: #1a2744; font-size: 20px; box-shadow: 0 4px 0 #9fb0c8;
 }
 .guide.keys .guide-keys { display: flex; }
-.guide.keys .guide-ring, .guide.keys .guide-line, .guide.keys::before { display: none; }
-@media (prefers-reduced-motion: reduce) { .guide-rig { animation: none; } }
+.guide.keys .guide-ring, .guide.keys .guide-trail, .guide.keys .guide-rail, .guide.keys .guide-tether { display: none; }
+@media (prefers-reduced-motion: reduce) { .guide-halo { animation: none; } .guide-trail { display: none; } }
 
 /* ---------- Coach: one tip at a time, pointing at the part of the HUD it's about. */
 .coach {

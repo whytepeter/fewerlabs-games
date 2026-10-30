@@ -72,11 +72,13 @@
     <div id="toast" class="toast" aria-live="polite"></div>
     <div id="hint" class="hint" hidden><span class="hint-finger"></span><span id="hintText"></span></div>
     <div id="guide" class="guide" hidden aria-hidden="true">
-      <div class="guide-rig">
-        <img class="guide-ghost" id="guideGhost" alt="" />
-        <span class="guide-line"></span>
-        <span class="guide-ring"></span>
-      </div>
+      <span class="guide-halo"></span>
+      <span class="guide-tether"></span>
+      <span class="guide-rail"></span>
+      <span class="guide-trail" style="--lag: var(--t3); opacity: .12"></span>
+      <span class="guide-trail" style="--lag: var(--t2); opacity: .22"></span>
+      <span class="guide-trail" style="--lag: var(--t1); opacity: .35"></span>
+      <span class="guide-ring"></span>
       <span class="guide-keys"><b>↑</b><b>↓</b></span>
     </div>
     <div id="coach" class="coach" hidden aria-live="polite"><b id="coachText"></b></div>

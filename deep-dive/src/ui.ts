@@ -71,6 +71,15 @@ let guideLeft = 0;      // first-dive guide: bit 1 = swim up still to learn, bit
 let guideHeld = 0;      // seconds the asked-for half has been held
 let guideTimer = 0;
 const GUIDE_HOLD = 0.3; // seconds of steering one way to count that direction as learned
+const GUIDE_SWING = 2200; // ms for the guide's fingertip to go up and back down
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+/** The guide fingertip's offset from the diver's line at time `t` (in swings): bottom → top → bottom, resting at each end. */
+function guideFinger(t: number) {
+  if (reduceMotion.matches) return 0;
+  const p = ((t % 1) + 1) % 1, tri = p < 0.5 ? p * 2 : 2 - p * 2;
+  const e = Math.min(1, Math.max(0, (tri - 0.1) / 0.8));
+  return 46 - 92 * e * e * (3 - 2 * e);
+}
 // Coach tips, shown one at a time once the steering guide is done.
 type CoachTip = { target: string; text: string };
 let coachQueue: CoachTip[] = [];
@@ -1282,16 +1291,21 @@ export const ui = {
     g.classList.remove('done', 'bump');
     g.classList.toggle('keys', !isTouch());
   },
-  /** Keep the guide on the diver: (x, y) in screen pixels of the landscape play area. */
-  guideAt(x: number, y: number, diver: string) {
+  /** Each frame: pin the guide to the diver ((x, y) in play-area pixels) and move the fingertip and tether. */
+  guideAt(x: number, y: number) {
     const g = $('guide');
     if (g.hidden) return;
-    const ghost = $('guideGhost') as HTMLImageElement, src = portraits[`diver-${diver}`] ?? '';
-    if (src && ghost.getAttribute('src') !== src) ghost.src = src;
-    // Keep the ghost's swing (±46px) on screen when the diver hugs the top or bottom.
-    const h = $('ui').clientHeight;
-    g.style.setProperty('--gx', `${Math.round(x)}px`);
-    g.style.setProperty('--gy', `${Math.round(Math.min(Math.max(y, 70), h - 70))}px`);
+    const ui = $('ui'), w = ui.clientWidth * 0.72 - x;
+    const t = performance.now() / GUIDE_SWING;
+    const fy = guideFinger(t), set = (k: string, v: number, u = 'px') => g.style.setProperty(k, v.toFixed(2) + u);
+    set('--gx', x);
+    set('--gy', Math.min(Math.max(y, 80), ui.clientHeight - 80)); // the finger's rail stays on screen
+    set('--fy', fy);
+    set('--t1', guideFinger(t - 0.035));
+    set('--t2', guideFinger(t - 0.07));
+    set('--t3', guideFinger(t - 0.105));
+    set('--tl', Math.hypot(w, fy));
+    set('--ta', Math.atan2(fy, w), 'rad');
   },
   /** Called every frame with the steering (+1 up, -1 down, 0 none). Returns true once both directions are learned. */
   guidePress(dir: number, dt: number): boolean {
