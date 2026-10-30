@@ -33,14 +33,14 @@ body {
    landscape layout even on a portrait phone — no orientation-lock API needed. */
 @media (orientation: portrait) {
   #game {
-    inset: auto; left: 0; top: 100vh; top: 100dvh;
-    width: 100vh; width: 100dvh; height: 100vw;
+    inset: auto; left: 0; top: 100vh; top: max(100dvh, 100lvh);
+    width: 100vh; width: max(100dvh, 100lvh); height: 100vw;
     transform-origin: 0 0;
     transform: rotate(-90deg);
   }
   #ui.diving {
-    inset: auto; left: 0; top: 100vh; top: 100dvh;
-    width: 100vh; width: 100dvh; height: 100vw;
+    inset: auto; left: 0; top: 100vh; top: max(100dvh, 100lvh);
+    width: 100vh; width: max(100dvh, 100lvh); height: 100vw;
     transform-origin: 0 0;
     transform: rotate(-90deg);
     --safe-t: env(safe-area-inset-left, 0px);
@@ -1151,7 +1151,7 @@ body.dev-mode::after {
 .streak-pop { z-index: 31; }
 .streak-panel { width: min(460px, 100%); text-align: center; display: grid; gap: 12px; justify-items: center; }
 .streak-sub { margin: 0; font-size: 14px; }
-.streak-days { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.streak-days { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .streak-days li {
   display: grid; justify-items: center; gap: 4px; padding: 6px 2px 8px; border-radius: 12px;
   background: #fff; box-shadow: inset 0 0 0 2px rgba(22, 35, 59, .15); font-weight: 700;
@@ -1165,7 +1165,7 @@ body.dev-mode::after {
 .streak-days li.now.claimed { background: #c9f7d6; box-shadow: inset 0 0 0 3px #3ad06b; animation: none; }
 .streak-days li.big { background: linear-gradient(180deg, #fff7d1, #ffe9a3); }
 .streak-panel > .k-btn { width: 100%; }
-@media (max-width: 380px) { .streak-days { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 500px) { .streak-days { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .streak-days li.now { animation: none; } }
 
 /* ---------- Title hub layout. Three tiers, so the eye lands on Dive first:

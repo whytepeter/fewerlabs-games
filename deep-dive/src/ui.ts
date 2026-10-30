@@ -344,7 +344,7 @@ export const ui = {
     const on = (id: string, fn: () => void) =>
       $(id).addEventListener('click', () => { sfx.unlock(); buzz(6); fn(); });
     on('playBtn', () => { enterFullscreen(); lockLandscape(); h.play(); });
-    on('againBtn', h.again);
+    on('againBtn', () => { enterFullscreen(); lockLandscape(); h.again(); });
     on('dailyBtn', () => { enterFullscreen(); lockLandscape(); h.daily(); });
     document.querySelectorAll<HTMLButtonElement>('[data-board]').forEach(b => b.addEventListener('click', () => {
       buzz(6);
@@ -454,8 +454,8 @@ export const ui = {
 
     const syncOrientation = () => {
       const keys = !isTouch();
-      $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Touch';
-      $('howHoldText').textContent = keys ? 'top / bottom, or the arrow keys' : 'top / bottom to steer';
+      $('howHold').textContent = keys ? 'Click or ↑ ↓' : 'Drag';
+      $('howHoldText').textContent = keys ? 'top / bottom, or the arrow keys' : 'up or down to steer';
     };
     syncOrientation();
     matchMedia('(orientation: portrait)').addEventListener('change', syncOrientation);
@@ -1288,7 +1288,7 @@ export const ui = {
       z.querySelector('.guide-key')!.textContent = up ? '↑' : '↓';
       z.querySelector('.guide-say')!.textContent = keys
         ? (up ? 'Hold to swim up' : 'Hold to go down')
-        : up ? 'Hold here to swim up' : 'Hold here to go down';
+        : up ? 'Drag up to swim up' : 'Drag down to go down';
     });
     guideZone(1).classList.add('on');
   },
