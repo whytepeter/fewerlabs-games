@@ -629,14 +629,15 @@ export class GameScene extends Phaser.Scene {
         sum += portrait ? t.x / innerWidth : t.y / innerHeight;
         n++;
       }
-      const frac = sum / n; // 0 = game top, 1 = game bottom
+      const frac = sum / n;
       const targetY = frac * view.h / this.k;
-      const err = this.diverY - targetY; // positive when diver is below target → swim up
-      // Tight ramp: full steering kicks in within ~60 world-px of the target, so taps at the
-      // screen edges feel instant while dragging near the diver stays smooth.
-      const deadZone = 6;
-      if (Math.abs(err) > deadZone) {
-        dir += clamp(err / 55, -1, 1);
+      const err = this.diverY - targetY;
+      // Sqrt curve: strong at medium distances (swift), tapers near zero (steady).
+      // Full steering at ≥35 world-px; anything closer is proportional.
+      const abs = Math.abs(err);
+      if (abs > 4) {
+        const t = Math.min((abs - 4) / 35, 1);
+        dir += Math.sign(err) * Math.sqrt(t);
       }
     }
     return clamp(dir, -1, 1);
