@@ -324,8 +324,13 @@ export class GameScene extends Phaser.Scene {
     kb.addCapture('SPACE,UP,DOWN,LEFT,RIGHT');
     // Track touches in screen space: the canvas is rotated in portrait, so Phaser's own pointer
     // coordinates don't say which half of the screen was touched.
+    // Inside another site's frame (Lagos Life) a finger's lift can go missing. A finger left behind
+    // makes every later drag look like a second finger and steering stops, so stale touches are
+    // dropped: when a new first finger lands, and when a move says nothing is pressed any more.
     const track = (e: PointerEvent) => {
       if (e.type === 'pointerup' || e.type === 'pointercancel') { this.touches.delete(e.pointerId); return; }
+      if (e.type === 'pointermove' && e.buttons === 0) { this.touches.delete(e.pointerId); return; }
+      if (e.type === 'pointerdown' && e.isPrimary) this.touches.clear();
       if (e.type === 'pointerdown' && (e.target as Element | null)?.closest?.('button, a')) return;
       if (e.type === 'pointerdown' && this.state === 'play') {
         if (e.timeStamp - this.lastTap < DOUBLE_TAP) { this.lastTap = 0; this.fireSpecial(); } else this.lastTap = e.timeStamp;
@@ -608,6 +613,7 @@ export class GameScene extends Phaser.Scene {
   private pause() {
     if (this.state !== 'play') return;
     this.state = 'paused';
+    this.touches.clear();
     sfx.suspend();
     ui.screen('pause');
   }

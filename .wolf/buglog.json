@@ -143,6 +143,20 @@
         "hud"
       ],
       "date": "2026-10-29"
+    },
+    {
+      "id": "bug-011",
+      "error_message": "Deep Dive on Lagos Life: drag steering works once, then a second drag does nothing",
+      "root_cause": "Inside Lagos Life's frame a finger's pointerup can go missing; the stale entry stayed in GameScene.touches, so the next drag made size 2, touchTargetY() returned null and steering() skips dragging touches",
+      "fix": "track() clears touches on a primary pointerdown, drops a pointer whose pointermove has buttons === 0, and pause() clears touches",
+      "tags": [
+        "deep-dive",
+        "input",
+        "touch",
+        "lagos-life",
+        "iframe"
+      ],
+      "date": "2026-11-05"
     }
   ]
 }
