@@ -157,6 +157,20 @@
         "iframe"
       ],
       "date": "2026-11-05"
+    },
+    {
+      "id": "bug-012",
+      "error_message": "Deep Dive on Lagos Life: the daily gift popup shows on every open, several times a day",
+      "root_cause": "Inside Lagos Life's frame the game is a third-party site and the phone doesn't keep its localStorage between visits, so streak, coins, divers and paid items reset on every open",
+      "fix": "api/lagos.ts load/save steps keep the save in Firestore under the verified Lagos Life player id; lagos.ts pulls it before the opening screens (ui waits on lagos.ready), pushes after changes and on leaving, newer wins; settings.ts falls back to memory when storage is blocked; a delivered coin_doubler purchase restores the doubler",
+      "tags": [
+        "deep-dive",
+        "lagos-life",
+        "iframe",
+        "storage",
+        "saves"
+      ],
+      "date": "2026-11-05"
     }
   ]
 }

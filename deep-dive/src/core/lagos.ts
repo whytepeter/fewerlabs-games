@@ -1,4 +1,4 @@
-import { store } from './settings';
+import { onStoreWrite, store } from './settings';
 
 /**
  * Lagos Life (and Naija Life): Vatar's game player runs Deep Dive in a frame. Their listing points at
@@ -32,6 +32,7 @@ export const PRODUCTS: Product[] = [
 ];
 /** Saved once the Coin Doubler is bought (read by the dive's coin payout). */
 export const DOUBLER = 'coinDoubler';
+const DOUBLER_ID = 'coin_doubler';
 /** Purchases already given on this device, so a retry or reload never gives one twice. */
 const GRANTED = 'lagosGranted';
 /** Their leaderboard takes one score per player every 20 s; a dive that ends sooner waits. */
@@ -100,22 +101,136 @@ async function flushScore() {
 
 const granted = () => new Set(store.get<string[]>(GRANTED, []));
 
-/** Ask our server about a purchase (it checks the player and the purchase with Lagos Life). */
-async function server(step: 'verify' | 'deliver', purchaseId: string) {
+/** The player's session token, reused until shortly before it expires (a save on leaving can't wait for a new one). */
+let token: { session: string; until: number } | null = null;
+async function session(v: VatarSDK) {
+  if (token && Date.now() < token.until) return token.session;
+  const s = await v.session();
+  const exp = s.exp < 1e12 ? s.exp * 1000 : s.exp; // seconds or milliseconds
+  token = { session: s.session, until: Math.min(exp - 60_000, Date.now() + 10 * 60_000) };
+  return s.session;
+}
+
+/** Call our server (it checks the player's session with Lagos Life first). Null when unreachable. */
+async function api<T>(body: Record<string, unknown>, keepalive = false): Promise<{ status: number; data: T | null } | null> {
   const v = await load();
   if (!v) return null;
   try {
-    const { session } = await v.session();
-    const res = await fetch('/api/lagos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step, session, purchaseId }) });
-    return res.ok ? ((await res.json()) as { ok: boolean; productId?: string; delivered?: boolean }) : null;
+    const res = await fetch('/api/lagos', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive,
+      body: JSON.stringify({ ...body, session: await session(v) }),
+    });
+    return { status: res.status, data: res.ok ? ((await res.json()) as T) : null };
   } catch { return null; }
+}
+
+/** Ask our server about a purchase (it checks the player and the purchase with Lagos Life). */
+async function server(step: 'verify' | 'deliver', purchaseId: string) {
+  return (await api<{ ok: boolean; productId?: string; delivered?: boolean }>({ step, purchaseId }))?.data ?? null;
+}
+
+/* ---------- Saved progress
+ * Inside the frame the game is a third-party site, and many phones don't keep its storage between
+ * visits (the daily gift came back on every open, and coins and purchases with it). So the server
+ * keeps the save under the player's Lagos Life id, and the newer of server and device wins, as the
+ * cloud backup does elsewhere (cloud.ts, which stays off here).
+ */
+const SAVED_AT = 'lagos:savedAt';
+/** Keys that stay on this device: settings and bookkeeping. */
+const LOCAL_ONLY = new Set(['sound', 'music', 'haptics', 'devMode', 'tuning', 'analyticsQueue', 'consent', 'cloud:savedAt', SAVED_AT]);
+/** Records that only ever go up (best depths): a save never lowers them. */
+const KEEP_HIGHEST = /^best/;
+const PUSH_DELAY = 3000;
+/** How long the opening screens wait for the save before going on without it. */
+const LOAD_WAIT = 4000;
+
+type Save = { data: Record<string, unknown>; updatedAt: number };
+let merged = false;   // the server's save has been read, so pushing can't overwrite it with a blank one
+let dirty = false;
+let pushTimer = 0;
+let pulling: Promise<void> | null = null;
+const restoreListeners: (() => void)[] = [];
+let loaded: () => void = () => {};
+const ready = inLagos ? new Promise<void>(r => { loaded = r; }) : Promise.resolve();
+
+function snapshot() {
+  const data: Record<string, unknown> = {};
+  for (const k of store.keys()) {
+    if (LOCAL_ONLY.has(k)) continue;
+    const v = store.get<unknown>(k, undefined);
+    if (v !== undefined) data[k] = v;
+  }
+  return data;
+}
+
+/** Write the server's save here. True when this device had a higher record (push it back up). */
+function apply(data: Record<string, unknown>) {
+  let higher = false;
+  for (const [k, v] of Object.entries(data)) {
+    if (LOCAL_ONLY.has(k)) continue;
+    if (KEEP_HIGHEST.test(k) && typeof v === 'number' && store.get(k, 0) > v) { higher = true; continue; }
+    store.quiet(k, v);
+  }
+  return higher;
+}
+
+async function push(keepalive = false) {
+  clearTimeout(pushTimer);
+  if (!merged) return;
+  dirty = false;
+  const r = await api<{ ok: boolean }>({ step: 'save', data: snapshot(), updatedAt: store.get(SAVED_AT, Date.now()) }, keepalive);
+  if (r?.data?.ok) return;
+  dirty = true;
+  if (r?.status === 409) { merged = false; pulling = null; void pull(); } // another device saved something newer
+}
+
+/** Read the server's save; the newer of server and device wins. Unreachable: tried again on return. */
+function pull() {
+  pulling ??= (async () => {
+    const r = await api<{ ok: boolean; save: Save | null }>({ step: 'load' });
+    if (!r?.data?.ok) { pulling = null; return; }
+    const remote = r.data.save, localAt = store.get(SAVED_AT, 0);
+    merged = true;
+    if (remote && remote.updatedAt > localAt) {
+      const higher = apply(remote.data);
+      store.quiet(SAVED_AT, higher ? Date.now() : remote.updatedAt);
+      dirty = false;
+      restoreListeners.forEach(fn => fn());
+      if (higher) await push();
+    } else if (!remote || localAt > remote.updatedAt || dirty) {
+      if (!localAt) store.quiet(SAVED_AT, Date.now());
+      await push();
+    }
+  })();
+  return pulling;
+}
+
+function syncSaves() {
+  onStoreWrite(key => {
+    if (LOCAL_ONLY.has(key)) return;
+    dirty = true;
+    if (!merged) return; // the server's save may still replace this; stamp it once it's read
+    store.quiet(SAVED_AT, Date.now());
+    clearTimeout(pushTimer);
+    pushTimer = window.setTimeout(() => void push(), PUSH_DELAY);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { if (dirty) void push(true); } else if (!merged) void pull();
+  });
+  addEventListener('pagehide', () => { if (dirty) void push(true); });
 }
 
 /** A paid purchase: check it, give it once (remembered here), then have it marked delivered. */
 async function settle(purchaseId: string) {
+  await ready; // give it on top of the loaded save, never into a blank one the save then replaces
   if (!granted().has(purchaseId)) {
     const r = await server('verify', purchaseId);
-    if (!r?.ok || r.delivered) return; // not ours, not paid, or already given
+    if (!r?.ok) return; // not ours, or not paid
+    if (r.delivered) {
+      // Given before; the Coin Doubler is for good, so a device that lost it gets it back.
+      if (r.productId === DOUBLER_ID && !store.get(DOUBLER, false)) store.set(DOUBLER, true);
+      return;
+    }
     const product = PRODUCTS.find(p => p.id === r.productId);
     if (!product) return;
     store.set(GRANTED, [...granted(), purchaseId].slice(-200));
@@ -131,20 +246,32 @@ export const lagos = {
   /** The player's Lagos Life name, once known. */
   get name() { return playerName; },
 
-  /** Call once at startup: loads the SDK, hooks pause/resume to the game, and finishes any paid purchase. */
+  /**
+   * Call once at startup: loads the SDK, hooks pause/resume to the game, loads the player's saved
+   * progress, then finishes any paid purchase.
+   */
   init(h: { pause(): void; resume(): void; give(p: Product): void }) {
     if (!inLagos) return;
     give = h.give;
     document.documentElement.classList.add('in-lagos');
+    window.setTimeout(loaded, LOAD_WAIT); // a slow or missing server never holds the game up
     void load().then(async v => {
       if (!v) return;
       v.onPause(h.pause);
       v.onResume(h.resume);
       v.onPurchase(p => void settle(p.purchaseId));
       try { playerName = (await v.init()).player.name; } catch { return; /* not framed by them after all */ }
+      syncSaves();
+      await pull();
+      loaded();
       try { for (const p of await v.purchases()) await settle(p.purchaseId); } catch { /* next start */ }
-    });
+    }).finally(loaded);
   },
+
+  /** Resolves once the player's saved progress has loaded (or it gave up waiting); at once outside Lagos Life. */
+  ready,
+  /** Called after the server's save replaced this device's progress. */
+  onRestore(fn: () => void) { restoreListeners.push(fn); },
 
   /** Buy a product on Lagos Life's own pay sheet; resolves once it's been given (or false). */
   async buy(productId: string): Promise<boolean> {

@@ -414,6 +414,7 @@ export class GameScene extends Phaser.Scene {
     if (legacy > 0) { coins.add(legacy); store.set('pearls', 0); }
     music.play(this.def.song, 0.3);
     cloud.onRestore(() => this.restored());
+    lagos.onRestore(() => this.restored());
     this.toTitle();
   }
 

@@ -398,7 +398,9 @@ export const ui = {
       shopTab = b.dataset.tab as typeof shopTab;
       this.renderShop();
     }));
-    this.askAge(() => this.askName(() => this.askConsent(() => this.offerStreak(() => this.rotateHint()))));
+    const opening = () => this.askAge(() => this.askName(() => this.askConsent(() => this.offerStreak(() => this.rotateHint()))));
+    // Inside Lagos Life the save comes from the server: wait for it, or the daily gift is offered again.
+    if (lagos.on) void lagos.ready.then(opening); else opening();
     on('settingsBtn', () => { this.screen('settings'); renderAccount(); });
     on('saveNudge', () => { this.screen('settings'); renderAccount(); });
     this.initAccount();
