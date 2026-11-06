@@ -3,6 +3,7 @@
 The storefront for every Fewer Labs game. It lists the games, shows a details page for each, and plays them inside the store on phone and desktop. Each game is hosted on its own site; the store loads it in a frame.
 
 - **Featured:** Draw Am, which opens on its own site (see "External games" below).
+- **External:** Street Clash, a live multiplayer game that also opens on its own site.
 - **Embedded:** Deep Dive, Ripple and Skip play inside the store's player.
 
 ## Run it locally
@@ -26,6 +27,7 @@ In development, the embedded games are loaded from their own dev servers on the 
 | `VITE_GAME_RIPPLE_URL` | Optional. Defaults to `https://ripple.fewerlabs.dev` |
 | `VITE_GAME_SKIP_URL` | Optional. Defaults to `https://skip.fewerlabs.dev` |
 | `VITE_GAME_DRAW_AM_URL` | Optional. Defaults to `https://www.drawam.app` |
+| `VITE_GAME_STREET_CLASH_URL` | Optional. Defaults to `https://streetclash.fewerlabs.dev` |
 
 ### Domains
 

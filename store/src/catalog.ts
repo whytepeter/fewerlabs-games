@@ -4,7 +4,7 @@
  * development they fall back to the local game dev servers.
  */
 
-export type GameId = 'draw-am' | 'deep-dive' | 'ripple' | 'skip';
+export type GameId = 'draw-am' | 'street-clash' | 'deep-dive' | 'ripple' | 'skip';
 
 export interface Game {
   id: GameId;
@@ -61,6 +61,29 @@ export const GAMES: Game[] = [
     url: clean(import.meta.env.VITE_GAME_DRAW_AM_URL, 'https://www.drawam.app'),
     external: true,
     featured: true,
+    poster: true,
+  },
+  {
+    id: 'street-clash',
+    title: 'Street Clash',
+    tagline: 'Jetpack gunfights on Lagos streets.',
+    description:
+      'A free 2D shooter set in real Nigerian places: a danfo park under a Lagos flyover, a creek tower in Bayelsa, the Nun estuary. Rope a gas cylinder to your back and take the fight up, over the danfos and round the tower. Play online with friends, pick from five fighters or make your own, and earn naira and coins to spend in the Market. There is nothing to buy with real money.',
+    howTo: [
+      ['Fight', 'Move, aim and shoot to take out the other side.'],
+      ['Fly', 'Hold up to climb on your jetpack, feather it to hover, cut it to drop.'],
+      ['Team up', 'Start a room and play online with your friends.'],
+      ['Earn', 'Win naira and coins from matches and spend them in the Market.'],
+    ],
+    controls: { touch: 'Turn your phone sideways; twin sticks to move and aim', mouse: 'Aim and shoot with the mouse', keys: 'Move with the keys, hold W to fly, J for the pack' },
+    tags: ['Multiplayer', 'Shooter', 'Action'],
+    unit: '',
+    scoreLabel: 'Best',
+    color: '#ffc20e',
+    bg: '#0b0b0c',
+    landscapeFirst: true,
+    url: clean(import.meta.env.VITE_GAME_STREET_CLASH_URL, 'https://streetclash.fewerlabs.dev'),
+    external: true,
     poster: true,
   },
   {
