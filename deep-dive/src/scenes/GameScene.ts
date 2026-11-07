@@ -2585,7 +2585,7 @@ export class GameScene extends Phaser.Scene {
       this.state = 'play';
       this.hearts = this.rookie ? HEARTS + 2 : HEARTS;
       ui.setHearts(this.hearts, this.hearts);
-      this.oxy = Math.max(this.oxy, 60);
+      this.oxy = 100;
       this.invuln = 2.5;
       this.slowT = SLOWMO_TIME;
       this.slowRate = SLOWMO_RATE;

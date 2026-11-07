@@ -171,6 +171,19 @@
         "saves"
       ],
       "date": "2026-11-05"
+    },
+    {
+      "id": "deep-dive-saveme-oxy-too-low",
+      "error_message": "O2 bar depletes too fast after save-me revival",
+      "root_cause": "After save-me (hearts or ad), oxy was only restored to max(oxy, 60). At deeper depths where drain rate is 6.5 + depth*0.003, 60% O2 runs out in ~5 seconds, making the save feel worthless.",
+      "fix": "Changed post-revival oxy from Math.max(this.oxy, 60) to 100 (full refill). The player spent a Sea Heart or watched an ad; they deserve a fair shot.",
+      "tags": [
+        "deep-dive",
+        "gameplay",
+        "balance",
+        "save-me"
+      ],
+      "date": "2026-11-07"
     }
   ]
 }
