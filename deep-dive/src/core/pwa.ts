@@ -14,6 +14,7 @@ const CHECK_EVERY = 60 * 60 * 1000;
 
 let held = false;
 let pending: (() => void) | null = null;
+let registration: ServiceWorkerRegistration | null = null;
 
 /** Keep the update banner away while a game is in progress; it appears once released. */
 export function holdUpdates(on: boolean) {
@@ -32,6 +33,7 @@ export function initPWA() {
     },
     onRegisteredSW(_url, reg) {
       if (!reg) return;
+      registration = reg;
       const check = () => { if (navigator.onLine) void reg.update().catch(() => {}); };
       setInterval(check, CHECK_EVERY);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
@@ -59,6 +61,20 @@ function showBanner(update: () => void) {
     el.remove();
   });
   document.body.appendChild(el);
+}
+
+/**
+ * Manually check for an app update. Returns 'updating' if a new version was found and
+ * the banner shown, 'current' if already up to date, or 'offline' if there's no connection.
+ */
+export async function checkForUpdate(): Promise<'updating' | 'current' | 'offline'> {
+  if (!navigator.onLine) return 'offline';
+  if (pending) { if (!held) showBanner(pending); return 'updating'; }
+  if (!registration) return 'current';
+  try {
+    await registration.update();
+    return pending ? 'updating' : 'current';
+  } catch { return 'offline'; }
 }
 
 /* ---------- Install */

@@ -10,7 +10,7 @@ import { canAfford, CHARACTERS, charOf, charOwned, earnProgress, grantEarned, ou
 import { MAX_LEVEL, UPGRADES, upgrades } from './game/upgrades';
 import { GADGETS, gadgets, THIRD_SLOT_RANK, type GadgetId } from './game/gadgets';
 import { cleanName, cloud, topBest, type LinkResult } from './core/cloud';
-import { holdUpdates, install, installMode, onInstallChange } from './core/pwa';
+import { checkForUpdate, holdUpdates, install, installMode, onInstallChange } from './core/pwa';
 import { claimSignupGift, shellPrices, shellShop, shells, SIGNUP_GIFT } from './game/shells';
 import type { ChestPrize } from './game/chests';
 import type { Special } from './game/specials';
@@ -466,6 +466,18 @@ export const ui = {
     syncInstall();
     onInstallChange(syncInstall);
     on('installBtn', () => { void install(); });
+    on('checkUpdateBtn', () => {
+      const btn = $('checkUpdateBtn');
+      btn.setAttribute('disabled', '');
+      btn.textContent = 'Checking…';
+      void checkForUpdate().then(result => {
+        btn.removeAttribute('disabled');
+        btn.innerHTML = `${icon('restart')}Check for update`;
+        if (result === 'updating') this.damage('Update ready — restart to apply', true);
+        else if (result === 'offline') this.damage('No internet connection', false);
+        else this.damage('You\'re on the latest version', true);
+      });
+    });
     const closeOffer = () => { $('installOffer').hidden = true; };
     on('installOfferBtn', () => { closeOffer(); void install(); });
     on('installOfferLater', closeOffer);
