@@ -84,6 +84,8 @@ const COMBO_WINDOW = 4;        // seconds to chain the next close call before th
 const COMBO_MAX = 10;          // a chained close call pays up to this many coins (×10 chain = 55 in the pot)
 const LIFELINE_FROM = 120;     // metres before the rare lifeline pickup can appear
 const SLOWMO_TIME = 0.6, SLOWMO_RATE = 0.3; // the lifeline's slow-motion save
+const REVIVE_AIR_GRACE = 4;   // seconds of free air after a "Save me", so a deep revive isn't an instant scramble
+const REVIVE_AIR_SOON = 160;  // and the next air bubbles come this close
 const TURBO_TIME = 4, TURBO_SPEED = 2.2, TURBO_FROM = 40; // Turbo: a few seconds of untouchable top speed, in every cave
 const ICICLE_LATE = 0.45;     // share of icicles still falling as you pass under them
 /**
@@ -134,10 +136,10 @@ const SWIM: Partial<Record<Kind, { amp: number; waves: number; speed: number; fr
 };
 const SWIM_POINTS = 16;
 /**
- * Swim speed climbs from 200 by SPEED_RAMP per metre, up to SPEED_GAIN more (320 in all by ~1,500 m), and
+ * Swim speed climbs from 200 by SPEED_RAMP per metre, up to SPEED_GAIN more (330 in all by ~1,300 m), and
  * creatures deep down keep DEEP_ROOM times each cave's tightest spacing: deep water is harder, not a wall.
  */
-const SPEED_GAIN = 120, SPEED_RAMP = 0.08, DEEP_ROOM = 1.15;
+const SPEED_GAIN = 130, SPEED_RAMP = 0.1, DEEP_ROOM = 1.15;
 const SWORD_AT = 360, SWORD_WARN = 0.5, SWORD_SPEED = 460;
 /** Electric eels charge on a fixed beat: dangerous for EEL_ON of every EEL_CYCLE seconds. */
 const EEL_CYCLE = 2.4, EEL_ON = 1.0, EEL_HALF = 40;
@@ -183,6 +185,7 @@ export class GameScene extends Phaser.Scene {
   private perk?: DiverPerk;
   private eelGuard = false;
   private slowT = 0;
+  private airGraceT = 0;
   private slowRate = SLOWMO_RATE;
   /** The worn diver's special move: its meter (0..1, filled by pearls) and how long it still runs. */
   private special = specialOf('classic');
@@ -525,6 +528,7 @@ export class GameScene extends Phaser.Scene {
     this.lifeline = false;
     this.slowT = 0;
     this.slowRate = SLOWMO_RATE;
+    this.airGraceT = 0;
     this.special = specialOf(this.skin);
     this.charge = SPECIAL_START;
     this.specialT = 0;
@@ -786,8 +790,9 @@ export class GameScene extends Phaser.Scene {
     ui.setPerk(this.turboT ? 'turbo' : this.shieldT ? 'shield' : this.magnetT ? 'magnet' : null,
       this.turboT ? this.turboT / this.turboMax : this.shieldT ? this.shieldT / this.shieldTime : this.magnetT / this.magnetTime);
 
-    // Oxygen drains a little faster the deeper you are (and in colder caves); not during Turbo.
-    if (!this.turboT) this.oxy -= (6.5 + depth * 0.003) * (this.def.airDrain ?? 1) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * (this.perk === 'ice' ? DIVER_PERK.air : 1) * (this.rookie ? 0.7 : 1) * dt;
+    // Oxygen drains a little faster the deeper you are (and in colder caves); not during Turbo or just after a revive.
+    this.airGraceT = Math.max(0, this.airGraceT - dt);
+    if (!this.turboT && !this.airGraceT) this.oxy -= (6.5 + depth * 0.003) * (this.def.airDrain ?? 1) * (this.gear.has('airsaver') ? AIR_SAVER : 1) * (this.perk === 'ice' ? DIVER_PERK.air : 1) * (this.rookie ? 0.7 : 1) * dt;
     const low = this.oxy < 25;
     ui.setOxygen(this.oxy / 100, low);
     ui.lowO2(low);
@@ -2586,6 +2591,9 @@ export class GameScene extends Phaser.Scene {
       this.hearts = this.rookie ? HEARTS + 2 : HEARTS;
       ui.setHearts(this.hearts, this.hearts);
       this.oxy = 100;
+      this.airGraceT = REVIVE_AIR_GRACE;
+      // Bubbles soon after (not in the Daily Dive, whose bubbles sit at fixed spots for everyone).
+      if (!this.daily) this.nextAir = Math.min(this.nextAir, REVIVE_AIR_SOON);
       this.invuln = 2.5;
       this.slowT = SLOWMO_TIME;
       this.slowRate = SLOWMO_RATE;
