@@ -10,6 +10,8 @@ export const LIVES = 3;
 export const END_DELAY = 0.9;
 /** Hard cap on live ripples so finger-mashing can't grow per-frame work without bound. */
 const MAX_RIPPLES = 16;
+/** Ripples bounce off the bank: echo strength right at the bank, fading to 0 this far from it (px). */
+const ECHO_RANGE = 80, ECHO_K = 1.1;
 /** Boats docked per wave. */
 export const WAVE_SIZE = 6;
 /** Points for a golden boat (it may use any dock). */
@@ -554,16 +556,31 @@ export class Sim {
     return { x: 0, y: 0 };
   }
 
-  /** Push from every ripple front passing (x, y), before any mass scaling. */
+  /**
+   * Push from every ripple front passing (x, y), before any mass scaling. Near the bank a ripple
+   * also bounces back: its echo travels as if from the tap mirrored across that bank, so it always
+   * pushes inward. Without it a boat hugging the edge can only be freed by tapping the thin strip
+   * between it and the screen edge, which a thumb covers.
+   */
   private rippleForce(x: number, y: number) {
     let fx = 0, fy = 0;
-    for (const r of this.ripples) {
-      const dx = x - r.x, dy = y - r.y, d = Math.hypot(dx, dy) || 0.001;
+    const p = this.pond;
+    const front = (r: Ripple, sx: number, sy: number, k: number, boost: boolean) => {
+      const dx = x - sx, dy = y - sy, d = Math.hypot(dx, dy) || 0.001;
       const off = Math.abs(d - r.age * RIP_SPEED);
       if (off < RIP_BAND) {
-        const fade = Math.pow(1 - r.age / r.life, 1.4) * (1 - off / RIP_BAND) * (d < 26 ? 1.6 : 1) * r.k;
+        const fade = Math.pow(1 - r.age / r.life, 1.4) * (1 - off / RIP_BAND) * (boost && d < 26 ? 1.6 : 1) * r.k * k;
         fx += dx / d * RIP_PUSH * fade; fy += dy / d * RIP_PUSH * fade;
       }
+    };
+    // banks within ECHO_RANGE of this point: [distance to bank, mirrored source for a ripple at (rx, ry)]
+    const dl = x - p.x, dr = p.x + p.w - x, dt = y - p.y, db = p.y + p.h - y;
+    for (const r of this.ripples) {
+      front(r, r.x, r.y, 1, true);
+      if (dl < ECHO_RANGE) front(r, 2 * p.x - r.x, r.y, ECHO_K * (1 - dl / ECHO_RANGE), false);
+      if (dr < ECHO_RANGE) front(r, 2 * (p.x + p.w) - r.x, r.y, ECHO_K * (1 - dr / ECHO_RANGE), false);
+      if (dt < ECHO_RANGE) front(r, r.x, 2 * p.y - r.y, ECHO_K * (1 - dt / ECHO_RANGE), false);
+      if (db < ECHO_RANGE) front(r, r.x, 2 * (p.y + p.h) - r.y, ECHO_K * (1 - db / ECHO_RANGE), false);
     }
     return { x: fx, y: fy };
   }

@@ -184,6 +184,20 @@
         "save-me"
       ],
       "date": "2026-11-07"
+    },
+    {
+      "id": "bug-014",
+      "timestamp": "2026-11-12",
+      "error_message": "Ripple: boats pinned against the pond edge are very hard to push back into the pond",
+      "file": "ripple/src/game/sim.ts",
+      "root_cause": "Ripples only push away from the tap point, so freeing an edge boat needed a tap in the ~13px strip between it and the screen edge (under the thumb / HUD / corner)",
+      "fix": "rippleForce adds a bank echo: within ECHO_RANGE (80px) of a bank, each ripple also pushes from its tap mirrored across that bank (ECHO_K 1.1, fading with distance), so the push always points inward",
+      "tags": [
+        "ripple",
+        "physics",
+        "edge",
+        "input"
+      ]
     }
   ]
 }
